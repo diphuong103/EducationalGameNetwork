@@ -16,9 +16,11 @@ public class ClientMain extends Application {
 
             // Configure primary stage
             primaryStage.setTitle("Math Adventure - Educational Game");
-            primaryStage.setWidth(600);
+            primaryStage.setWidth(1000);
             primaryStage.setHeight(800);
-            primaryStage.setResizable(false);
+            primaryStage.setResizable(true);
+            primaryStage.setMinWidth(950);
+            primaryStage.setMinHeight(650);
 
             // Load login screen
             sceneManager.switchScene("Login.fxml");

@@ -1,14 +1,240 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.image.Image?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Text?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.edugame.client.controller.HomeController"
-            prefHeight="400.0" prefWidth="600.0">
+            styleClass="home-root"
+            prefWidth="1000" prefHeight="700">
 
-</AnchorPane>
+    <!-- HEADER -->
+    <top>
+        <HBox alignment="CENTER_LEFT" styleClass="main-header">
+            <padding>
+                <Insets top="15" bottom="15" left="20" right="20"/>
+            </padding>
+
+            <!-- LEFT: Avatar + User Info -->
+            <HBox spacing="12" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
+                <!-- Avatar -->
+                <StackPane styleClass="user-avatar">
+                    <ImageView fx:id="userAvatar" fitHeight="50" fitWidth="50" preserveRatio="true">
+                        <image>
+                            <Image url="@../images/avatars/avatar4.png"/>
+                        </image>
+                    </ImageView>
+                </StackPane>
+
+                <!-- User Info -->
+                <VBox spacing="3">
+                    <Text fx:id="userNameText" text="Nguyễn Văn An" styleClass="user-name"/>
+                    <HBox spacing="15">
+                        <HBox spacing="5" alignment="CENTER_LEFT">
+                            <Text text="⭐" styleClass="info-icon"/>
+                            <Text fx:id="levelText" text="Level 12" styleClass="info-text"/>
+                        </HBox>
+                        <HBox spacing="5" alignment="CENTER_LEFT">
+                            <Text text="🏆" styleClass="info-icon"/>
+                            <Text fx:id="pointsText" text="2,450 điểm" styleClass="info-text"/>
+                        </HBox>
+                    </HBox>
+                </VBox>
+            </HBox>
+
+            <!-- RIGHT: Settings + Logout -->
+            <HBox spacing="12" alignment="CENTER_RIGHT">
+                <Button fx:id="settingsButton" text="⚙Cài đặt" styleClass="header-button"
+                        onAction="#handleSettings"/>
+                <Button fx:id="logoutButton" text="🚪 Đăng xuất" styleClass="header-button logout-button"
+                        onAction="#handleLogout"/>
+            </HBox>
+        </HBox>
+    </top>
+
+    <!-- MAIN CONTENT -->
+    <center>
+        <VBox spacing="20" styleClass="main-content">
+            <padding>
+                <Insets top="20" bottom="20" left="20" right="20"/>
+            </padding>
+
+            <!-- ROW 1: 3 Game Mode Cards -->
+            <HBox spacing="20" alignment="CENTER">
+                <!-- Card 1: Luyện Tập -->
+                <VBox spacing="15" styleClass="game-card" HBox.hgrow="ALWAYS">
+                    <StackPane styleClass="card-icon training-icon">
+                        <Text text="🎯" styleClass="icon-large"/>
+                    </StackPane>
+
+                    <VBox spacing="8" alignment="CENTER">
+                        <Text text="Luyện Tập" styleClass="card-title"/>
+                        <Text text="Chơi một mình để rèn luyện" styleClass="card-desc" textAlignment="CENTER" wrappingWidth="200"/>
+
+                        <HBox spacing="10" alignment="CENTER" styleClass="card-info">
+                            <Text text="👤 1 người" styleClass="card-meta"/>
+                            <Text text="⏱️ 10 phút" styleClass="card-meta"/>
+                        </HBox>
+                    </VBox>
+
+                    <Button text="Chơi ngay" styleClass="card-button"
+                            onAction="#handleTrainingMode" maxWidth="Infinity"/>
+                </VBox>
+
+                <!-- Card 2: Đấu Nhanh -->
+                <VBox spacing="15" styleClass="game-card" HBox.hgrow="ALWAYS">
+                    <StackPane styleClass="card-icon quick-icon">
+                        <Text text="⚡" styleClass="icon-large"/>
+                    </StackPane>
+
+                    <VBox spacing="8" alignment="CENTER">
+                        <Text text="Đấu Nhanh" styleClass="card-title"/>
+                        <Text text="Tìm đối thủ và thi đấu 1vs1" styleClass="card-desc" textAlignment="CENTER" wrappingWidth="200"/>
+
+                        <HBox spacing="10" alignment="CENTER" styleClass="card-info">
+                            <Text text="👥 2 người" styleClass="card-meta"/>
+                            <Text text="🏆 Cộng điểm" styleClass="card-meta"/>
+                        </HBox>
+                    </VBox>
+
+                    <Button text="Tìm đối thủ" styleClass="card-button"
+                            onAction="#handleQuickMatch" maxWidth="Infinity"/>
+                </VBox>
+
+                <!-- Card 3: Tạo Phòng -->
+                <VBox spacing="15" styleClass="game-card" HBox.hgrow="ALWAYS">
+                    <StackPane styleClass="card-icon room-icon">
+                        <Text text="🏠" styleClass="icon-large"/>
+                    </StackPane>
+
+                    <VBox spacing="8" alignment="CENTER">
+                        <Text text="Tạo Phòng" styleClass="card-title"/>
+                        <Text text="Chơi cùng bạn bè của bạn" styleClass="card-desc" textAlignment="CENTER" wrappingWidth="200"/>
+
+                        <HBox spacing="10" alignment="CENTER" styleClass="card-info">
+                            <Text text="👥 2-4 người" styleClass="card-meta"/>
+                            <Text text="💬 Có chat" styleClass="card-meta"/>
+                        </HBox>
+                    </VBox>
+
+                    <Button text="Tạo phòng" styleClass="card-button"
+                            onAction="#handleCreateRoom" maxWidth="Infinity"/>
+                </VBox>
+            </HBox>
+
+            <!-- ROW 2: Leaderboard + Chat -->
+            <HBox spacing="20" VBox.vgrow="ALWAYS">
+                <!-- Leaderboard Box -->
+                <VBox spacing="12" styleClass="leaderboard-box" prefWidth="350">
+                    <HBox alignment="CENTER_LEFT" spacing="8" styleClass="box-header">
+                        <Text text="🏆" styleClass="box-header-icon"/>
+                        <Text text="Bảng Xếp Hạng" styleClass="box-header-title"/>
+                    </HBox>
+
+                    <VBox spacing="8" fx:id="leaderboardList" styleClass="leaderboard-content">
+                        <!-- Top 1 -->
+                        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="rank-item rank-1">
+                            <Text text="1" styleClass="rank-number gold"/>
+                            <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                <Text text="MathKing99" styleClass="rank-name"/>
+                                <Text text="3,850 điểm" styleClass="rank-score"/>
+                            </VBox>
+                            <Text text="●" styleClass="online-status"/>
+                        </HBox>
+
+                        <!-- Top 2 -->
+                        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="rank-item rank-2">
+                            <Text text="2" styleClass="rank-number silver"/>
+                            <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                <Text text="NumberNinja" styleClass="rank-name"/>
+                                <Text text="3,420 điểm" styleClass="rank-score"/>
+                            </VBox>
+                        </HBox>
+
+                        <!-- Top 3 -->
+                        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="rank-item rank-3">
+                            <Text text="3" styleClass="rank-number bronze"/>
+                            <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                <Text text="CalcHero" styleClass="rank-name"/>
+                                <Text text="3,180 điểm" styleClass="rank-score"/>
+                            </VBox>
+                            <Text text="●" styleClass="online-status"/>
+                        </HBox>
+
+                        <!-- Current User -->
+                        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="rank-item rank-current">
+                            <Text text="7" styleClass="rank-number"/>
+                            <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                <Text text="Bạn" styleClass="rank-name"/>
+                                <Text text="2,450 điểm" styleClass="rank-score"/>
+                            </VBox>
+                        </HBox>
+                    </VBox>
+
+                    <StackPane>
+                        <Button text="Xem thêm" styleClass="view-more-btn" onAction="#handleViewLeaderboard"/>
+                    </StackPane>
+                </VBox>
+
+                <!-- Chat Box -->
+                <VBox spacing="0" styleClass="chat-box" HBox.hgrow="ALWAYS">
+                    <HBox alignment="CENTER_LEFT" spacing="8" styleClass="box-header chat-header">
+                        <StackPane styleClass="chat-header">
+                            <Text text="💬 Chat thế giới" styleClass="box-header-icon"/>
+                        </StackPane>
+
+                        <Text text="Chat Toàn Cầu" styleClass="box-header-title"/>
+                    </HBox>
+
+                    <!-- Chat Messages -->
+                    <ScrollPane fx:id="chatScrollPane" styleClass="chat-scroll"
+                                fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS">
+                        <VBox fx:id="chatMessagesContainer" spacing="10" styleClass="chat-messages">
+                            <padding>
+                                <Insets top="12" bottom="12" left="12" right="12"/>
+                            </padding>
+
+                            <!-- Sample Message 1 -->
+                            <VBox spacing="3" styleClass="chat-message">
+                                <HBox spacing="6" alignment="CENTER_LEFT">
+                                    <Text text="MathKing99" styleClass="chat-sender"/>
+                                    <Text text="●" styleClass="chat-online"/>
+                                </HBox>
+                                <Text text="Ai muốn chơi cùng không?" styleClass="chat-text"/>
+                            </VBox>
+
+                            <!-- Sample Message 2 -->
+                            <VBox spacing="3" styleClass="chat-message">
+                                <HBox spacing="6" alignment="CENTER_LEFT">
+                                    <Text text="CalcHero" styleClass="chat-sender"/>
+                                    <Text text="●" styleClass="chat-online"/>
+                                </HBox>
+                                <Text text="Mình đang tìm phòng Toán nâng cao!" styleClass="chat-text"/>
+                            </VBox>
+
+                            <!-- Sample Message 3 - Self -->
+                            <VBox spacing="3" styleClass="chat-message chat-self">
+                                <Text text="Bạn" styleClass="chat-sender-self"/>
+                                <Text text="Mình vào được không?" styleClass="chat-text-self"/>
+                            </VBox>
+                        </VBox>
+                    </ScrollPane>
+
+                    <!-- Chat Input -->
+                    <HBox spacing="10" styleClass="chat-input-area">
+                        <TextField fx:id="chatInputField" promptText="Nhập tin nhắn..."
+                                   styleClass="chat-input" HBox.hgrow="ALWAYS"
+                                   onAction="#handleSendMessage"/>
+                        <Button fx:id="sendButton" text="📤 Gửi" styleClass="send-button"
+                                onAction="#handleSendMessage"/>
+                    </HBox>
+                </VBox>
+            </HBox>
+        </VBox>
+    </center>
+</BorderPane>
