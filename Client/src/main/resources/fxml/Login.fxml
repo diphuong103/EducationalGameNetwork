@@ -1,14 +1,121 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.image.Image?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Text?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.edugame.client.controller.LoginController"
-            prefHeight="400.0" prefWidth="600.0">
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.edugame.client.controller.LoginController"
+           styleClass="root-container">
 
-</AnchorPane>
+    <!-- Background Container -->
+    <VBox alignment="CENTER" spacing="0" styleClass="background-container">
+
+        <!-- Main Content Card -->
+        <VBox alignment="TOP_CENTER" spacing="18" styleClass="content-card"
+              maxWidth="400" maxHeight="550">
+
+        <VBox.margin>
+                <Insets top="30" bottom="30" left="30" right="30"/>
+            </VBox.margin>
+
+            <!-- Logo -->
+            <VBox alignment="CENTER" spacing="15">
+                <ImageView fitHeight="80" fitWidth="80" preserveRatio="true">
+                    <image>
+                        <Image url="@../images/icons/game-controller.png"/>
+                    </image>
+                </ImageView>
+
+                <!-- Title -->
+                <Text text="Math Adventure" styleClass="title-text"/>
+
+                <!-- Subtitle -->
+                <Text text="Phiêu lưu cùng Toán học!" styleClass="subtitle-text"/>
+            </VBox>
+
+            <!-- Login Form -->
+            <VBox spacing="20" VBox.vgrow="ALWAYS">
+
+                <!-- Username Field -->
+                <VBox spacing="8">
+                    <Label text="Tên đăng nhập" styleClass="field-label"/>
+                    <TextField fx:id="usernameField"
+                               promptText="Nhập tên đăng nhập"
+                               styleClass="custom-text-field"/>
+                </VBox>
+
+                <!-- Password Field -->
+                <VBox spacing="8">
+                    <Label text="Mật khẩu" styleClass="field-label"/>
+                    <PasswordField fx:id="passwordField"
+                                   promptText="Nhập mật khẩu"
+                                   styleClass="custom-text-field"/>
+                </VBox>
+
+                <!-- Remember Me & Forgot Password -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <CheckBox fx:id="rememberMeCheckBox"
+                              text="Ghi nhớ đăng nhập"
+                              styleClass="remember-checkbox"/>
+
+                    <Region HBox.hgrow="ALWAYS"/>
+
+                    <Hyperlink text="Quên mật khẩu?"
+                               styleClass="forgot-link"
+                               onAction="#handleForgotPassword"/>
+                </HBox>
+
+                <!-- Login Button -->
+                <Button fx:id="loginButton"
+                        text="🚀 Đăng nhập"
+                        styleClass="primary-button"
+                        onAction="#handleLogin"
+                        maxWidth="Infinity"/>
+
+                <!-- Divider -->
+                <HBox alignment="CENTER" spacing="10">
+                    <Separator HBox.hgrow="ALWAYS"/>
+                    <Label text="hoặc" styleClass="divider-text"/>
+                    <Separator HBox.hgrow="ALWAYS"/>
+                </HBox>
+
+                <!-- Register Button -->
+                <Button fx:id="registerButton"
+                        text="🎮 Đăng ký tài khoản mới"
+                        styleClass="secondary-button"
+                        onAction="#handleGoToRegister"
+                        maxWidth="Infinity"/>
+            </VBox>
+
+            <!-- Features List -->
+            <VBox spacing="12" alignment="CENTER_LEFT">
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Text text="✓" styleClass="checkmark"/>
+                    <Text text="Chơi cùng bạn bè trực tuyến" styleClass="feature-text"/>
+                </HBox>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Text text="✓" styleClass="checkmark"/>
+                    <Text text="Hơn 1000+ câu hỏi thú vị" styleClass="feature-text"/>
+                </HBox>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Text text="✓" styleClass="checkmark"/>
+                    <Text text="Xếp hạng toàn quốc" styleClass="feature-text"/>
+                </HBox>
+            </VBox>
+
+            <!-- Version -->
+            <Text text="Version 1.0.0 | © 2025 Math Adventure"
+                  styleClass="version-text"/>
+        </VBox>
+    </VBox>
+
+    <!-- Loading Overlay (Hidden by default) -->
+    <StackPane fx:id="loadingOverlay" visible="false" styleClass="loading-overlay">
+        <ProgressIndicator styleClass="loading-spinner"/>
+    </StackPane>
+</StackPane>

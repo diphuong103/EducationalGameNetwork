@@ -1,14 +1,256 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Text?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.image.Image?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.edugame.client.controller.RegisterController"
-            prefHeight="400.0" prefWidth="600.0">
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.edugame.client.controller.RegisterController"
+           styleClass="root-container">
 
-</AnchorPane>
+    <VBox alignment="CENTER" spacing="0" styleClass="background-container">
+
+        <!-- ScrollPane for long content -->
+        <ScrollPane fitToWidth="true" styleClass="scroll-pane"
+                    hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+
+            <VBox alignment="TOP_CENTER" spacing="20" styleClass="content-card"
+                  maxWidth="500">
+
+                <VBox.margin>
+                    <Insets top="30" bottom="30" left="30" right="30"/>
+                </VBox.margin>
+
+                <!-- Back Button -->
+                <HBox alignment="CENTER_LEFT">
+                    <Button fx:id="backButton"
+                            text="←"
+                            styleClass="back-button"
+                            onAction="#handleBackToLogin"/>
+                </HBox>
+
+                <!-- Header -->
+                <VBox alignment="CENTER" spacing="10">
+                    <Text text="Tao tai khoan moi" styleClass="register-title"/>
+                    <Text text="Tham gia cùng 10,000+ người chơi khác!"
+                          styleClass="register-subtitle"/>
+                </VBox>
+
+                <!-- Registration Form -->
+                <VBox spacing="18">
+
+                    <!-- Full Name -->
+                    <VBox spacing="8">
+                        <Label text="Họ và tên" styleClass="field-label"/>
+                        <TextField fx:id="fullNameField"
+                                   promptText="VD: Nguyễn Văn An"
+                                   styleClass="custom-text-field"/>
+                    </VBox>
+
+                    <!-- Username -->
+                    <VBox spacing="8">
+                        <Label text="Tên đăng nhập" styleClass="field-label"/>
+                        <TextField fx:id="usernameField"
+                                   promptText="VD: hocsinh123"
+                                   styleClass="custom-text-field"/>
+                    </VBox>
+
+                    <!-- Email (Optional) -->
+                    <VBox spacing="8">
+                        <Label text="Email (Tùy chọn)" styleClass="field-label"/>
+                        <TextField fx:id="emailField"
+                                   promptText="VD: hocsinh@email.com"
+                                   styleClass="custom-text-field"/>
+                    </VBox>
+
+                    <!-- Password -->
+                    <VBox spacing="8">
+                        <Label text="Mật khẩu" styleClass="field-label"/>
+                        <PasswordField fx:id="passwordField"
+                                       promptText="Tối thiểu 6 ký tự"
+                                       styleClass="custom-text-field"/>
+                    </VBox>
+
+                    <!-- Confirm Password -->
+                    <VBox spacing="8">
+                        <Label text="Xác nhận mật khẩu" styleClass="field-label"/>
+                        <PasswordField fx:id="confirmPasswordField"
+                                       promptText="Nhập lại mật khẩu"
+                                       styleClass="custom-text-field"/>
+                    </VBox>
+
+                    <!-- Age Selection -->
+                    <VBox spacing="10">
+                        <Label text="Độ tuổi của bạn" styleClass="field-label"/>
+                        <HBox spacing="10" alignment="CENTER">
+                            <ToggleButton fx:id="age6to8Button"
+                                          text="6-8 tuổi"
+                                          styleClass="age-toggle"
+                                          onAction="#handleAgeSelection">
+                                <toggleGroup>
+                                    <ToggleGroup fx:id="ageGroup"/>
+                                </toggleGroup>
+                            </ToggleButton>
+
+                            <ToggleButton fx:id="age9to10Button"
+                                          text="9-10 tuổi"
+                                          styleClass="age-toggle"
+                                          toggleGroup="$ageGroup"
+                                          selected="true"
+                                          onAction="#handleAgeSelection"/>
+
+                            <ToggleButton fx:id="age11to12Button"
+                                          text="11-12 tuổi"
+                                          styleClass="age-toggle"
+                                          toggleGroup="$ageGroup"
+                                          onAction="#handleAgeSelection"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Avatar Selection -->
+                    <VBox spacing="10">
+                        <Label text="Chọn nhân vật yêu thích" styleClass="field-label"/>
+
+                        <!-- Avatar Grid Row 1 -->
+                        <HBox spacing="10" alignment="CENTER">
+                            <ToggleButton fx:id="avatar1Button"
+                                          styleClass="avatar-button"
+                                          onAction="#handleAvatarSelection">
+                                <graphic>
+                                    <ImageView fitHeight="50" fitWidth="50" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../images/avatars/avatar1.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                                <toggleGroup>
+                                    <ToggleGroup fx:id="avatarGroup"/>
+                                </toggleGroup>
+                            </ToggleButton>
+
+                            <ToggleButton fx:id="avatar2Button"
+                                          styleClass="avatar-button"
+                                          toggleGroup="$avatarGroup"
+                                          onAction="#handleAvatarSelection">
+                                <graphic>
+                                    <ImageView fitHeight="50" fitWidth="50" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../images/avatars/avatar2.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </ToggleButton>
+
+                            <ToggleButton fx:id="avatar3Button"
+                                          styleClass="avatar-button"
+                                          toggleGroup="$avatarGroup"
+                                          onAction="#handleAvatarSelection">
+                                <graphic>
+                                    <ImageView fitHeight="50" fitWidth="50" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../images/avatars/avatar3.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </ToggleButton>
+
+                            <ToggleButton fx:id="avatar4Button"
+                                          styleClass="avatar-button"
+                                          toggleGroup="$avatarGroup"
+                                          selected="true"
+                                          onAction="#handleAvatarSelection">
+                                <graphic>
+                                    <ImageView fitHeight="50" fitWidth="50" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../images/avatars/avatar4.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </ToggleButton>
+                        </HBox>
+
+                        <!-- Avatar Grid Row 2 -->
+                        <HBox spacing="10" alignment="CENTER">
+                            <ToggleButton fx:id="avatar5Button"
+                                          styleClass="avatar-button"
+                                          toggleGroup="$avatarGroup"
+                                          onAction="#handleAvatarSelection">
+                                <graphic>
+                                    <ImageView fitHeight="50" fitWidth="50" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../images/avatars/avatar5.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </ToggleButton>
+
+                            <ToggleButton fx:id="avatar6Button"
+                                          styleClass="avatar-button"
+                                          toggleGroup="$avatarGroup"
+                                          onAction="#handleAvatarSelection">
+                                <graphic>
+                                    <ImageView fitHeight="50" fitWidth="50" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../images/avatars/avatar6.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </ToggleButton>
+
+                            <ToggleButton fx:id="avatar7Button"
+                                          styleClass="avatar-button"
+                                          toggleGroup="$avatarGroup"
+                                          onAction="#handleAvatarSelection">
+                                <graphic>
+                                    <ImageView fitHeight="50" fitWidth="50" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../images/avatars/avatar7.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </ToggleButton>
+
+                            <ToggleButton fx:id="avatar8Button"
+                                          styleClass="avatar-button"
+                                          toggleGroup="$avatarGroup"
+                                          onAction="#handleAvatarSelection">
+                                <graphic>
+                                    <ImageView fitHeight="50" fitWidth="50" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../images/avatars/avatar8.png"/>
+                                        </image>
+                                    </ImageView>
+                                </graphic>
+                            </ToggleButton>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Register Button -->
+                    <Button fx:id="registerButton"
+                            text="🎉 Tạo tài khoản"
+                            styleClass="primary-button"
+                            onAction="#handleRegister"
+                            maxWidth="Infinity">
+                        <VBox.margin>
+                            <Insets top="10"/>
+                        </VBox.margin>
+                    </Button>
+
+                    <!-- Terms -->
+                    <Text textAlignment="CENTER" styleClass="terms-text"
+                          text="Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật"
+                          wrappingWidth="440"/>
+                </VBox>
+            </VBox>
+        </ScrollPane>
+    </VBox>
+
+    <!-- Loading Overlay -->
+    <StackPane fx:id="loadingOverlay" visible="false" styleClass="loading-overlay">
+        <ProgressIndicator styleClass="loading-spinner"/>
+    </StackPane>
+</StackPane>
