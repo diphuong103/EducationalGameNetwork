@@ -9,6 +9,8 @@ import javafx.scene.layout.StackPane;
 import javafx.animation.PauseTransition;
 import javafx.util.Duration;
 
+import java.io.IOException;
+
 public class LoginController {
 
     @FXML private TextField usernameField;
@@ -156,11 +158,12 @@ public class LoginController {
         alert.setContentText(message);
         alert.show();
 
-        // Auto close after 1 second
+        // Auto close sau 1 giây
         PauseTransition delay = new PauseTransition(Duration.seconds(1));
         delay.setOnFinished(event -> alert.close());
         delay.play();
     }
+
 
     private void loadSavedCredentials() {
         // TODO: Implement preferences loading

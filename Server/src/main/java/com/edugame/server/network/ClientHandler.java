@@ -2,6 +2,7 @@ package com.edugame.server.network;
 
 import com.edugame.common.Protocol;
 import com.edugame.server.database.UserDAO;
+import com.edugame.server.database.LeaderboardDAO;
 import com.edugame.server.model.User;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -9,6 +10,7 @@ import com.google.gson.JsonObject;
 import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ClientHandler implements Runnable {
@@ -17,6 +19,7 @@ public class ClientHandler implements Runnable {
     private PrintWriter writer;
     private Gson gson;
     private UserDAO userDAO;
+    private LeaderboardDAO leaderboardDAO;
     private User currentUser;
     private boolean running;
 
@@ -24,6 +27,7 @@ public class ClientHandler implements Runnable {
         this.clientSocket = socket;
         this.gson = new Gson();
         this.userDAO = new UserDAO();
+        this.leaderboardDAO = new LeaderboardDAO();
         this.running = true;
 
         try {
@@ -66,6 +70,10 @@ public class ClientHandler implements Runnable {
 
                 case Protocol.REGISTER:
                     handleRegister(jsonMessage);
+                    break;
+
+                case Protocol.GET_LEADERBOARD:
+//                    handleGetLeaderboard(jsonMessage);
                     break;
 
                 case Protocol.LOGOUT:

@@ -27,6 +27,7 @@
 /* ========== CONTENT CARD ========== */
 .content-card {
     -fx-background-color: #FFFFFF;
+    -fx-alignment: center;
     -fx-background-radius: 25;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 20, 0, 0, 10);
     -fx-padding: 40 35 40 35;
@@ -49,13 +50,24 @@
     -fx-font-size: 28px;
     -fx-font-weight: bold;
     -fx-fill: #6366F1;
-    -fx-font-family: "Arial Rounded MT Bold", "Arial", sans-serif;
+    -fx-font-family: "Arial", sans-serif;
 }
 
 .register-subtitle {
     -fx-font-size: 14px;
     -fx-fill: #9CA3AF;
 }
+
+.age-combo{
+    -fx-font-size: 14px;
+    -fx-background-color: white;
+    -fx-border-color: #3498db;
+    -fx-border-radius: 5px;
+}
+.age-spinner {
+    -fx-font-size: 16px;
+}
+
 
 .field-label {
     -fx-font-size: 14px;
@@ -271,6 +283,7 @@
 
 .scroll-pane .viewport {
     -fx-background-color: transparent;
+    -fx-alignment: center;
 }
 
 .scroll-pane .scroll-bar:vertical {
@@ -753,6 +766,7 @@
 
 .content-card {
     -fx-background-color: #FFFFFF;
+    -fx-alignment: center;
     -fx-background-radius: 25;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 20, 0, 0, 10);
     -fx-padding: 40 35 40 35;

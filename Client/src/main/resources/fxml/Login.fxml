@@ -32,10 +32,10 @@
                 </ImageView>
 
                 <!-- Title -->
-                <Text text="Math Adventure" styleClass="title-text"/>
+                <Text text="BrainQuest" styleClass="title-text"/>
 
                 <!-- Subtitle -->
-                <Text text="Phiêu lưu cùng Toán học!" styleClass="subtitle-text"/>
+                <Text text="Học, Chơi, Khám phá!" styleClass="subtitle-text"/>
             </VBox>
 
             <!-- Login Form -->

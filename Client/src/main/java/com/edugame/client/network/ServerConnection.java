@@ -19,6 +19,16 @@ public class ServerConnection {
     // User session data
     private String currentUsername;
     private int currentUserId;
+    private String currentFullName;
+    private String currentEmail;
+    private String currentAvatarUrl;
+    private int totalScore;
+    private int mathScore;
+    private int englishScore;
+    private int scienceScore;
+    private int totalGames;
+    private int wins;
+    private int currentLevel;
 
     private ServerConnection() {
         gson = new Gson();
@@ -32,9 +42,7 @@ public class ServerConnection {
         return instance;
     }
 
-    /**
-     * Connect to server
-     */
+    /** Connect to server */
     public boolean connect(String host, int port) {
         try {
             socket = new Socket(host, port);
@@ -51,50 +59,55 @@ public class ServerConnection {
         }
     }
 
-    /**
-     * Login to server
-     */
+    /** Login to server */
     public boolean login(String username, String password) {
         try {
-            // Create login request
             Map<String, Object> request = new HashMap<>();
             request.put("type", "LOGIN");
             request.put("username", username);
             request.put("password", password);
 
-            // Send request
-            String jsonRequest = gson.toJson(request);
-            writer.println(jsonRequest);
+            writer.println(gson.toJson(request));
 
-            // Wait for response
             String response = reader.readLine();
             JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
 
             boolean success = jsonResponse.get("success").getAsBoolean();
-
             if (success) {
                 currentUsername = username;
                 currentUserId = jsonResponse.get("userId").getAsInt();
+                currentFullName = jsonResponse.get("fullName").getAsString();
+                currentEmail = jsonResponse.get("email").getAsString();
+                currentAvatarUrl = jsonResponse.get("avatarUrl").getAsString();
+                totalScore = jsonResponse.get("totalScore").getAsInt();
+                mathScore = jsonResponse.get("mathScore").getAsInt();
+                englishScore = jsonResponse.get("englishScore").getAsInt();
+                scienceScore = jsonResponse.get("scienceScore").getAsInt();
+                totalGames = jsonResponse.get("totalGames").getAsInt();
+                wins = jsonResponse.get("wins").getAsInt();
+                currentLevel = calculateLevel(totalScore);
+
                 System.out.println("Login successful: " + username);
             } else {
                 System.out.println("Login failed: " + jsonResponse.get("message").getAsString());
             }
 
             return success;
-
         } catch (IOException e) {
             System.err.println("Login error: " + e.getMessage());
             return false;
         }
     }
 
-    /**
-     * Register new user
-     */
+    /** Calculate level */
+    private int calculateLevel(int score) {
+        return (score / 200) + 1;
+    }
+
+    /** Register new user */
     public boolean register(String username, String password, String email,
                             String fullName, String age, String avatar) {
         try {
-            // Create registration request
             Map<String, Object> request = new HashMap<>();
             request.put("type", "REGISTER");
             request.put("username", username);
@@ -104,16 +117,12 @@ public class ServerConnection {
             request.put("age", age);
             request.put("avatar", avatar);
 
-            // Send request
-            String jsonRequest = gson.toJson(request);
-            writer.println(jsonRequest);
+            writer.println(gson.toJson(request));
 
-            // Wait for response
             String response = reader.readLine();
             JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
 
             boolean success = jsonResponse.get("success").getAsBoolean();
-
             if (success) {
                 System.out.println("Registration successful: " + username);
             } else {
@@ -121,33 +130,25 @@ public class ServerConnection {
             }
 
             return success;
-
         } catch (IOException e) {
             System.err.println("Registration error: " + e.getMessage());
             return false;
         }
     }
 
-    /**
-     * Send message to server
-     */
+    /** Send message */
     public void sendMessage(String message) {
         if (writer != null) {
             writer.println(message);
         }
     }
 
-    /**
-     * Send JSON object to server
-     */
+    /** Send JSON */
     public void sendJson(Map<String, Object> data) {
-        String json = gson.toJson(data);
-        sendMessage(json);
+        sendMessage(gson.toJson(data));
     }
 
-    /**
-     * Receive message from server
-     */
+    /** Receive message */
     public String receiveMessage() throws IOException {
         if (reader != null) {
             return reader.readLine();
@@ -155,18 +156,53 @@ public class ServerConnection {
         return null;
     }
 
-    /**
-     * Disconnect from server
-     */
+    /** Get leaderboard */
+    public java.util.List<java.util.Map<String, Object>> getLeaderboard(int limit) {
+        try {
+            Map<String, Object> request = new HashMap<>();
+            request.put("type", "GET_LEADERBOARD");
+            request.put("limit", limit);
+            request.put("subject", "total");
+
+            writer.println(gson.toJson(request));
+
+            String response = reader.readLine();
+            JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
+
+            boolean success = jsonResponse.get("success").getAsBoolean();
+            if (success) {
+                com.google.gson.JsonArray arr = jsonResponse.getAsJsonArray("leaderboard");
+                java.util.List<java.util.Map<String, Object>> leaderboard = new java.util.ArrayList<>();
+
+                for (int i = 0; i < arr.size(); i++) {
+                    com.google.gson.JsonObject user = arr.get(i).getAsJsonObject();
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("userId", user.get("userId").getAsInt());
+                    map.put("username", user.get("username").getAsString());
+                    map.put("fullName", user.get("fullName").getAsString());
+                    map.put("totalScore", user.get("totalScore").getAsInt());
+                    map.put("isOnline", user.get("isOnline").getAsBoolean());
+                    leaderboard.add(map);
+                }
+
+                System.out.println("✓ Leaderboard loaded: " + leaderboard.size());
+                return leaderboard;
+            }
+
+        } catch (IOException e) {
+            System.err.println("✗ Error getting leaderboard: " + e.getMessage());
+        }
+        return new java.util.ArrayList<>();
+    }
+
+    /** Disconnect */
     public void disconnect() {
         try {
             if (socket != null && !socket.isClosed()) {
-                // Send logout message
-                Map<String, Object> request = new HashMap<>();
-                request.put("type", "LOGOUT");
-                request.put("username", currentUsername);
-                sendJson(request);
-
+                Map<String, Object> req = new HashMap<>();
+                req.put("type", "LOGOUT");
+                req.put("username", currentUsername);
+                sendJson(req);
                 socket.close();
                 connected = false;
                 System.out.println("Disconnected from server");
@@ -177,15 +213,17 @@ public class ServerConnection {
     }
 
     // Getters
-    public boolean isConnected() {
-        return connected && socket != null && !socket.isClosed();
-    }
-
-    public String getCurrentUsername() {
-        return currentUsername;
-    }
-
-    public int getCurrentUserId() {
-        return currentUserId;
-    }
+    public boolean isConnected() { return connected && socket != null && !socket.isClosed(); }
+    public String getCurrentUsername() { return currentUsername; }
+    public int getCurrentUserId() { return currentUserId; }
+    public String getCurrentFullName() { return currentFullName; }
+    public String getCurrentEmail() { return currentEmail; }
+    public String getCurrentAvatarUrl() { return currentAvatarUrl; }
+    public int getTotalScore() { return totalScore; }
+    public int getMathScore() { return mathScore; }
+    public int getEnglishScore() { return englishScore; }
+    public int getScienceScore() { return scienceScore; }
+    public int getTotalGames() { return totalGames; }
+    public int getWins() { return wins; }
+    public int getCurrentLevel() { return currentLevel; }
 }

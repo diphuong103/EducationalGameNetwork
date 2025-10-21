@@ -4,89 +4,245 @@ import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.SceneManager;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.scene.text.Text;
 import javafx.util.Duration;
+import javafx.geometry.Pos;
+
+import java.util.List;
+import java.util.Map;
 
 public class HomeController {
 
+    // User info
     @FXML private ImageView userAvatar;
     @FXML private Text userNameText;
     @FXML private Text levelText;
     @FXML private Text pointsText;
+    @FXML private Text coinsText;
 
-    // Buttons có trong FXML
+    // Buttons
     @FXML private Button settingsButton;
     @FXML private Button logoutButton;
+    @FXML private Button trainingButton;
+    @FXML private Button quickMatchButton;
+    @FXML private Button roomButton;
+    @FXML private Button bossButton;
 
-    // Game mode buttons (trỏ qua onAction trong FXML)
+    // Leaderboard
     @FXML private VBox leaderboardList;
+
+    // Chat
     @FXML private ScrollPane chatScrollPane;
     @FXML private VBox chatMessagesContainer;
     @FXML private TextField chatInputField;
-    @FXML private Button sendButton;
+    @FXML private Button sendChatButton;
+    @FXML private VBox globalChatBox;
+    @FXML private Button toggleChatButton;
 
     private ServerConnection serverConnection;
+    private boolean chatExpanded = true;
 
     @FXML
     public void initialize() {
+        System.out.println("HomeController initializing...");
         serverConnection = ServerConnection.getInstance();
+        System.out.println("Server connection retrieved");
 
-        // Load dữ liệu người dùng và nội dung
-        loadUserData();
-        loadLeaderboardData();
-        loadDailyQuests();
+        setupButtonEffects();
+        setupChatScroll();
 
-        // Setup chat auto-scroll nếu tồn tại
-        if (chatMessagesContainer != null && chatScrollPane != null) {
-            setupChatScroll();
-        }
+        loadDataInBackground();
+
+    }
+
+    private void loadDataInBackground() {
+        new Thread(() -> {
+            try {
+                // Load user data
+                Platform.runLater(() -> loadUserData());
+                System.out.println("User data loaded");
+
+                // Load leaderboard với delay nhỏ
+                Thread.sleep(100);
+                Platform.runLater(() -> loadLeaderboardData());
+                System.out.println("Leaderboard loaded");
+
+                // Load daily quests
+                Thread.sleep(100);
+                Platform.runLater(() -> loadDailyQuests());
+
+            } catch (Exception e) {
+                System.err.println("Error loading data: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
     }
 
     private void setupChatScroll() {
-        chatMessagesContainer.heightProperty().addListener((obs, oldVal, newVal) -> {
-            chatScrollPane.setVvalue(1.0);
-        });
+        if (chatMessagesContainer != null && chatScrollPane != null) {
+            chatMessagesContainer.heightProperty().addListener((obs, oldVal, newVal) -> {
+                chatScrollPane.setVvalue(1.0);
+            });
+        }
+    }
+
+    /** ---------------- USER DATA ---------------- **/
+    private void loadUserData() {
+        if (serverConnection != null && serverConnection.isConnected()) {
+            String fullName = serverConnection.getCurrentFullName();
+            int level = serverConnection.getCurrentLevel();
+            int totalScore = serverConnection.getTotalScore();
+
+            String avatarFileName = serverConnection.getCurrentAvatarUrl();
+
+            userNameText.setText(fullName != null ? fullName : "Người chơi");
+            levelText.setText("Level " + level);
+            pointsText.setText("Điểm " + formatNumber(totalScore));
+
+            loadAvatar(avatarFileName);
+        } else {
+            userNameText.setText("Người chơi");
+            levelText.setText("Level 1");
+            pointsText.setText("Điểm 0");
+            loadAvatar("avatar4.png");
+        }
+    }
+
+    /**
+     * Load avatar image from resources
+     * @param avatarFileName - Tên file avatar từ database (vd: "avatar1.png")
+     */
+    private void loadAvatar(String avatarFileName) {
+        if (userAvatar == null) return;
+
+        try {
+            // Đường dẫn đến thư mục avatars trong resources
+            String avatarPath = "/images/avatars/" + (avatarFileName != null ? avatarFileName : "avatar4.png");
+
+            // Load image từ resources
+            Image avatarImage = new Image(getClass().getResourceAsStream(avatarPath));
+
+            if (avatarImage.isError()) {
+                System.err.println("Failed to load avatar: " + avatarPath);
+                // Load default avatar nếu không tìm thấy
+                avatarImage = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+            }
+
+            userAvatar.setImage(avatarImage);
+
+            // Optional: Set avatar properties for circular display
+            userAvatar.setPreserveRatio(true);
+            userAvatar.setSmooth(true);
+
+            System.out.println("✓ Avatar loaded: " + avatarFileName);
+
+        } catch (Exception e) {
+            System.err.println("✗ Error loading avatar: " + e.getMessage());
+            e.printStackTrace();
+
+            // Fallback to default avatar
+            try {
+                Image defaultAvatar = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+                userAvatar.setImage(defaultAvatar);
+            } catch (Exception ex) {
+                System.err.println("✗ Failed to load default avatar");
+            }
+        }
+    }
+
+
+    /** ---------------- LEADERBOARD ---------------- **/
+    private void loadLeaderboardData() {
+        if (serverConnection != null && serverConnection.isConnected()) {
+            // Chạy trong background thread
+            new Thread(() -> {
+                try {
+                    List<Map<String, Object>> leaderboard = serverConnection.getLeaderboard(10);
+                    if (leaderboard != null && !leaderboard.isEmpty()) {
+                        System.out.println("✓ Leaderboard data received: " + leaderboard.size() + " users");
+
+                        // Update UI trên JavaFX thread
+                        Platform.runLater(() -> {
+                            // Update leaderboard UI here
+                            for (int i = 0; i < Math.min(3, leaderboard.size()); i++) {
+                                Map<String, Object> user = leaderboard.get(i);
+                                System.out.println("   " + (i + 1) + ". " + user.get("fullName") + " - " + user.get("totalScore"));
+                            }
+                        });
+                    }
+                } catch (Exception e) {
+                    System.err.println("✗ Error loading leaderboard: " + e.getMessage());
+                    Platform.runLater(() -> {
+                        // Show error on UI if needed
+                    });
+                }
+            }).start();
+        } else {
+            System.out.println("⚠ Using default leaderboard data");
+        }
+    }
+
+    /** ---------------- DAILY QUEST ---------------- **/
+    private void loadDailyQuests() {
+        // Placeholder
+        System.out.println("Daily quests loaded");
+    }
+
+    /** ---------------- CHAT ---------------- **/
+    @FXML
+    private void handleToggleChat() {
+        chatExpanded = !chatExpanded;
+
+        chatScrollPane.setVisible(chatExpanded);
+        chatScrollPane.setManaged(chatExpanded);
+        chatInputField.setVisible(chatExpanded);
+        chatInputField.setManaged(chatExpanded);
+        sendChatButton.setVisible(chatExpanded);
+        sendChatButton.setManaged(chatExpanded);
+
+        toggleChatButton.setText(chatExpanded ? "−" : "+");
+        globalChatBox.setPrefHeight(chatExpanded ? 350 : 50);
     }
 
     @FXML
     private void handleSendMessage() {
+        if (chatInputField == null || chatMessagesContainer == null) return;
+
         String message = chatInputField.getText().trim();
         if (message.isEmpty()) return;
 
         addChatMessage("Bạn", message, true);
         chatInputField.clear();
 
-        // TODO: Gửi tin nhắn lên server
+        // TODO: send to server
         System.out.println("Chat message sent: " + message);
     }
 
     private void addChatMessage(String username, String message, boolean isSelf) {
+        if (chatMessagesContainer == null) return;
+
         Platform.runLater(() -> {
             VBox messageBox = new VBox(3);
             messageBox.getStyleClass().add("chat-message");
-            if (isSelf) messageBox.getStyleClass().add("chat-self");
+            if (isSelf) messageBox.getStyleClass().add("chat-message-self");
 
-            // Username
             HBox usernameBox = new HBox(5);
-            usernameBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+            usernameBox.setAlignment(Pos.CENTER_LEFT);
             Text usernameText = new Text(username);
-            usernameText.getStyleClass().add(isSelf ? "chat-sender-self" : "chat-sender");
+            usernameText.getStyleClass().add(isSelf ? "chat-username-self" : "chat-username");
             usernameBox.getChildren().add(usernameText);
 
             if (!isSelf) {
                 Text onlineDot = new Text("●");
-                onlineDot.getStyleClass().add("chat-online");
+                onlineDot.getStyleClass().add("online-dot");
                 usernameBox.getChildren().add(onlineDot);
             }
 
-            // Message
             Text messageText = new Text(message);
             messageText.getStyleClass().add(isSelf ? "chat-text-self" : "chat-text");
             messageText.setWrappingWidth(240);
@@ -94,55 +250,49 @@ public class HomeController {
             messageBox.getChildren().addAll(usernameBox, messageText);
             chatMessagesContainer.getChildren().add(messageBox);
 
-            if (chatMessagesContainer.getChildren().size() > 50) {
+            if (chatMessagesContainer.getChildren().size() > 50)
                 chatMessagesContainer.getChildren().remove(0);
-            }
         });
     }
 
-    private void loadUserData() {
-        // Tạm thời là dữ liệu giả
-        userNameText.setText("Nguyễn Văn An");
-        levelText.setText("Level 12");
-        pointsText.setText("2,450 điểm");
+    /** ---------------- BUTTON EFFECTS ---------------- **/
+    private void setupButtonEffects() {
+        addHoverEffect(trainingButton);
+        addHoverEffect(quickMatchButton);
+        addHoverEffect(roomButton);
+        addHoverEffect(bossButton);
     }
 
-    private void loadLeaderboardData() {
-        System.out.println("Leaderboard loaded");
+    private void addHoverEffect(Button button) {
+        if (button == null) return;
+        button.setOnMouseEntered(e -> {
+            button.setScaleX(1.05);
+            button.setScaleY(1.05);
+        });
+        button.setOnMouseExited(e -> {
+            button.setScaleX(1.0);
+            button.setScaleY(1.0);
+        });
     }
 
-    private void loadDailyQuests() {
-        System.out.println("Daily quests loaded");
-    }
-
-    // ===================== XỬ LÝ CÁC NÚT =====================
-
-    @FXML
-    private void handleTrainingMode() {
-        System.out.println("Training Mode selected");
-        showComingSoon("Chế độ Luyện Tập đang được phát triển!");
-    }
+    /** ---------------- BUTTON HANDLERS ---------------- **/
+    @FXML private void handleTrainingMode() { showComingSoon("Chế độ Luyện Tập đang được phát triển!"); }
 
     @FXML
     private void handleQuickMatch() {
-        System.out.println("Quick Match selected");
         try {
             SceneManager.getInstance().switchScene("FindMatch.fxml");
         } catch (Exception e) {
-            e.printStackTrace();
             showError("Không thể chuyển sang màn hình tìm trận!");
         }
     }
 
-    @FXML
-    private void handleCreateRoom(ActionEvent event) {
-        System.out.println("Create Room selected");
-        showComingSoon("Chế độ Tạo Phòng đang được phát triển!");
-    }
+    @FXML private void handleRoomMode() { showComingSoon("Chế độ Phòng Chơi đang được phát triển!"); }
+    @FXML private void handleCreateRoom() { showComingSoon("Tạo phòng đang được phát triển!"); }
+    @FXML private void handleNotifications() { showComingSoon("Thông báo đang được phát triển!"); }
 
     @FXML
     private void handleSettings() {
-        System.out.println("Settings clicked");
         try {
             SceneManager.getInstance().switchScene("Settings.fxml");
         } catch (Exception e) {
@@ -151,18 +301,29 @@ public class HomeController {
     }
 
     @FXML
-    private void handleLogout(ActionEvent event) {
-        System.out.println("Logout clicked");
-        try {
-            SceneManager.getInstance().switchScene("Login.fxml");
-        } catch (Exception e) {
-            showError("Không thể đăng xuất!");
-        }
+    private void handleLogout() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Đăng xuất");
+        alert.setHeaderText("Bạn có chắc muốn đăng xuất?");
+        alert.setContentText("Tiến trình chơi sẽ được lưu tự động.");
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                try {
+                    if (serverConnection != null && serverConnection.isConnected()) {
+                        serverConnection.disconnect();
+                    }
+                    SceneManager.getInstance().switchScene("Login.fxml");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    showError("Lỗi khi đăng xuất!");
+                }
+            }
+        });
     }
 
     @FXML
     private void handleViewLeaderboard() {
-        System.out.println("View Leaderboard clicked");
         try {
             SceneManager.getInstance().switchScene("Leaderboard.fxml");
         } catch (Exception e) {
@@ -170,8 +331,7 @@ public class HomeController {
         }
     }
 
-    // ===================== HỘP THÔNG BÁO =====================
-
+    /** ---------------- UTILITIES ---------------- **/
     private void showComingSoon(String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Sắp ra mắt");
@@ -192,27 +352,26 @@ public class HomeController {
         alert.showAndWait();
     }
 
-    // ===================== CẬP NHẬT DỮ LIỆU =====================
+    private String formatNumber(int number) {
+        return String.format("%,d", number);
+    }
+
+    /** ---------------- UPDATE DATA ---------------- **/
+    public void updatePoints(int newPoints) {
+        Platform.runLater(() -> pointsText.setText("Điểm " + formatNumber(newPoints)));
+    }
+
+    public void updateLevel(int newLevel) {
+        Platform.runLater(() -> levelText.setText("Level " + newLevel));
+    }
+
+    public void updateCoins(int newCoins) {
+        Platform.runLater(() -> coinsText.setText("Coins " + formatNumber(newCoins)));
+    }
 
     public void refreshUserData() {
         loadUserData();
         loadLeaderboardData();
         loadDailyQuests();
-    }
-
-    public void updatePoints(int newPoints) {
-        Platform.runLater(() -> {
-            pointsText.setText(formatNumber(newPoints) + " điểm");
-        });
-    }
-
-    public void updateLevel(int newLevel) {
-        Platform.runLater(() -> {
-            levelText.setText("Level " + newLevel);
-        });
-    }
-
-    private String formatNumber(int number) {
-        return String.format("%,d", number);
     }
 }

@@ -13,8 +13,8 @@ import java.util.Map;
 
 public class SceneManager {
     private static SceneManager instance;
-    private Stage primaryStage;
-    private Map<String, Scene> sceneCache;
+    private static Stage primaryStage;
+    private static Map<String, Scene> sceneCache;
 
     private SceneManager() {
         sceneCache = new HashMap<>();
@@ -34,7 +34,7 @@ public class SceneManager {
     /**
      * Switch to a new scene with fade transition
      */
-    public void switchScene(String fxmlFile) throws IOException {
+    public static void switchScene(String fxmlFile) throws IOException {
         Scene scene = getScene(fxmlFile);
 
         if (primaryStage.getScene() != null) {
@@ -61,21 +61,21 @@ public class SceneManager {
     /**
      * Get scene from cache or load it
      */
-    private Scene getScene(String fxmlFile) throws IOException {
+    private static Scene getScene(String fxmlFile) throws IOException {
         // Check cache first
         if (sceneCache.containsKey(fxmlFile)) {
             return sceneCache.get(fxmlFile);
         }
 
         // Load FXML
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/" + fxmlFile));
+        FXMLLoader loader = new FXMLLoader(SceneManager.class.getResource("/fxml/" + fxmlFile));
         Parent root = loader.load();
 
         // Create scene
         Scene scene = new Scene(root);
 
         // Add CSS
-        String css = getClass().getResource("/css/client-style.css").toExternalForm();
+        String css = SceneManager.class.getResource("/css/client-style.css").toExternalForm();
         scene.getStylesheets().add(css);
 
         // Cache scene

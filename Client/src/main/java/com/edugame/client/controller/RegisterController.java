@@ -18,10 +18,14 @@ public class RegisterController {
     @FXML private PasswordField passwordField;
     @FXML private PasswordField confirmPasswordField;
 
-    // Age buttons
-    @FXML private ToggleButton age6to8Button;
-    @FXML private ToggleButton age9to10Button;
-    @FXML private ToggleButton age11to12Button;
+    // Age buttons - 7 buttons từ 6-12
+    @FXML private ToggleButton age6Button;
+    @FXML private ToggleButton age7Button;
+    @FXML private ToggleButton age8Button;
+    @FXML private ToggleButton age9Button;
+    @FXML private ToggleButton age10Button;
+    @FXML private ToggleButton age11Button;
+    @FXML private ToggleButton age12Button;
     @FXML private ToggleGroup ageGroup;
 
     // Avatar buttons
@@ -39,16 +43,22 @@ public class RegisterController {
     @FXML private StackPane loadingOverlay;
 
     private ServerConnection serverConnection;
-    private String selectedAge = "9-10";
     private String selectedAvatar = "avatar4.png";
+    private String selectedAge = "9"; // Default age
 
     @FXML
     public void initialize() {
         serverConnection = ServerConnection.getInstance();
 
         // Set default selections
-        age9to10Button.setSelected(true);
-        avatar4Button.setSelected(true);
+        if (age9Button != null) {
+            age9Button.setSelected(true);
+            selectedAge = "9";
+        }
+
+        if (avatar4Button != null) {
+            avatar4Button.setSelected(true);
+        }
 
         // Add Enter key handler
         confirmPasswordField.setOnAction(event -> handleRegister());
@@ -60,13 +70,24 @@ public class RegisterController {
     @FXML
     private void handleAgeSelection() {
         Toggle selectedToggle = ageGroup.getSelectedToggle();
-        if (selectedToggle == age6to8Button) {
-            selectedAge = "6-8";
-        } else if (selectedToggle == age9to10Button) {
-            selectedAge = "9-10";
-        } else if (selectedToggle == age11to12Button) {
-            selectedAge = "11-12";
+
+        if (selectedToggle == age6Button) {
+            selectedAge = "6";
+        } else if (selectedToggle == age7Button) {
+            selectedAge = "7";
+        } else if (selectedToggle == age8Button) {
+            selectedAge = "8";
+        } else if (selectedToggle == age9Button) {
+            selectedAge = "9";
+        } else if (selectedToggle == age10Button) {
+            selectedAge = "10";
+        } else if (selectedToggle == age11Button) {
+            selectedAge = "11";
+        } else if (selectedToggle == age12Button) {
+            selectedAge = "12";
         }
+
+        System.out.println("Selected age: " + selectedAge);
     }
 
     @FXML
