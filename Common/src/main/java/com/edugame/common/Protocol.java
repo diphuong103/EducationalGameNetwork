@@ -54,7 +54,7 @@ public class Protocol {
     // Subjects
     public static final String MATH = "math";
     public static final String ENGLISH = "english";
-    public static final String SCIENCE = "science";
+    public static final String LITERATURE = "literature";
 
     // Difficulty Levels
     public static final String EASY = "easy";

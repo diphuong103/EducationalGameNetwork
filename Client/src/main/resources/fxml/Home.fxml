@@ -136,49 +136,15 @@
                         <Text text="Bảng Xếp Hạng" styleClass="box-header-title"/>
                     </HBox>
 
+                    <!-- Dynamic leaderboard content -->
                     <VBox spacing="8" fx:id="leaderboardList" styleClass="leaderboard-content">
-                        <!-- Top 1 -->
-                        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="rank-item rank-1">
-                            <Text text="1" styleClass="rank-number gold"/>
-                            <VBox spacing="2" HBox.hgrow="ALWAYS">
-                                <Text text="MathKing99" styleClass="rank-name"/>
-                                <Text text="3,850 điểm" styleClass="rank-score"/>
-                            </VBox>
-                            <Text text="●" styleClass="online-status"/>
-                        </HBox>
-
-                        <!-- Top 2 -->
-                        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="rank-item rank-2">
-                            <Text text="2" styleClass="rank-number silver"/>
-                            <VBox spacing="2" HBox.hgrow="ALWAYS">
-                                <Text text="NumberNinja" styleClass="rank-name"/>
-                                <Text text="3,420 điểm" styleClass="rank-score"/>
-                            </VBox>
-                        </HBox>
-
-                        <!-- Top 3 -->
-                        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="rank-item rank-3">
-                            <Text text="3" styleClass="rank-number bronze"/>
-                            <VBox spacing="2" HBox.hgrow="ALWAYS">
-                                <Text text="CalcHero" styleClass="rank-name"/>
-                                <Text text="3,180 điểm" styleClass="rank-score"/>
-                            </VBox>
-                            <Text text="●" styleClass="online-status"/>
-                        </HBox>
-
-                        <!-- Current User -->
-                        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="rank-item rank-current">
-                            <Text text="7" styleClass="rank-number"/>
-                            <VBox spacing="2" HBox.hgrow="ALWAYS">
-                                <Text text="Bạn" styleClass="rank-name"/>
-                                <Text text="2,450 điểm" styleClass="rank-score"/>
-                            </VBox>
-                        </HBox>
+                        <!-- Nội dung sẽ được tạo động từ HomeController -->
                     </VBox>
 
-                    <StackPane>
+                    <!-- View All Button -->
+                    <HBox alignment="CENTER">
                         <Button text="Xem thêm" styleClass="view-more-btn" onAction="#handleViewLeaderboard"/>
-                    </StackPane>
+                    </HBox>
                 </VBox>
 
                 <!-- Chat Box -->

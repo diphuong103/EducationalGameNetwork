@@ -1,8 +1,11 @@
 package com.edugame.client.controller;
 
+import com.edugame.client.model.User;
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.SceneManager;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -23,6 +26,7 @@ import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,17 +64,25 @@ public class HomeController {
     @FXML private Button toggleChatButton;
 
     @FXML
-    private Button emojiButton; // ⭐ Thêm button emoji trong FXML
+    private Button emojiButton;
 
+
+    private User currentUser;
+    private Gson gson = new Gson();
 
     private ServerConnection serverConnection;
     private boolean chatExpanded = true;
+
+    private static boolean dataLoaded = false;
 
     @FXML
     public void initialize() {
         System.out.println("HomeController initializing...");
         serverConnection = ServerConnection.getInstance();
         System.out.println("Server connection retrieved");
+
+        if (dataLoaded) return;
+        dataLoaded = true;
 
         chatInputField.setOnKeyPressed(event -> {
             if (event.getCode() == ENTER && !event.isShiftDown()) {
@@ -114,15 +126,25 @@ public class HomeController {
     //Thay vì tạo thread thủ công, dùng Executors quản lý dễ hơn:
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
+    private static List<User> cachedLeaderboard = null;
+    private static long lastLeaderboardUpdate = 0;
+    private static final long CACHE_DURATION = 60000;
+
     private void loadDataInBackground() {
         executor.submit(() -> {
             try {
                 Thread.sleep(100);
                 Platform.runLater(() -> {
                     loadUserData();
-                    loadLeaderboardData();
                     loadDailyQuests();
                 });
+
+                Thread.sleep(300);
+
+                Platform.runLater(() -> {
+                    loadLeaderboardData();
+                });
+
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -298,34 +320,95 @@ public class HomeController {
     }
 
 
+    private void handleLeaderboardResponse(JsonObject response) {
+        try {
+            boolean success = response.get("success").getAsBoolean();
+
+            if (success && response.has("leaderboard")) {
+                JsonArray leaderboardArray = response.getAsJsonArray("leaderboard");
+                List<User> leaderboard = new ArrayList<>();
+
+                for (JsonElement element : leaderboardArray) {
+                    JsonObject userObj = element.getAsJsonObject();
+                    User user = new User();
+                    user.setUserId(userObj.get("userId").getAsInt());
+                    user.setUsername(userObj.get("username").getAsString());
+                    user.setFullName(userObj.get("fullName").getAsString());
+                    user.setTotalScore(userObj.get("totalScore").getAsInt());
+                    user.setOnline(userObj.get("isOnline").getAsBoolean());
+
+                    if (userObj.has("avatarUrl") && !userObj.get("avatarUrl").isJsonNull()) {
+                        user.setAvatarUrl(userObj.get("avatarUrl").getAsString());
+                    }
+
+                    leaderboard.add(user);
+                }
+
+                // ✅ LƯU VÀO STATIC CACHE (giữ qua các instance)
+                cachedLeaderboard = leaderboard;
+                lastLeaderboardUpdate = System.currentTimeMillis();
+
+                System.out.println("✓ Leaderboard data received and cached: " + leaderboard.size() + " users");
+
+                // Debug top 3
+                if (leaderboard.size() >= 3) {
+                    System.out.println("   1. " + leaderboard.get(0).getFullName() + " - " + leaderboard.get(0).getTotalScore());
+                    System.out.println("   2. " + leaderboard.get(1).getFullName() + " - " + leaderboard.get(1).getTotalScore());
+                    System.out.println("   3. " + leaderboard.get(2).getFullName() + " - " + leaderboard.get(2).getTotalScore());
+                }
+
+                // ✅ CẬP NHẬT UI
+                Platform.runLater(() -> displayLeaderboard(leaderboard));
+            }
+
+        } catch (Exception e) {
+            System.err.println("✗ Error parsing leaderboard response: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void clearLeaderboardCache() {
+        cachedLeaderboard = null;
+        lastLeaderboardUpdate = 0;
+        System.out.println("✓ Leaderboard cache cleared");
+    }
+
     /** ---------------- LEADERBOARD ---------------- **/
     private void loadLeaderboardData() {
-        if (serverConnection != null && serverConnection.isConnected()) {
-            // Chạy trong background thread
-            new Thread(() -> {
-                try {
-                    List<Map<String, Object>> leaderboard = serverConnection.getLeaderboard(10);
-                    if (leaderboard != null && !leaderboard.isEmpty()) {
-                        System.out.println("✓ Leaderboard data received: " + leaderboard.size() + " users");
 
-                        // Update UI trên JavaFX thread
-                        Platform.runLater(() -> {
-                            // Update leaderboard UI here
-                            for (int i = 0; i < Math.min(3, leaderboard.size()); i++) {
-                                Map<String, Object> user = leaderboard.get(i);
-                                System.out.println("   " + (i + 1) + ". " + user.get("fullName") + " - " + user.get("totalScore"));
-                            }
-                        });
-                    }
-                } catch (Exception e) {
-                    System.err.println("✗ Error loading leaderboard: " + e.getMessage());
-                    Platform.runLater(() -> {
-                        // Show error on UI if needed
-                    });
+        long now = System.currentTimeMillis();
+        if (cachedLeaderboard != null && (now - lastLeaderboardUpdate) < CACHE_DURATION) {
+            System.out.println("✓ Using cached leaderboard data (" + cachedLeaderboard.size() + " users)");
+            Platform.runLater(() -> displayLeaderboard(cachedLeaderboard));
+            return;
+        }
+
+        if (serverConnection != null && serverConnection.isConnected()) {
+            try {
+                Map<String, Object> request = new HashMap<>();
+                request.put("type", "GET_LEADERBOARD");
+                request.put("subject", "total");
+                request.put("limit", 50);
+
+                serverConnection.sendJson(request);
+                System.out.println("✓ Sent leaderboard request (cache expired or empty)");
+
+            } catch (Exception e) {
+                System.err.println("✗ Error loading leaderboard: " + e.getMessage());
+                e.printStackTrace();
+
+                // ✅ Nếu lỗi nhưng có cache cũ, vẫn hiển thị
+                if (cachedLeaderboard != null) {
+                    System.out.println("⚠ Using old cached data due to error");
+                    Platform.runLater(() -> displayLeaderboard(cachedLeaderboard));
                 }
-            }).start();
+            }
         } else {
-            System.out.println("⚠ Using default leaderboard data");
+            // ✅ Không kết nối server nhưng có cache, vẫn hiển thị
+            if (cachedLeaderboard != null) {
+                System.out.println("⚠ Server disconnected, using cached data");
+                Platform.runLater(() -> displayLeaderboard(cachedLeaderboard));
+            }
         }
     }
 
@@ -400,18 +483,23 @@ public class HomeController {
                     JsonObject jsonResponse = new Gson().fromJson(response, JsonObject.class);
                     String type = jsonResponse.get("type").getAsString();
 
+                    // ✅ XỬ LÝ CHAT MESSAGE
                     if ("GLOBAL_CHAT".equals(type)) {
                         String username = jsonResponse.get("username").getAsString();
                         String message = jsonResponse.get("message").getAsString();
 
-                        // Không hiển thị lại tin nhắn của chính mình
                         if (!username.equals(server.getCurrentUsername())) {
                             addChatMessage(username, message, false);
                         }
                     }
+                    // ✅ XỬ LÝ SYSTEM MESSAGE
                     else if ("SYSTEM_MESSAGE".equals(type)) {
                         String message = jsonResponse.get("message").getAsString();
                         addSystemMessage(message);
+                    }
+                    // ✅ XỬ LÝ LEADERBOARD RESPONSE
+                    else if ("GET_LEADERBOARD".equals(type)) {
+                        handleLeaderboardResponse(jsonResponse);
                     }
 
                 } catch (IOException e) {
@@ -649,6 +737,8 @@ public class HomeController {
     // Gọi khi đóng HomeController
     public void cleanup() {
         stopChatListener();
+        executor.shutdownNow();
+        clearLeaderboardCache();
     }
 
     /** ---------------- BUTTON EFFECTS ---------------- **/
@@ -703,9 +793,12 @@ public class HomeController {
         alert.setHeaderText("Bạn có chắc muốn đăng xuất?");
         alert.setContentText("Tiến trình chơi sẽ được lưu tự động.");
 
+        cleanup();
         alert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
                 try {
+                    clearLeaderboardCache();
+
                     if (serverConnection != null && serverConnection.isConnected()) {
                         serverConnection.disconnect();
                     }
@@ -726,6 +819,103 @@ public class HomeController {
             showComingSoon("Bảng xếp hạng đang được phát triển!");
         }
     }
+
+
+    private void displayLeaderboard(List<User> users) {
+        if (leaderboardList == null || users.isEmpty()) {
+            return;
+        }
+
+        leaderboardList.getChildren().clear();
+
+        // Tìm rank của user hiện tại
+        int currentUserRank = -1;
+        for (int i = 0; i < users.size(); i++) {
+            if (currentUser != null && users.get(i).getUserId() == currentUser.getUserId()) {
+                currentUserRank = i + 1;
+                break;
+            }
+        }
+
+        // Hiển thị Top 3
+        int topCount = Math.min(3, users.size());
+        for (int i = 0; i < topCount; i++) {
+            User user = users.get(i);
+            int rank = i + 1;
+            HBox rankItem = createRankItem(rank, user, false);
+            leaderboardList.getChildren().add(rankItem);
+        }
+
+        // Hiển thị rank của user hiện tại nếu không trong top 3
+        if (currentUserRank > 3) {
+            HBox currentRankItem = createRankItem(currentUserRank,
+                    users.get(currentUserRank - 1), true);
+            leaderboardList.getChildren().add(currentRankItem);
+        }
+    }
+
+    private HBox createRankItem(int rank, User user, boolean isCurrentUser) {
+        HBox rankItem = new HBox();
+        rankItem.setSpacing(12);
+        rankItem.setAlignment(Pos.CENTER_LEFT);
+        rankItem.getStyleClass().add("rank-item");
+
+        // Thêm style class theo rank
+        if (isCurrentUser) {
+            rankItem.getStyleClass().add("rank-current");
+        } else if (rank == 1) {
+            rankItem.getStyleClass().add("rank-1");
+        } else if (rank == 2) {
+            rankItem.getStyleClass().add("rank-2");
+        } else if (rank == 3) {
+            rankItem.getStyleClass().add("rank-3");
+        }
+
+        // Rank number
+        Text rankText = new Text(String.valueOf(rank));
+        rankText.getStyleClass().add("rank-number");
+        if (rank == 1) {
+            rankText.getStyleClass().add("gold");
+        } else if (rank == 2) {
+            rankText.getStyleClass().add("silver");
+        } else if (rank == 3) {
+            rankText.getStyleClass().add("bronze");
+        }
+
+        // User info
+        VBox userInfo = new VBox(2);
+        HBox.setHgrow(userInfo, javafx.scene.layout.Priority.ALWAYS);
+
+        String displayName = isCurrentUser ? "Bạn" :
+                (user.getFullName() != null && !user.getFullName().isEmpty()
+                        ? user.getFullName() : user.getUsername());
+
+        Text nameText = new Text(displayName);
+        nameText.getStyleClass().add("rank-name");
+
+        Text scoreText = new Text(formatScore(user.getTotalScore()));
+        scoreText.getStyleClass().add("rank-score");
+
+        userInfo.getChildren().addAll(nameText, scoreText);
+
+        rankItem.getChildren().addAll(rankText, userInfo);
+
+        // Online status (chỉ cho top 3, không phải user hiện tại)
+        if (!isCurrentUser && user.isOnline()) {
+            Text onlineStatus = new Text("●");
+            onlineStatus.setStyle("-fx-fill: green;");
+            onlineStatus.getStyleClass().add("online-status");
+            rankItem.getChildren().add(onlineStatus);
+        }
+
+        return rankItem;
+    }
+
+    private String formatScore(int score) {
+        return String.format("%,d điểm", score).replace(",", ".");
+    }
+
+
 
     /** ---------------- UTILITIES ---------------- **/
     private void showComingSoon(String message) {

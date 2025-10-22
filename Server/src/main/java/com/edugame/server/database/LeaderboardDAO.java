@@ -85,8 +85,8 @@ public class LeaderboardDAO {
             case "english":
                 scoreColumn = "english_score";
                 break;
-            case "science":
-                scoreColumn = "science_score";
+            case "literature":
+                scoreColumn = "literature_score";
                 break;
             default:
                 scoreColumn = "total_score";

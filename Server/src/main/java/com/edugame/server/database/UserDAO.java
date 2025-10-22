@@ -77,7 +77,7 @@ public class UserDAO {
                 user.setTotalScore(rs.getInt("total_score"));
                 user.setMathScore(rs.getInt("math_score"));
                 user.setEnglishScore(rs.getInt("english_score"));
-                user.setScienceScore(rs.getInt("science_score"));
+                user.setLiteratureScore(rs.getInt("literature_score"));
                 user.setTotalGames(rs.getInt("total_games"));
                 user.setWins(rs.getInt("wins"));
                 user.setOnline(true);
@@ -191,7 +191,7 @@ public class UserDAO {
                 user.setTotalScore(rs.getInt("total_score"));
                 user.setMathScore(rs.getInt("math_score"));
                 user.setEnglishScore(rs.getInt("english_score"));
-                user.setScienceScore(rs.getInt("science_score"));
+                user.setLiteratureScore(rs.getInt("literature_score"));
                 user.setTotalGames(rs.getInt("total_games"));
                 user.setWins(rs.getInt("wins"));
                 user.setOnline(rs.getBoolean("is_online"));

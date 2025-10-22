@@ -11,7 +11,7 @@ public class User {
     private int totalScore;
     private int mathScore;
     private int englishScore;
-    private int scienceScore;
+    private int literatureScore;
     private int totalGames;
     private int wins;
     private Timestamp createdAt;
@@ -94,12 +94,12 @@ public class User {
         this.englishScore = englishScore;
     }
 
-    public int getScienceScore() {
-        return scienceScore;
+    public int getLiteratureScore() {
+        return literatureScore;
     }
 
-    public void setScienceScore(int scienceScore) {
-        this.scienceScore = scienceScore;
+    public void setLiteratureScore(int literatureScore) {
+        this.literatureScore = literatureScore;
     }
 
     public int getTotalGames() {

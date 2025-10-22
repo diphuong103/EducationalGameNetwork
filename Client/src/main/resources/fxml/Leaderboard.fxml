@@ -1,14 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Text?>
 
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.edugame.client.controller.LeaderboardController"
-            prefHeight="400.0" prefWidth="600.0">
+            prefHeight="700.0" prefWidth="900.0"
+            styleClass="leaderboard-page">
+
+    <VBox spacing="20" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0"
+          AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" styleClass="main-container">
+
+        <padding>
+            <Insets top="30" right="40" bottom="30" left="40"/>
+        </padding>
+
+        <!-- Header -->
+        <HBox alignment="CENTER_LEFT" spacing="15">
+            <Button text="← Quay lại" onAction="#handleBack" styleClass="back-btn"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Text text="🏆 BẢNG XẾP HẠNG" styleClass="page-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="🔄" onAction="#handleRefresh" styleClass="refresh-btn"/>
+        </HBox>
+
+        <!-- Filter Tabs -->
+        <HBox spacing="10" alignment="CENTER">
+            <ToggleButton fx:id="btnAllSubjects" text="Tổng Điểm" onAction="#handleFilterAll"
+                          styleClass="filter-btn" selected="true"/>
+            <ToggleButton fx:id="btnMath" text="Toán" onAction="#handleFilterMath"
+                          styleClass="filter-btn"/>
+            <ToggleButton fx:id="btnEnglish" text="Tiếng Anh" onAction="#handleFilterEnglish"
+                          styleClass="filter-btn"/>
+            <ToggleButton fx:id="btnLiterature" text="Tiếng Việt" onAction="#handleFilterLiterature"
+                          styleClass="filter-btn"/>
+        </HBox>
+
+        <!-- Leaderboard Content -->
+        <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="leaderboard-scroll">
+            <VBox fx:id="leaderboardContainer" spacing="10" styleClass="leaderboard-list">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+
+                <!-- Loading indicator will be shown here initially -->
+                <HBox alignment="CENTER" prefHeight="200">
+                    <ProgressIndicator fx:id="loadingIndicator"/>
+                </HBox>
+            </VBox>
+        </ScrollPane>
+
+        <!-- Current User Rank -->
+        <HBox fx:id="currentUserRank" spacing="15" alignment="CENTER_LEFT"
+              styleClass="current-user-rank" visible="false">
+            <Text fx:id="txtCurrentRank" text="7" styleClass="rank-number-large"/>
+            <VBox spacing="5" HBox.hgrow="ALWAYS">
+                <Text fx:id="txtCurrentUsername" text="Bạn" styleClass="current-username"/>
+                <Text fx:id="txtCurrentScore" text="2,450 điểm" styleClass="current-score"/>
+            </VBox>
+            <Text text="⭐" styleClass="current-star-icon"/>
+        </HBox>
+
+    </VBox>
 
 </AnchorPane>

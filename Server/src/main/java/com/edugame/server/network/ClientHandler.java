@@ -116,7 +116,7 @@ public class ClientHandler implements Runnable {
             response.put("totalScore", user.getTotalScore());
             response.put("mathScore", user.getMathScore());
             response.put("englishScore", user.getEnglishScore());
-            response.put("scienceScore", user.getScienceScore());
+            response.put("literatureScore", user.getLiteratureScore());
             response.put("totalGames", user.getTotalGames());
             response.put("wins", user.getWins());
             response.put("message", "Đăng nhập thành công!");
@@ -198,7 +198,41 @@ public class ClientHandler implements Runnable {
     }
 
     private void handleGetLeaderboard(JsonObject jsonMessage) {
+        try {
+            String subject = jsonMessage.has("subject") ? jsonMessage.get("subject").getAsString() : "total";
+            int limit = jsonMessage.has("limit") ? jsonMessage.get("limit").getAsInt() : 50;
+
+            // Lấy danh sách từ DB
+            java.util.List<User> leaderboard = leaderboardDAO.getLeaderboardBySubject(subject, limit);
+
+            // Chuẩn bị phản hồi JSON
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.GET_LEADERBOARD);
+            response.put("success", true);
+
+            // Tạo danh sách người chơi
+            java.util.List<Map<String, Object>> usersData = new java.util.ArrayList<>();
+            for (User user : leaderboard) {
+                Map<String, Object> u = new HashMap<>();
+                u.put("userId", user.getUserId());
+                u.put("username", user.getUsername());
+                u.put("fullName", user.getFullName());
+                u.put("avatarUrl", user.getAvatarUrl());
+                u.put("totalScore", user.getTotalScore());
+                u.put("isOnline", user.isOnline());
+                usersData.add(u);
+            }
+
+            response.put("leaderboard", usersData);
+            sendMessage(response);
+
+            System.out.println("✓ Sent leaderboard (" + subject + ", top " + usersData.size() + ")");
+        } catch (Exception e) {
+            System.err.println("✗ Error handling leaderboard: " + e.getMessage());
+            sendError("Không thể tải bảng xếp hạng");
+        }
     }
+
 
     private void handleGlobalChat(JsonObject jsonMessage) {
         if (currentUser == null) {

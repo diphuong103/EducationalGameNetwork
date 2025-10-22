@@ -5,6 +5,7 @@ module com.edugame.client {
     requires javafx.graphics;
     requires javafx.media;
     requires fontawesomefx;
+    requires java.sql;
 
 
     opens com.edugame.client to javafx.fxml;

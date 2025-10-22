@@ -521,106 +521,112 @@
    LEADERBOARD BOX
    ======================================== */
 
+/* Leaderboard Box */
 .leaderboard-box {
     -fx-background-color: white;
-    -fx-background-radius: 16;
-    -fx-padding: 0;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.08), 15, 0, 0, 5);
+    -fx-background-radius: 15;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 10, 0, 0, 2);
 }
 
 .box-header {
-    -fx-background-color: #6366F1;
-    -fx-padding: 15;
-    -fx-background-radius: 16 16 0 0;
+    -fx-padding: 0 0 10 0;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 0 2 0;
 }
 
 .box-header-icon {
-    -fx-font-size: 20px;
+    -fx-font-size: 24px;
 }
 
 .box-header-title {
-    -fx-font-size: 16px;
+    -fx-font-size: 18px;
     -fx-font-weight: bold;
-    -fx-fill: white;
+    -fx-fill: #2d3748;
 }
 
 .leaderboard-content {
-    -fx-padding: 15;
+    -fx-padding: 10 0;
 }
 
+/* Rank Items */
 .rank-item {
-    -fx-background-color: #F9FAFB;
+    -fx-background-color: #f7fafc;
     -fx-background-radius: 10;
-    -fx-padding: 12;
+    -fx-padding: 10 12;
 }
 
-.rank-item:hover {
-    -fx-background-color: #F3F4F6;
+.rank-item.rank-1 {
+    -fx-background-color: linear-gradient(to right, #ffd700, #ffed4e);
 }
 
-.rank-1 {
-    -fx-background-color: #FEF3C7;
+.rank-item.rank-2 {
+    -fx-background-color: linear-gradient(to right, #c0c0c0, #e8e8e8);
 }
 
-.rank-2 {
-    -fx-background-color: #E5E7EB;
+.rank-item.rank-3 {
+    -fx-background-color: linear-gradient(to right, #cd7f32, #e9967a);
 }
 
-.rank-3 {
-    -fx-background-color: #FED7AA;
+.rank-item.rank-current {
+    -fx-background-color: linear-gradient(to right, #667eea, #764ba2);
 }
 
-.rank-current {
-    -fx-background-color: #EEF2FF;
-    -fx-border-color: #6366F1;
-    -fx-border-width: 2;
-    -fx-border-radius: 10;
+.rank-item.rank-current .rank-name,
+.rank-item.rank-current .rank-score,
+.rank-item.rank-current .rank-number {
+    -fx-fill: white;
 }
 
+/* Rank Number */
 .rank-number {
-    -fx-font-size: 18px;
+    -fx-font-size: 20px;
     -fx-font-weight: bold;
-    -fx-fill: #6B7280;
-    -fx-min-width: 30;
-    -fx-text-alignment: center;
+    -fx-fill: #4a5568;
 }
 
-.gold {
-    -fx-fill: #F59E0B;
+.rank-number.gold {
+    -fx-fill: #b8860b;
 }
 
-.silver {
-    -fx-fill: #9CA3AF;
+.rank-number.silver {
+    -fx-fill: #696969;
 }
 
-.bronze {
-    -fx-fill: #F97316;
+.rank-number.bronze {
+    -fx-fill: #8b4513;
 }
 
+/* Rank Name & Score */
 .rank-name {
     -fx-font-size: 14px;
-    -fx-font-weight: 600;
-    -fx-fill: #374151;
+    -fx-font-weight: bold;
+    -fx-fill: #2d3748;
 }
 
 .rank-score {
     -fx-font-size: 12px;
-    -fx-fill: #9CA3AF;
+    -fx-fill: #718096;
 }
 
+/* Online Status */
 .online-status {
-    -fx-font-size: 10px;
-    -fx-fill: #10B981;
+    -fx-font-size: 12px;
+    -fx-fill: #48bb78;
 }
 
-.view-more-btn {
-    -fx-font-size: 13px;
-    -fx-font-weight: 600;
-    -fx-padding: 10 0;
-    -fx-background-color: #F3F4F6;
-    -fx-background-radius: 10;
-    -fx-text-fill: #6366F1;
+/* View All Button */
+.view-all-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #667eea;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
     -fx-cursor: hand;
+    -fx-underline: true;
+}
+
+.view-all-btn:hover {
+    -fx-text-fill: #5568d3;
 }
 
 
@@ -886,4 +892,215 @@
 .card-button,
 .header-button {
     -fx-transition: all 0.3s ease;
+}
+
+/* Leaderboard Page Styles */
+
+.leaderboard-page {
+    -fx-background-color: linear-gradient(to bottom, #f0f4f8, #e1e8ed);
+}
+
+.main-container {
+    -fx-background-color: transparent;
+}
+
+/* Header Styles */
+.page-title {
+    -fx-font-size: 32px;
+    -fx-font-weight: bold;
+    -fx-fill: linear-gradient(to right, #667eea, #764ba2);
+}
+
+.back-btn, .refresh-btn {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #4a5568;
+    -fx-font-size: 14px;
+    -fx-padding: 10 20;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}
+
+.back-btn:hover, .refresh-btn:hover {
+    -fx-background-color: #f7fafc;
+    -fx-border-color: #cbd5e0;
+}
+
+/* Filter Buttons */
+.filter-btn {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #4a5568;
+    -fx-font-size: 14px;
+    -fx-padding: 10 25;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 2;
+    -fx-cursor: hand;
+}
+
+.filter-btn:hover {
+    -fx-background-color: #f7fafc;
+    -fx-border-color: #cbd5e0;
+}
+
+.filter-btn:selected {
+    -fx-background-color: linear-gradient(to right, #667eea, #764ba2);
+    -fx-text-fill: white;
+    -fx-border-color: transparent;
+}
+
+/* Leaderboard Container */
+.leaderboard-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.leaderboard-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.leaderboard-list {
+    -fx-background-color: transparent;
+}
+
+/* Rank Item Styles */
+.rank-item {
+    -fx-background-color: white;
+    -fx-background-radius: 15;
+    -fx-border-radius: 15;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 10, 0, 0, 2);
+    -fx-cursor: hand;
+}
+
+.rank-item:hover {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 15, 0, 0, 3);
+    -fx-scale-x: 1.02;
+    -fx-scale-y: 1.02;
+}
+
+/* Top 3 Styles */
+.rank-1 {
+    -fx-background-color: linear-gradient(to right, #fff9e6, #ffe4b3);
+    -fx-border-color: #ffd700;
+    -fx-border-width: 2;
+}
+
+.rank-2 {
+
+    -fx-background-color: linear-gradient(to right, #f5f5f5, #e8e8e8);
+    -fx-border-color: #c0c0c0;
+    -fx-border-width: 2;
+}
+
+.rank-3 {
+    -fx-background-color: linear-gradient(to right,  #fff5f0, #ffe4d9);
+    -fx-border-color: #cd7f32;
+    -fx-border-width: 2;
+}
+
+/* Current User Highlight */
+.rank-current-highlight {
+    -fx-background-color: linear-gradient(to right, #e6f7ff, #cce7ff);
+    -fx-border-color: #4a90e2;
+    -fx-border-width: 2;
+}
+
+/* Rank Number Styles */
+.rank-number {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-fill: #4a5568;
+    -fx-min-width: 50px;
+    -fx-alignment: center;
+}
+
+.rank-number.gold {
+    -fx-fill: #ffd700;
+    -fx-effect: dropshadow(gaussian, rgba(255, 215, 0, 0.5), 5, 0, 0, 0);
+}
+
+.rank-number.silver {
+    -fx-fill: #c0c0c0;
+    -fx-effect: dropshadow(gaussian, rgba(192, 192, 192, 0.5), 5, 0, 0, 0);
+}
+
+.rank-number.bronze {
+    -fx-fill: #cd7f32;
+    -fx-effect: dropshadow(gaussian, rgba(205, 127, 50, 0.5), 5, 0, 0, 0);
+}
+
+/* User Info Styles */
+.rank-name {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-fill: #2d3748;
+}
+
+.rank-username {
+    -fx-font-size: 13px;
+    -fx-fill: #718096;
+}
+
+.rank-score {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-fill: #667eea;
+}
+
+/* Online Status */
+.online-status {
+    -fx-fill: #48bb78;
+    -fx-font-size: 20px;
+}
+
+.offline-status {
+    -fx-fill: #cbd5e0;
+    -fx-font-size: 20px;
+}
+
+/* Current User Rank Box */
+.current-user-rank {
+    -fx-background-color: linear-gradient(to right, #667eea, #764ba2);
+    -fx-padding: 20;
+    -fx-background-radius: 15;
+    -fx-border-radius: 15;
+    -fx-effect: dropshadow(gaussian, rgba(102, 126, 234, 0.4), 15, 0, 0, 5);
+}
+
+.rank-number-large {
+    -fx-font-size: 36px;
+    -fx-font-weight: bold;
+    -fx-fill: white;
+    -fx-min-width: 60px;
+    -fx-alignment: center;
+}
+
+.current-username {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-fill: white;
+}
+
+.current-score {
+    -fx-font-size: 16px;
+    -fx-fill: rgba(255, 255, 255, 0.9);
+}
+
+.current-star-icon {
+    -fx-font-size: 32px;
+}
+
+/* Empty State */
+.empty-text {
+    -fx-font-size: 16px;
+    -fx-fill: #718096;
+    -fx-font-style: italic;
+}
+
+/* Loading Indicator */
+.progress-indicator {
+    -fx-progress-color: #667eea;
 }

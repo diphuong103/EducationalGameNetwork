@@ -1,5 +1,6 @@
 package com.edugame.client.network;
 
+import com.edugame.client.model.User;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
@@ -29,6 +30,8 @@ public class ServerConnection {
     private int totalGames;
     private int wins;
     private int currentLevel;
+
+    private User currentUser;
 
     private ServerConnection() {
         gson = new Gson();
@@ -82,7 +85,7 @@ public class ServerConnection {
                 totalScore = jsonResponse.get("totalScore").getAsInt();
                 mathScore = jsonResponse.get("mathScore").getAsInt();
                 englishScore = jsonResponse.get("englishScore").getAsInt();
-                scienceScore = jsonResponse.get("scienceScore").getAsInt();
+                scienceScore = jsonResponse.get("literatureScore").getAsInt();
                 totalGames = jsonResponse.get("totalGames").getAsInt();
                 wins = jsonResponse.get("wins").getAsInt();
                 currentLevel = calculateLevel(totalScore);
@@ -210,6 +213,10 @@ public class ServerConnection {
         } catch (IOException e) {
             System.err.println("Error disconnecting: " + e.getMessage());
         }
+    }
+
+    public User getCurrentUser() {
+        return currentUser;
     }
 
     // Getters
