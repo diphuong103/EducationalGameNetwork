@@ -10,7 +10,6 @@ import com.google.gson.JsonObject;
 import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class ClientHandler implements Runnable {
@@ -22,9 +21,11 @@ public class ClientHandler implements Runnable {
     private LeaderboardDAO leaderboardDAO;
     private User currentUser;
     private boolean running;
+    private GameServer server;
 
-    public ClientHandler(Socket socket) {
+    public ClientHandler(Socket socket, GameServer server) {
         this.clientSocket = socket;
+        this.server = server;
         this.gson = new Gson();
         this.userDAO = new UserDAO();
         this.leaderboardDAO = new LeaderboardDAO();
@@ -73,11 +74,14 @@ public class ClientHandler implements Runnable {
                     break;
 
                 case Protocol.GET_LEADERBOARD:
-//                    handleGetLeaderboard(jsonMessage);
+                    handleGetLeaderboard(jsonMessage);
                     break;
 
                 case Protocol.LOGOUT:
                     handleLogout();
+                    break;
+                case Protocol.GLOBAL_CHAT:
+                    handleGlobalChat(jsonMessage);
                     break;
 
                 default:
@@ -193,9 +197,54 @@ public class ClientHandler implements Runnable {
         running = false;
     }
 
-    private void sendMessage(Map<String, Object> data) {
-        String json = gson.toJson(data);
-        writer.println(json);
+    private void handleGetLeaderboard(JsonObject jsonMessage) {
+    }
+
+    private void handleGlobalChat(JsonObject jsonMessage) {
+        if (currentUser == null) {
+            sendError("Bạn phải đăng nhập để gửi tin nhắn!");
+            return;
+        }
+
+        String message = jsonMessage.get("message").getAsString();
+        String username = currentUser.getUsername();
+
+        // Validate message
+        if (message.trim().isEmpty()) {
+            return;
+        }
+
+        if (message.length() > 500) {
+            sendError("Tin nhắn quá dài! (tối đa 500 ký tự)");
+            return;
+        }
+
+        // Broadcast to all clients except sender
+        Map<String, Object> chatMessage = new HashMap<>();
+        chatMessage.put("type", "GLOBAL_CHAT");
+        chatMessage.put("username", username);
+        chatMessage.put("message", message);
+
+        server.broadcastMessage(chatMessage, this);
+
+        System.out.println("💬 Global chat [" + username + "]: " + message);
+    }
+
+
+    void sendMessage(Map<String, Object> data) {
+        try {
+            if (writer != null && !writer.checkError()) {
+                String json = gson.toJson(data);
+                writer.println(json);
+                writer.flush();
+                System.out.println("  ✉️ Sent message type: " + data.get("type")); // Debug
+            } else {
+                System.err.println("✗ Writer is null or has error");
+            }
+        } catch (Exception e) {
+            System.err.println("✗ Error sending message: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void sendError(String errorMessage) {

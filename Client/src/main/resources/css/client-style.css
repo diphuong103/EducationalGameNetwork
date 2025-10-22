@@ -672,7 +672,11 @@
 .chat-messages {
     -fx-background-color: #F9FAFB;
 }
-
+.chat-system-message {
+    -fx-fill: #ff9800;
+    -fx-font-style: italic;
+    -fx-font-size: 11px;
+}
 .chat-message {
     -fx-background-color: white;
     -fx-background-radius: 8;

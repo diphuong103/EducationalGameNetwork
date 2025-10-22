@@ -22,6 +22,7 @@ public class Protocol {
 
     public static final String CHAT_MESSAGE = "CHAT_MESSAGE";
     public static final String PRIVATE_MESSAGE = "PRIVATE_MESSAGE";
+    public static final String GLOBAL_CHAT = "GLOBAL_CHAT";
 
     public static final String ADD_FRIEND = "ADD_FRIEND";
     public static final String ACCEPT_FRIEND = "ACCEPT_FRIEND";

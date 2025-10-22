@@ -2,6 +2,8 @@ package com.edugame.client.controller;
 
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.SceneManager;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -13,6 +15,8 @@ import javafx.scene.text.Text;
 import javafx.util.Duration;
 import javafx.geometry.Pos;
 
+import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,7 +59,7 @@ public class HomeController {
 
         setupButtonEffects();
         setupChatScroll();
-
+        startChatListener();
         loadDataInBackground();
 
     }
@@ -194,6 +198,9 @@ public class HomeController {
     }
 
     /** ---------------- CHAT ---------------- **/
+    private Thread chatListenerThread;
+    private volatile boolean isChatListening = false;
+
     @FXML
     private void handleToggleChat() {
         chatExpanded = !chatExpanded;
@@ -207,6 +214,11 @@ public class HomeController {
 
         toggleChatButton.setText(chatExpanded ? "−" : "+");
         globalChatBox.setPrefHeight(chatExpanded ? 350 : 50);
+
+        // Bắt đầu lắng nghe chat khi mở chat lần đầu
+        if (chatExpanded && !isChatListening) {
+            startChatListener();
+        }
     }
 
     @FXML
@@ -216,11 +228,75 @@ public class HomeController {
         String message = chatInputField.getText().trim();
         if (message.isEmpty()) return;
 
-        addChatMessage("Bạn", message, true);
-        chatInputField.clear();
+        ServerConnection server = ServerConnection.getInstance();
+        if (!server.isConnected()) {
+            addSystemMessage("Không thể gửi tin nhắn. Chưa kết nối server.");
+            return;
+        }
 
-        // TODO: send to server
-        System.out.println("Chat message sent: " + message);
+        // Gửi tin nhắn lên server
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", "GLOBAL_CHAT");
+        request.put("username", server.getCurrentUsername());
+        request.put("message", message);
+
+        server.sendJson(request);
+
+        // Hiển thị tin nhắn của bản thân
+        addChatMessage(server.getCurrentUsername(), message, true);
+        chatInputField.clear();
+    }
+
+    private void startChatListener() {
+        if (isChatListening) return;
+
+        isChatListening = true;
+        chatListenerThread = new Thread(() -> {
+            ServerConnection server = ServerConnection.getInstance();
+
+            while (isChatListening && server.isConnected()) {
+                try {
+                    String response = server.receiveMessage();
+                    if (response == null) break;
+
+                    JsonObject jsonResponse = new Gson().fromJson(response, JsonObject.class);
+                    String type = jsonResponse.get("type").getAsString();
+
+                    if ("GLOBAL_CHAT".equals(type)) {
+                        String username = jsonResponse.get("username").getAsString();
+                        String message = jsonResponse.get("message").getAsString();
+
+                        // Không hiển thị lại tin nhắn của chính mình
+                        if (!username.equals(server.getCurrentUsername())) {
+                            addChatMessage(username, message, false);
+                        }
+                    }
+                    else if ("SYSTEM_MESSAGE".equals(type)) {
+                        String message = jsonResponse.get("message").getAsString();
+                        addSystemMessage(message);
+                    }
+
+                } catch (IOException e) {
+                    System.err.println("Chat listener error: " + e.getMessage());
+                    break;
+                } catch (Exception e) {
+                    System.err.println("Chat parse error: " + e.getMessage());
+                }
+            }
+
+            isChatListening = false;
+            System.out.println("Chat listener stopped");
+        });
+
+        chatListenerThread.setDaemon(true);
+        chatListenerThread.start();
+    }
+
+    private void stopChatListener() {
+        isChatListening = false;
+        if (chatListenerThread != null) {
+            chatListenerThread.interrupt();
+        }
     }
 
     private void addChatMessage(String username, String message, boolean isSelf) {
@@ -240,6 +316,7 @@ public class HomeController {
             if (!isSelf) {
                 Text onlineDot = new Text("●");
                 onlineDot.getStyleClass().add("online-dot");
+                onlineDot.setStyle("-fx-fill: #4CAF50;");
                 usernameBox.getChildren().add(onlineDot);
             }
 
@@ -250,9 +327,37 @@ public class HomeController {
             messageBox.getChildren().addAll(usernameBox, messageText);
             chatMessagesContainer.getChildren().add(messageBox);
 
-            if (chatMessagesContainer.getChildren().size() > 50)
+            // Giới hạn số tin nhắn hiển thị
+            if (chatMessagesContainer.getChildren().size() > 50) {
                 chatMessagesContainer.getChildren().remove(0);
+            }
+
+            // Auto scroll xuống tin nhắn mới nhất
+            chatScrollPane.layout();
+            chatScrollPane.setVvalue(1.0);
         });
+    }
+
+    private void addSystemMessage(String message) {
+        Platform.runLater(() -> {
+            Text systemText = new Text("⚠ " + message);
+            systemText.getStyleClass().add("chat-system-message");
+            systemText.setWrappingWidth(240);
+
+            chatMessagesContainer.getChildren().add(systemText);
+
+            if (chatMessagesContainer.getChildren().size() > 50) {
+                chatMessagesContainer.getChildren().remove(0);
+            }
+
+            chatScrollPane.layout();
+            chatScrollPane.setVvalue(1.0);
+        });
+    }
+
+    // Gọi khi đóng HomeController
+    public void cleanup() {
+        stopChatListener();
     }
 
     /** ---------------- BUTTON EFFECTS ---------------- **/
