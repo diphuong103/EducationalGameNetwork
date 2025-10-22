@@ -4,6 +4,7 @@ module com.edugame.client {
     requires com.google.gson;
     requires javafx.graphics;
     requires javafx.media;
+    requires fontawesomefx;
 
 
     opens com.edugame.client to javafx.fxml;

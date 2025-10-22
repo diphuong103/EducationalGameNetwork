@@ -7,18 +7,29 @@ import com.google.gson.JsonObject;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.util.Duration;
 import javafx.geometry.Pos;
 
+import de.jensd.fx.glyphs.fontawesome.FontAwesomeIconView;
+import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon;
+
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static javafx.scene.input.KeyCode.ENTER;
 
 public class HomeController {
 
@@ -48,6 +59,10 @@ public class HomeController {
     @FXML private VBox globalChatBox;
     @FXML private Button toggleChatButton;
 
+    @FXML
+    private Button emojiButton; // ⭐ Thêm button emoji trong FXML
+
+
     private ServerConnection serverConnection;
     private boolean chatExpanded = true;
 
@@ -57,6 +72,13 @@ public class HomeController {
         serverConnection = ServerConnection.getInstance();
         System.out.println("Server connection retrieved");
 
+        chatInputField.setOnKeyPressed(event -> {
+            if (event.getCode() == ENTER && !event.isShiftDown()) {
+                event.consume();
+                handleSendMessage();
+            }
+        });
+
         setupButtonEffects();
         setupChatScroll();
         startChatListener();
@@ -64,28 +86,50 @@ public class HomeController {
 
     }
 
+//    private void loadDataInBackground() {
+//        Thread backgroundThread = new Thread(() -> {
+//            try {
+//                Thread.sleep(100);
+//                Platform.runLater(() -> {
+//                    try {
+//                        loadUserData();
+//                        loadLeaderboardData();
+//                        loadDailyQuests();
+//                        System.out.println("✅ All data loaded");
+//                    } catch (Exception e) {
+//                        System.err.println("❌ Error loading data: " + e.getMessage());
+//                        e.printStackTrace();
+//                    }
+//                });
+//            } catch (InterruptedException e) {
+//                Thread.currentThread().interrupt();
+//            }
+//        });
+//        backgroundThread.setDaemon(true);
+//        backgroundThread.start();
+//    }
+
+    //Dùng ExecutorService thay cho new Thread()
+    //
+    //Thay vì tạo thread thủ công, dùng Executors quản lý dễ hơn:
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
     private void loadDataInBackground() {
-        new Thread(() -> {
+        executor.submit(() -> {
             try {
-                // Load user data
-                Platform.runLater(() -> loadUserData());
-                System.out.println("User data loaded");
-
-                // Load leaderboard với delay nhỏ
                 Thread.sleep(100);
-                Platform.runLater(() -> loadLeaderboardData());
-                System.out.println("Leaderboard loaded");
-
-                // Load daily quests
-                Thread.sleep(100);
-                Platform.runLater(() -> loadDailyQuests());
-
-            } catch (Exception e) {
-                System.err.println("Error loading data: " + e.getMessage());
-                e.printStackTrace();
+                Platform.runLater(() -> {
+                    loadUserData();
+                    loadLeaderboardData();
+                    loadDailyQuests();
+                });
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
-        }).start();
+        });
     }
+
+
 
     private void setupChatScroll() {
         if (chatMessagesContainer != null && chatScrollPane != null) {
@@ -94,6 +138,100 @@ public class HomeController {
             });
         }
     }
+
+    /** ---------------- EMOJI ---------------- **/
+    @FXML
+    private void handleShowEmoji() {
+        if (emojiButton == null || chatInputField == null) return;
+
+        javafx.stage.Popup emojiPopup = new javafx.stage.Popup();
+
+        FlowPane emojiPane = new FlowPane(5, 5);
+        emojiPane.setPadding(new Insets(10));
+        emojiPane.setAlignment(Pos.CENTER_LEFT);
+        emojiPane.setStyle("""
+        -fx-background-color: white;
+        -fx-border-color: #ddd;
+        -fx-border-width: 1;
+        -fx-border-radius: 12;
+        -fx-background-radius: 12;
+        -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 8, 0, 0, 2);
+        """);
+        emojiPane.setPrefSize(320, 220);
+
+        String[] emojis = {
+                "😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃",
+                "😉","😊","😇","🥰","😍","🤩","😘","😗","😚","😙",
+                "😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔",
+                "🤐","🤨","😐","😑","😶","😏","😒","🙄","😬","😮",
+                "😯","😲","😳","🥺","😢","😭","😤","😠","😡","🤬",
+                "😈","👿","💀","💩","🤡","👻","👽","🤖","❤","🧡",
+                "💛","💚","💙","💜","🖤","🤍","🤎","💔","❣","💕",
+                "💞","💓","💗","💖","💘","💝","👍","👎","👌","✌",
+                "🤞","🤟","🤘","🤙","👏","🙌","👐","🤲","🙏","💪",
+                "🎉","🎊","🎁","🎈","🎂","🎀","🏆","🥇","🥈","🥉"
+        };
+
+        for (String emoji : emojis) {
+            StackPane emojiContainer = new StackPane();
+            emojiContainer.setPrefSize(42, 42);
+            emojiContainer.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-background-radius: 8;");
+
+            // ✅ Sử dụng ImageView để hiển thị emoji màu
+            ImageView emojiImage = createEmojiImageView(emoji, 28);
+            if (emojiImage != null) {
+                emojiContainer.getChildren().add(emojiImage);
+            } else {
+                // Fallback to text if image fails to load
+                Label emojiLabel = new Label(emoji);
+                emojiLabel.setStyle("-fx-font-size: 26px;");
+                emojiContainer.getChildren().add(emojiLabel);
+            }
+
+            emojiContainer.setOnMouseEntered(e ->
+                    emojiContainer.setStyle("-fx-background-color: #f0f2f5; -fx-cursor: hand; -fx-background-radius: 8;"));
+
+            emojiContainer.setOnMouseExited(e ->
+                    emojiContainer.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-background-radius: 8;"));
+
+            emojiContainer.setOnMouseClicked(e -> {
+                // ✅ Lưu vị trí con trỏ TRƯỚC KHI popup mất focus
+                int savedCaretPos = chatInputField.getCaretPosition();
+                String currentText = chatInputField.getText();
+
+                //  Chèn emoji vào đúng vị trí con trỏ đã lưu
+                String beforeCaret = currentText.substring(0, savedCaretPos);
+                String afterCaret = currentText.substring(savedCaretPos);
+                String newText = beforeCaret + afterCaret + emoji;
+
+                chatInputField.setText(newText);
+
+                // Đặt con trỏ ngay SAU emoji (không select text)
+                int newCaretPos = savedCaretPos + emoji.length();
+
+                emojiPopup.hide();
+
+                Platform.runLater(() -> {
+                    chatInputField.requestFocus();
+                    chatInputField.positionCaret(newCaretPos);
+                    chatInputField.deselect(); // Bỏ selection nếu có
+                });
+            });
+
+            emojiPane.getChildren().add(emojiContainer);
+        }
+
+        ScrollPane scrollPane = new ScrollPane(emojiPane);
+        scrollPane.setStyle("-fx-background: white; -fx-background-color: white; -fx-border-color: transparent;");
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefViewportHeight(220);
+        emojiPopup.getContent().add(scrollPane);
+        emojiPopup.setAutoHide(true);
+
+        javafx.geometry.Point2D point = emojiButton.localToScreen(0, 0);
+        emojiPopup.show(emojiButton, point.getX(), point.getY() - 230);
+    }
+
 
     /** ---------------- USER DATA ---------------- **/
     private void loadUserData() {
@@ -303,48 +441,165 @@ public class HomeController {
         if (chatMessagesContainer == null) return;
 
         Platform.runLater(() -> {
-            VBox messageBox = new VBox(3);
-            messageBox.getStyleClass().add("chat-message");
-            if (isSelf) messageBox.getStyleClass().add("chat-message-self");
+            HBox messageContainer = new HBox(8);
+            messageContainer.setAlignment(isSelf ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+            messageContainer.setPadding(new Insets(4, 0, 4, 0));
 
-            HBox usernameBox = new HBox(5);
-            usernameBox.setAlignment(Pos.CENTER_LEFT);
+            VBox messageBox = new VBox(4);
+            messageBox.setMaxWidth(280);
+            messageBox.setStyle(isSelf ?
+                    "-fx-background-color: #0084ff; -fx-background-radius: 18; -fx-padding: 10 14 10 14;" :
+                    "-fx-background-color: #e4e6eb; -fx-background-radius: 18; -fx-padding: 10 14 10 14;");
+
+            // Username và thời gian
+            HBox headerBox = new HBox(6);
+            headerBox.setAlignment(Pos.CENTER_LEFT);
+
             Text usernameText = new Text(username);
-            usernameText.getStyleClass().add(isSelf ? "chat-username-self" : "chat-username");
-            usernameBox.getChildren().add(usernameText);
+            usernameText.setStyle(isSelf ?
+                    "-fx-fill: white; -fx-font-weight: bold; -fx-font-size: 12px;" :
+                    "-fx-fill: #050505; -fx-font-weight: bold; -fx-font-size: 12px;");
+
+            String timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+            Text timeText = new Text(timeStr);
+            timeText.setStyle(isSelf ?
+                    "-fx-fill: rgba(255,255,255,0.7); -fx-font-size: 10px;" :
+                    "-fx-fill: #65676b; -fx-font-size: 10px;");
+
+            headerBox.getChildren().addAll(usernameText, timeText);
 
             if (!isSelf) {
                 Text onlineDot = new Text("●");
-                onlineDot.getStyleClass().add("online-dot");
-                onlineDot.setStyle("-fx-fill: #4CAF50;");
-                usernameBox.getChildren().add(onlineDot);
+                onlineDot.setStyle("-fx-fill: #31a24c; -fx-font-size: 8px;");
+                headerBox.getChildren().add(onlineDot);
             }
 
-            Text messageText = new Text(message);
-            messageText.getStyleClass().add(isSelf ? "chat-text-self" : "chat-text");
-            messageText.setWrappingWidth(240);
+            // ✅ Nội dung tin nhắn - Parse và hiển thị emoji + text
+            FlowPane messageContent = parseMessageWithEmojiImages(message, isSelf);
+            messageContent.setMaxWidth(250);
+            messageContent.setHgap(2);
+            messageContent.setVgap(2);
 
-            messageBox.getChildren().addAll(usernameBox, messageText);
-            chatMessagesContainer.getChildren().add(messageBox);
+            messageBox.getChildren().addAll(headerBox, messageContent);
+            messageContainer.getChildren().add(messageBox);
 
-            // Giới hạn số tin nhắn hiển thị
+            chatMessagesContainer.getChildren().add(messageContainer);
+
+            // Giới hạn số tin nhắn
             if (chatMessagesContainer.getChildren().size() > 50) {
                 chatMessagesContainer.getChildren().remove(0);
             }
 
-            // Auto scroll xuống tin nhắn mới nhất
+            // Auto scroll
             chatScrollPane.layout();
             chatScrollPane.setVvalue(1.0);
         });
+    }
+
+    /**
+     * Parse tin nhắn và tạo FlowPane với emoji images và text
+     */
+    private FlowPane parseMessageWithEmojiImages(String message, boolean isSelf) {
+        FlowPane flowPane = new FlowPane();
+        flowPane.setStyle("-fx-background-color: transparent;");
+
+        StringBuilder textBuffer = new StringBuilder();
+
+        for (int i = 0; i < message.length(); ) {
+            int codePoint = message.codePointAt(i);
+            int charCount = Character.charCount(codePoint);
+            String currentChar = message.substring(i, i + charCount);
+
+            if (isEmojiCodePoint(codePoint)) {
+                // Thêm text trước emoji (nếu có)
+                if (textBuffer.length() > 0) {
+                    Text textNode = new Text(textBuffer.toString());
+                    textNode.setStyle(String.format(
+                            "-fx-font-size: 14px; -fx-fill: %s;",
+                            isSelf ? "white" : "#050505"
+                    ));
+                    flowPane.getChildren().add(textNode);
+                    textBuffer = new StringBuilder();
+                }
+
+                // Thêm emoji image
+                ImageView emojiView = createEmojiImageView(currentChar, 20);
+                if (emojiView != null) {
+                    flowPane.getChildren().add(emojiView);
+                } else {
+                    // Fallback nếu không load được ảnh
+                    Text emojiText = new Text(currentChar);
+                    emojiText.setStyle("-fx-font-size: 18px;");
+                    flowPane.getChildren().add(emojiText);
+                }
+            } else {
+                textBuffer.append(currentChar);
+            }
+
+            i += charCount;
+        }
+
+        // Thêm text còn lại
+        if (textBuffer.length() > 0) {
+            Text textNode = new Text(textBuffer.toString());
+            textNode.setStyle(String.format(
+                    "-fx-font-size: 14px; -fx-fill: %s;",
+                    isSelf ? "white" : "#050505"
+            ));
+            flowPane.getChildren().add(textNode);
+        }
+
+        return flowPane;
+    }
+
+    /**
+     * Kiểm tra xem codepoint có phải emoji không
+     */
+    private boolean isEmojiCodePoint(int codePoint) {
+        return (codePoint >= 0x1F600 && codePoint <= 0x1F64F) || // Emoticons
+                (codePoint >= 0x1F300 && codePoint <= 0x1F5FF) || // Misc Symbols and Pictographs
+                (codePoint >= 0x1F680 && codePoint <= 0x1F6FF) || // Transport and Map
+                (codePoint >= 0x1F1E0 && codePoint <= 0x1F1FF) || // Flags
+                (codePoint >= 0x2600 && codePoint <= 0x26FF) ||   // Misc symbols
+                (codePoint >= 0x2700 && codePoint <= 0x27BF) ||   // Dingbats
+                (codePoint >= 0x1F900 && codePoint <= 0x1F9FF) || // Supplemental Symbols
+                (codePoint >= 0x1FA70 && codePoint <= 0x1FAFF) || // Extended-A
+                (codePoint >= 0x2764 && codePoint <= 0x2764) ||   // Hearts
+                (codePoint >= 0x1F90D && codePoint <= 0x1F90F);   // More hearts
     }
 
     private void addSystemMessage(String message) {
-        Platform.runLater(() -> {
-            Text systemText = new Text("⚠ " + message);
-            systemText.getStyleClass().add("chat-system-message");
-            systemText.setWrappingWidth(240);
+        if (chatMessagesContainer == null) return;
 
-            chatMessagesContainer.getChildren().add(systemText);
+        Platform.runLater(() -> {
+            HBox systemBox = new HBox(6);
+            systemBox.setAlignment(Pos.CENTER);
+            systemBox.setPadding(new Insets(8, 10, 8, 10));
+            systemBox.setStyle("-fx-background-color: #f0f2f5; -fx-background-radius: 12;");
+            systemBox.setMaxWidth(300);
+
+            // System icon with emoji image
+            ImageView systemIcon = createEmojiImageView("ℹ️", 16);
+            if (systemIcon == null) {
+                Text iconText = new Text("ℹ️");
+                iconText.setStyle("-fx-font-size: 12px;");
+                systemBox.getChildren().add(iconText);
+            } else {
+                systemBox.getChildren().add(systemIcon);
+            }
+
+            Label systemLabel = new Label(message);
+            systemLabel.setWrapText(true);
+            systemLabel.setMaxWidth(250);
+            systemLabel.setStyle("-fx-text-fill: #65676b; -fx-font-size: 12px; -fx-background-color: transparent;");
+
+            systemBox.getChildren().add(systemLabel);
+
+            HBox centerWrapper = new HBox(systemBox);
+            centerWrapper.setAlignment(Pos.CENTER);
+            centerWrapper.setPadding(new Insets(4, 0, 4, 0));
+
+            chatMessagesContainer.getChildren().add(centerWrapper);
 
             if (chatMessagesContainer.getChildren().size() > 50) {
                 chatMessagesContainer.getChildren().remove(0);
@@ -354,6 +609,42 @@ public class HomeController {
             chatScrollPane.setVvalue(1.0);
         });
     }
+
+
+
+    /** ---------------- EMOJI UTILITY ---------------- **/
+
+    /**
+     * Lấy URL hình ảnh emoji từ Twemoji CDN
+     * @param emoji - Emoji character
+     * @return URL của hình ảnh emoji
+     */
+    private String getEmojiImageUrl(String emoji) {
+        // Lấy Unicode codepoint của emoji
+        int codePoint = emoji.codePointAt(0);
+        // Chuyển sang hex (format cho Twemoji)
+        String hex = Integer.toHexString(codePoint);
+        // Trả về URL từ Twemoji CDN
+        return "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/" + hex + ".png";
+    }
+    /**
+     * Tạo ImageView cho emoji với màu sắc đầy đủ
+     */
+    private ImageView createEmojiImageView(String emoji, double size) {
+        try {
+            String imageUrl = getEmojiImageUrl(emoji);
+            Image emojiImage = new Image(imageUrl, size, size, true, true, true);
+            ImageView imageView = new ImageView(emojiImage);
+            imageView.setFitWidth(size);
+            imageView.setFitHeight(size);
+            imageView.setPreserveRatio(true);
+            return imageView;
+        } catch (Exception e) {
+            // Fallback to text if image fails
+            return null;
+        }
+    }
+
 
     // Gọi khi đóng HomeController
     public void cleanup() {

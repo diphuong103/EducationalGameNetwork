@@ -202,36 +202,47 @@
                             <!-- Sample Message 1 -->
                             <VBox spacing="3" styleClass="chat-message">
                                 <HBox spacing="6" alignment="CENTER_LEFT">
-                                    <Text text="MathKing99" styleClass="chat-sender"/>
+                                    <Text text="Thám Tử Tư Duy" styleClass="chat-sender"/>
                                     <Text text="●" styleClass="chat-online"/>
                                 </HBox>
-                                <Text text="Ai muốn chơi cùng không?" styleClass="chat-text"/>
+                                <Text text="Giải mã bí ẩn tri thức nào!" styleClass="chat-text"/>
                             </VBox>
 
                             <!-- Sample Message 2 -->
                             <VBox spacing="3" styleClass="chat-message">
                                 <HBox spacing="6" alignment="CENTER_LEFT">
-                                    <Text text="CalcHero" styleClass="chat-sender"/>
+                                    <Text text="Phép Thuật Gia Toán" styleClass="chat-sender"/>
                                     <Text text="●" styleClass="chat-online"/>
                                 </HBox>
-                                <Text text="Mình đang tìm phòng Toán nâng cao!" styleClass="chat-text"/>
+                                <Text text="Sẵn sàng biến hóa những con số chưa?" styleClass="chat-text"/>
                             </VBox>
 
                             <!-- Sample Message 3 - Self -->
                             <VBox spacing="3" styleClass="chat-message chat-self">
-                                <Text text="Bạn" styleClass="chat-sender-self"/>
-                                <Text text="Mình vào được không?" styleClass="chat-text-self"/>
+                                <Text text="Nhà Khoa Học Tí Hon" styleClass="chat-sender-self"/>
+                                <Text text="Ai muốn bay vào không gian học tập?" styleClass="chat-text-self"/>
                             </VBox>
                         </VBox>
                     </ScrollPane>
 
                     <!-- Chat Input -->
-                    <HBox spacing="10" styleClass="chat-input-area">
-                        <TextField fx:id="chatInputField" promptText="Nhập tin nhắn..."
-                                   styleClass="chat-input" HBox.hgrow="ALWAYS"
-                                   onAction="#handleSendMessage"/>
-                        <Button fx:id="sendButton" text="📤 Gửi" styleClass="send-button"
-                                onAction="#handleSendMessage"/>
+                    <HBox spacing="5" alignment="CENTER_LEFT">
+                        <!-- Emoji Button -->
+                        <Button fx:id="emojiButton"
+                                text="😊"
+                                onAction="#handleShowEmoji"
+                                styleClass="emoji-button"/>
+
+                        <!-- Text Input -->
+                        <TextField fx:id="chatInputField"
+                                   promptText="Nhập tin nhắn..."
+                                   HBox.hgrow="ALWAYS"/>
+
+                        <!-- Send Button -->
+                        <Button fx:id="sendChatButton"
+                                text="Gửi"
+                                onAction="#handleSendMessage"
+                                styleClass="send-button"/>
                     </HBox>
                 </VBox>
             </HBox>

@@ -45,6 +45,16 @@
       <artifactId>logback-classic</artifactId>
     </dependency>
 
+
+    <!-- emoji -->
+    <dependency>
+      <groupId>de.jensd</groupId>
+      <artifactId>fontawesomefx</artifactId>
+      <version>8.9</version>
+    </dependency>
+
+
+
     <!-- Common Module -->
     <dependency>
       <groupId>com.edugame</groupId>

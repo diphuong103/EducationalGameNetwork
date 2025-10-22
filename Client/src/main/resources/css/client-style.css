@@ -741,14 +741,54 @@
     -fx-border-radius: 8;
 }
 
-.send-button {
-    -fx-font-size: 13px;
-    -fx-font-weight: 600;
-    -fx-padding: 10 20;
-    -fx-background-color: #10B981;
-    -fx-background-radius: 8;
-    -fx-text-fill: white;
+/* Emoji Button */
+.emoji-button {
+    -fx-background-color: transparent;
     -fx-cursor: hand;
+    -fx-padding: 5;
+    -fx-background-radius: 20px;
+}
+
+.emoji-button:hover {
+    -fx-background-color: #f0f0f0;
+}
+
+.emoji-button:pressed {
+    -fx-background-color: #e0e0e0;
+}
+
+/* Send Button */
+.send-button {
+    -fx-background-color: #0084ff;
+    -fx-text-fill: white;
+    -fx-background-radius: 20px;
+    -fx-cursor: hand;
+    -fx-padding: 8 15 8 15;
+    -fx-font-weight: bold;
+}
+
+.send-button:hover {
+    -fx-background-color: #0073e6;
+}
+
+.send-button:pressed {
+    -fx-background-color: #0062cc;
+}
+
+/* Chat Input */
+#chatInputField {
+    -fx-background-color: #f0f2f5;
+    -fx-background-radius: 20px;
+    -fx-padding: 8 15 8 15;
+    -fx-border-width: 0;
+    -fx-font-size: 14px;
+}
+
+#chatInputField:focused {
+    -fx-background-color: white;
+    -fx-border-color: #0084ff;
+    -fx-border-width: 2px;
+    -fx-border-radius: 20px;
 }
 
 .send-button:hover {
