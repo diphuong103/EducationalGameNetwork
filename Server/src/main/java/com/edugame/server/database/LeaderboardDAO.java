@@ -109,12 +109,28 @@ public class LeaderboardDAO {
                 user.setUsername(rs.getString("username"));
                 user.setFullName(rs.getString("full_name"));
                 user.setAvatarUrl(rs.getString("avatar_url"));
-                user.setTotalScore(rs.getInt("score"));
                 user.setOnline(rs.getBoolean("is_online"));
+
+                int score = rs.getInt("score");
+
+                // ✅ Gán đúng theo môn
+                switch (subject.toLowerCase()) {
+                    case "math":
+                        user.setMathScore(score);
+                        break;
+                    case "english":
+                        user.setEnglishScore(score);
+                        break;
+                    case "literature":
+                        user.setLiteratureScore(score);
+                        break;
+                    default:
+                        user.setTotalScore(score);
+                        break;
+                }
 
                 leaderboard.add(user);
             }
-
         } catch (SQLException e) {
             System.err.println("✗ Error getting leaderboard: " + e.getMessage());
         }

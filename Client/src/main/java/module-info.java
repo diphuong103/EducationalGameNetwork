@@ -1,13 +1,14 @@
 module com.edugame.client {
     requires javafx.controls;
-    requires javafx.fxml;
     requires com.google.gson;
-    requires javafx.graphics;
     requires javafx.media;
     requires fontawesomefx;
     requires java.sql;
+    requires com.edugame.common;
+    requires javafx.fxml;
 
 
+    opens com.edugame.client.model to com.google.gson;
     opens com.edugame.client to javafx.fxml;
     opens com.edugame.client.controller to javafx.fxml;
 

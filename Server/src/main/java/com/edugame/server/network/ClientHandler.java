@@ -44,11 +44,20 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
+        System.out.println("🟢 ClientHandler thread STARTED, ID: " + Thread.currentThread().getId());
+
         try {
             String message;
+            int messageCount = 0;
+
             while (running && (message = reader.readLine()) != null) {
+                messageCount++;
+                System.out.println("📨 [Handler-" + Thread.currentThread().getId() + "] Message #" + messageCount);
                 handleMessage(message);
             }
+
+            System.out.println("🔴 ClientHandler loop ENDED after " + messageCount + " messages");
+
         } catch (IOException e) {
             System.err.println("✗ Client disconnected: " + e.getMessage());
         } finally {
@@ -58,41 +67,104 @@ public class ClientHandler implements Runnable {
 
     private void handleMessage(String message) {
         try {
+            System.out.println("🔵 handleMessage() parsing: " + message.substring(0, Math.min(100, message.length())) + "...");
+
             JsonObject jsonMessage = gson.fromJson(message, JsonObject.class);
             String type = jsonMessage.get("type").getAsString();
 
-            System.out.println("📨 Received: " + type + " from " +
-                    (currentUser != null ? currentUser.getUsername() : "anonymous"));
+            System.out.println("   📦 Type parsed: " + type);
+            System.out.println("   👤 Current user: " + (currentUser != null ? currentUser.getUsername() : "null"));
 
             switch (type) {
                 case Protocol.LOGIN:
+                    System.out.println("   → Calling handleLogin()");
                     handleLogin(jsonMessage);
                     break;
 
                 case Protocol.REGISTER:
+                    System.out.println("   → Calling handleRegister()");
                     handleRegister(jsonMessage);
                     break;
 
                 case Protocol.GET_LEADERBOARD:
+                    System.out.println("   → Calling handleGetLeaderboard()");
                     handleGetLeaderboard(jsonMessage);
                     break;
 
                 case Protocol.LOGOUT:
+                    System.out.println("   → Calling handleLogout()");
                     handleLogout();
                     break;
+
                 case Protocol.GLOBAL_CHAT:
+                    System.out.println("   → Calling handleGlobalChat()");
                     handleGlobalChat(jsonMessage);
                     break;
 
+                case Protocol.GET_PROFILE:
+                    System.out.println("   → Calling handleGetProfile()");
+                    handleGetProfile(jsonMessage);
+                    break;
+
                 default:
+                    System.out.println("   ❓ Unknown type: " + type);
                     sendError("Unknown message type: " + type);
             }
 
+            System.out.println("   ✅ handleMessage() completed for type: " + type);
+
         } catch (Exception e) {
-            System.err.println("✗ Error handling message: " + e.getMessage());
+            System.err.println("❌ Error handling message: " + e.getMessage());
+            e.printStackTrace();
             sendError("Invalid message format");
         }
     }
+    private void handleGetProfile(JsonObject jsonMessage) {
+        System.out.println("🔵 handleGetProfile() CALLED");
+
+        if (currentUser == null) {
+            System.err.println("  ❌ currentUser is NULL!");
+            sendError("Bạn chưa đăng nhập!");
+            return;
+        }
+
+        System.out.println("  ✅ currentUser exists: " + currentUser.getUsername());
+        int userId = currentUser.getUserId();
+
+        System.out.println("  🔍 Getting user from database, userId=" + userId);
+        User user = userDAO.getUserById(userId);
+
+        if (user == null) {
+            System.err.println("  ❌ User not found in database!");
+            sendError("Không tìm thấy thông tin người dùng!");
+            return;
+        }
+
+        System.out.println("  ✅ User loaded from DB: " + user.getUsername());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("type", Protocol.GET_PROFILE);
+        response.put("success", true);
+        response.put("userId", user.getUserId());
+        response.put("username", user.getUsername());
+        response.put("fullName", user.getFullName());
+        response.put("email", user.getEmail());
+        response.put("avatarUrl", user.getAvatarUrl());
+        response.put("totalScore", user.getTotalScore());
+        response.put("mathScore", user.getMathScore());
+        response.put("englishScore", user.getEnglishScore());
+        response.put("literatureScore", user.getLiteratureScore());
+        response.put("totalGames", user.getTotalGames());
+        response.put("wins", user.getWins());
+
+        System.out.println("  📦 Response prepared with " + response.size() + " fields");
+        System.out.println("  📤 Sending profile JSON: " + gson.toJson(response));
+
+        sendMessage(response);
+
+        System.out.println("  ✅ handleGetProfile() COMPLETED");
+    }
+
 
     private void handleLogin(JsonObject jsonMessage) {
         String username = jsonMessage.get("username").getAsString();
@@ -202,36 +274,73 @@ public class ClientHandler implements Runnable {
             String subject = jsonMessage.has("subject") ? jsonMessage.get("subject").getAsString() : "total";
             int limit = jsonMessage.has("limit") ? jsonMessage.get("limit").getAsInt() : 50;
 
+            System.out.println("📊 Getting leaderboard - Subject: " + subject + ", Limit: " + limit);
+
             // Lấy danh sách từ DB
             java.util.List<User> leaderboard = leaderboardDAO.getLeaderboardBySubject(subject, limit);
+
+            // Kiểm tra danh sách rỗng
+            if (leaderboard == null || leaderboard.isEmpty()) {
+                System.err.println("⚠️ No users found in leaderboard for subject: " + subject);
+            }
 
             // Chuẩn bị phản hồi JSON
             Map<String, Object> response = new HashMap<>();
             response.put("type", Protocol.GET_LEADERBOARD);
             response.put("success", true);
+            response.put("subject", subject);
 
-            // Tạo danh sách người chơi
             java.util.List<Map<String, Object>> usersData = new java.util.ArrayList<>();
+
+            int index = 0;
             for (User user : leaderboard) {
+                index++;
                 Map<String, Object> u = new HashMap<>();
                 u.put("userId", user.getUserId());
                 u.put("username", user.getUsername());
                 u.put("fullName", user.getFullName());
                 u.put("avatarUrl", user.getAvatarUrl());
-                u.put("totalScore", user.getTotalScore());
                 u.put("isOnline", user.isOnline());
+
+                // ✅ Lấy điểm đúng theo môn
+                int score;
+                switch (subject.toLowerCase()) {
+                    case "math":
+                        score = user.getMathScore();
+                        break;
+                    case "english":
+                        score = user.getEnglishScore();
+                        break;
+                    case "literature":
+                        score = user.getLiteratureScore();
+                        break;
+                    default:
+                        score = user.getTotalScore();
+                        break;
+                }
+
+                u.put("totalScore", score);
                 usersData.add(u);
+
+                // 🔍 Log chi tiết từng user
+                System.out.printf("   #%d %s | math=%d, eng=%d, lit=%d, total=%d, isOnline=%s%n",
+                        index, user.getUsername(),
+                        user.getMathScore(), user.getEnglishScore(),
+                        user.getLiteratureScore(), user.getTotalScore(),
+                        user.isOnline());
             }
 
             response.put("leaderboard", usersData);
             sendMessage(response);
 
-            System.out.println("✓ Sent leaderboard (" + subject + ", top " + usersData.size() + ")");
+            System.out.println("✅ Sent leaderboard (" + subject + ", top " + usersData.size() + ")");
         } catch (Exception e) {
-            System.err.println("✗ Error handling leaderboard: " + e.getMessage());
+            System.err.println("❌ Error handling leaderboard: " + e.getMessage());
+            e.printStackTrace();
             sendError("Không thể tải bảng xếp hạng");
         }
     }
+
 
 
     private void handleGlobalChat(JsonObject jsonMessage) {
@@ -269,14 +378,32 @@ public class ClientHandler implements Runnable {
         try {
             if (writer != null && !writer.checkError()) {
                 String json = gson.toJson(data);
+
+                System.out.println("  📤 sendMessage() called:");
+                System.out.println("     Type: " + data.get("type"));
+                System.out.println("     JSON length: " + json.length());
+                System.out.println("     First 200 chars: " + json.substring(0, Math.min(200, json.length())));
+
                 writer.println(json);
                 writer.flush();
-                System.out.println("  ✉️ Sent message type: " + data.get("type")); // Debug
+
+                if (writer.checkError()) {
+                    System.err.println("  ❌ Writer has error after flush!");
+                } else {
+                    System.out.println("  ✅ Message flushed successfully");
+                }
+
+                if (clientSocket.isClosed() || !clientSocket.isConnected()) {
+                    System.err.println("  ⚠️ Socket is closed or disconnected!");
+                } else {
+                    System.out.println("  ✅ Socket still alive");
+                }
+
             } else {
-                System.err.println("✗ Writer is null or has error");
+                System.err.println("  ❌ Writer is null or has error before sending");
             }
         } catch (Exception e) {
-            System.err.println("✗ Error sending message: " + e.getMessage());
+            System.err.println("  ❌ Error in sendMessage: " + e.getMessage());
             e.printStackTrace();
         }
     }

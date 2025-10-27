@@ -3,316 +3,445 @@ package com.edugame.client.controller;
 import com.edugame.client.model.User;
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.SceneManager;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.*;
 import javafx.scene.text.Text;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class LeaderboardController {
 
     @FXML private VBox leaderboardContainer;
+    @FXML private ComboBox<String> subjectFilter;
+    @FXML private TextField searchField;
+    @FXML private Button backButton;
+    @FXML private Label loadingLabel;
     @FXML private ProgressIndicator loadingIndicator;
 
-    @FXML private ToggleButton btnAllSubjects;
-    @FXML private ToggleButton btnMath;
-    @FXML private ToggleButton btnEnglish;
-    @FXML private ToggleButton btnLiterature;
-
-    @FXML private HBox currentUserRank;
-    @FXML private Text txtCurrentRank;
-    @FXML private Text txtCurrentUsername;
-    @FXML private Text txtCurrentScore;
-
     private ServerConnection serverConnection;
-    private String currentFilter = "total";
-    private static final int LEADERBOARD_LIMIT = 50;
+    private List<User> allUsers = new ArrayList<>();
+    private String currentSubject = "total";
 
-    private Gson gson = new Gson();
-    private User currentUser;
-
-    private Thread messageListenerThread;
-    private volatile boolean isListening = false;
-
-    // ToggleGroup để đảm bảo chỉ 1 button được chọn
-    private ToggleGroup subjectFilterGroup;
+    @FXML
+    private ToggleButton btnAllSubjects, btnMath, btnEnglish, btnLiterature;
 
     @FXML
     public void initialize() {
-        System.out.println("LeaderboardController initializing...");
+        System.out.println("🚀 LeaderboardController initializing...");
 
         serverConnection = ServerConnection.getInstance();
-        currentUser = createCurrentUser();
 
-        // ✅ Tạo ToggleGroup và gán cho các button
-        setupToggleGroup();
+        ToggleGroup filterGroup = new ToggleGroup();
+        btnAllSubjects.setToggleGroup(filterGroup);
+        btnMath.setToggleGroup(filterGroup);
+        btnEnglish.setToggleGroup(filterGroup);
+        btnLiterature.setToggleGroup(filterGroup);
 
-        // Chỉ khởi động listener một lần duy nhất
-        if (!isListening) {
-            startMessageListener();
-        }
+        btnAllSubjects.setSelected(true);
 
-        // Load leaderboard ban đầu
-        loadLeaderboard("total");
+        // Setup subject filter
+        setupSubjectFilter();
+
+        // Setup search
+        setupSearch();
+
+        // Show loading state
+        showLoading(true);
+
+        // Load leaderboard data
+        loadLeaderboardData();
     }
 
     /**
-     * Setup ToggleGroup cho filter buttons
+     * Setup subject filter dropdown
      */
-    private void setupToggleGroup() {
-        subjectFilterGroup = new ToggleGroup();
+    private void setupSubjectFilter() {
+        if (subjectFilter != null) {
+            subjectFilter.getItems().addAll(
+                    "Tổng điểm",
+                    "Toán học",
+                    "Tiếng Anh",
+                    "Văn học"
+            );
+            subjectFilter.setValue("Tổng điểm");
 
-        btnAllSubjects.setToggleGroup(subjectFilterGroup);
-        btnMath.setToggleGroup(subjectFilterGroup);
-        btnEnglish.setToggleGroup(subjectFilterGroup);
-        btnLiterature.setToggleGroup(subjectFilterGroup);
-
-        // Chọn mặc định
-        btnAllSubjects.setSelected(true);
-
-        // ✅ Ngăn không cho bỏ chọn tất cả (luôn phải có 1 button được chọn)
-        subjectFilterGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue == null) {
-                oldValue.setSelected(true);
-            }
-        });
-    }
-
-    private User createCurrentUser() {
-        if (serverConnection.getCurrentUserId() > 0) {
-            User user = new User();
-            user.setUserId(serverConnection.getCurrentUserId());
-            user.setUsername(serverConnection.getCurrentUsername());
-            user.setFullName(serverConnection.getCurrentFullName());
-            user.setTotalScore(serverConnection.getTotalScore());
-            return user;
-        }
-        return null;
-    }
-
-    private void startMessageListener() {
-        if (isListening) {
-            System.out.println("⚠ Listener already running, skipping...");
-            return;
-        }
-
-        isListening = true;
-        messageListenerThread = new Thread(() -> {
-            System.out.println("✓ Leaderboard listener started");
-
-            while (isListening && serverConnection.isConnected()) {
-                try {
-                    String message = serverConnection.receiveMessage();
-                    if (message != null && !message.trim().isEmpty()) {
-                        handleServerResponse(message);
-                    }
-                } catch (IOException e) {
-                    if (isListening) {
-                        System.err.println("✗ Error receiving message: " + e.getMessage());
-                    }
-                    break;
+            subjectFilter.setOnAction(e -> {
+                String selected = subjectFilter.getValue();
+                switch (selected) {
+                    case "Toán học": currentSubject = "math"; break;
+                    case "Tiếng Anh": currentSubject = "english"; break;
+                    case "Văn học": currentSubject = "literature"; break;
+                    default: currentSubject = "total";
                 }
-            }
-
-            System.out.println("✓ Leaderboard listener stopped");
-        });
-
-        messageListenerThread.setDaemon(true);
-        messageListenerThread.start();
-    }
-
-    private void handleServerResponse(String message) {
-        try {
-            JsonObject response = gson.fromJson(message, JsonObject.class);
-
-            if (!response.has("type")) {
-                return;
-            }
-
-            String type = response.get("type").getAsString();
-
-            if ("GET_LEADERBOARD".equals(type)) {
-                boolean success = response.get("success").getAsBoolean();
-
-                if (success && response.has("leaderboard")) {
-                    JsonArray leaderboardArray = response.getAsJsonArray("leaderboard");
-                    List<User> leaderboard = new ArrayList<>();
-
-                    for (JsonElement element : leaderboardArray) {
-                        JsonObject userObj = element.getAsJsonObject();
-                        User user = new User();
-                        user.setUserId(userObj.get("userId").getAsInt());
-                        user.setUsername(userObj.get("username").getAsString());
-                        user.setFullName(userObj.get("fullName").getAsString());
-                        user.setTotalScore(userObj.get("totalScore").getAsInt());
-                        user.setOnline(userObj.get("isOnline").getAsBoolean());
-
-                        if (userObj.has("avatarUrl") && !userObj.get("avatarUrl").isJsonNull()) {
-                            user.setAvatarUrl(userObj.get("avatarUrl").getAsString());
-                        }
-
-                        leaderboard.add(user);
-                    }
-
-                    System.out.println("✓ Leaderboard received: " + leaderboard.size() + " users");
-
-                    Platform.runLater(() -> {
-                        displayLeaderboard(leaderboard);
-                        showLoading(false);
-                    });
-                } else {
-                    Platform.runLater(() -> {
-                        showError("Không thể tải bảng xếp hạng");
-                        showLoading(false);
-                    });
-                }
-            }
-
-        } catch (Exception e) {
-            System.err.println("✗ Error parsing server response: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    private void displayLeaderboard(List<User> users) {
-        leaderboardContainer.getChildren().clear();
-
-        if (users.isEmpty()) {
-            Text emptyText = new Text("Chưa có dữ liệu xếp hạng");
-            emptyText.getStyleClass().add("empty-text");
-            HBox emptyBox = new HBox(emptyText);
-            emptyBox.setAlignment(Pos.CENTER);
-            emptyBox.setPrefHeight(200);
-            leaderboardContainer.getChildren().add(emptyBox);
-            return;
-        }
-
-        // Tìm rank của user hiện tại
-        int currentUserRankPosition = -1;
-        for (int i = 0; i < users.size(); i++) {
-            if (currentUser != null && users.get(i).getUserId() == currentUser.getUserId()) {
-                currentUserRankPosition = i + 1;
-                break;
-            }
-        }
-
-        // Hiển thị rank của user hiện tại
-        if (currentUserRankPosition > 0) {
-            displayCurrentUserRank(currentUserRankPosition, users.get(currentUserRankPosition - 1).getTotalScore());
-        }
-
-        // Hiển thị toàn bộ bảng xếp hạng
-        for (int i = 0; i < users.size(); i++) {
-            User user = users.get(i);
-            int rank = i + 1;
-            HBox rankItem = createRankItem(rank, user);
-            leaderboardContainer.getChildren().add(rankItem);
-        }
-    }
-
-    private HBox createRankItem(int rank, User user) {
-        HBox rankItem = new HBox();
-        rankItem.setSpacing(15);
-        rankItem.setAlignment(Pos.CENTER_LEFT);
-        rankItem.setPadding(new Insets(12, 15, 12, 15));
-
-        // Style theo rank
-        if (rank == 1) {
-            rankItem.getStyleClass().addAll("rank-item", "rank-1");
-        } else if (rank == 2) {
-            rankItem.getStyleClass().addAll("rank-item", "rank-2");
-        } else if (rank == 3) {
-            rankItem.getStyleClass().addAll("rank-item", "rank-3");
-        } else {
-            rankItem.getStyleClass().add("rank-item");
-        }
-
-        // Highlight user hiện tại
-        if (currentUser != null && user.getUserId() == currentUser.getUserId()) {
-            rankItem.getStyleClass().add("rank-current-highlight");
-        }
-
-        // Số thứ hạng
-        Text rankText = new Text(String.valueOf(rank));
-        rankText.getStyleClass().add("rank-number");
-        if (rank == 1) rankText.getStyleClass().add("gold");
-        else if (rank == 2) rankText.getStyleClass().add("silver");
-        else if (rank == 3) rankText.getStyleClass().add("bronze");
-
-        // Thông tin user
-        VBox userInfo = new VBox(3);
-        HBox.setHgrow(userInfo, javafx.scene.layout.Priority.ALWAYS);
-
-        Text nameText = new Text(user.getFullName() != null && !user.getFullName().isEmpty()
-                ? user.getFullName() : user.getUsername());
-        nameText.getStyleClass().add("rank-name");
-
-        Text usernameText = new Text("@" + user.getUsername());
-        usernameText.getStyleClass().add("rank-username");
-
-        userInfo.getChildren().addAll(nameText, usernameText);
-
-        // Điểm số
-        Text scoreText = new Text(formatScore(user.getTotalScore()));
-        scoreText.getStyleClass().add("rank-score");
-
-        // Trạng thái online
-        Text onlineStatus = new Text("●");
-        onlineStatus.getStyleClass().add(user.isOnline() ? "online-status" : "offline-status");
-
-        rankItem.getChildren().addAll(rankText, userInfo, scoreText, onlineStatus);
-
-        return rankItem;
-    }
-
-    private void displayCurrentUserRank(int rank, int score) {
-        if (currentUserRank != null && txtCurrentRank != null &&
-                txtCurrentUsername != null && txtCurrentScore != null) {
-
-            txtCurrentRank.setText(String.valueOf(rank));
-            txtCurrentUsername.setText(currentUser.getFullName() != null && !currentUser.getFullName().isEmpty()
-                    ? currentUser.getFullName() : currentUser.getUsername());
-            txtCurrentScore.setText(formatScore(score));
-            currentUserRank.setVisible(true);
-        }
-    }
-
-    private void loadLeaderboard(String subject) {
-        showLoading(true);
-
-        try {
-            java.util.Map<String, Object> request = new java.util.HashMap<>();
-            request.put("type", "GET_LEADERBOARD");
-            request.put("subject", subject);
-            request.put("limit", LEADERBOARD_LIMIT);
-
-            serverConnection.sendJson(request);
-
-            System.out.println("✓ Sent leaderboard request: " + subject);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            Platform.runLater(() -> {
-                showError("Lỗi kết nối đến server");
-                showLoading(false);
+                loadLeaderboardData();
             });
         }
     }
 
+    /**
+     * Setup search functionality
+     */
+    private void setupSearch() {
+        if (searchField != null) {
+            searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+                filterLeaderboard(newVal);
+            });
+        }
+    }
+
+    /**
+     * Load leaderboard data from server
+     */
+    private void loadLeaderboardData() {
+        if (!serverConnection.isConnected()) {
+            showError("Không thể kết nối đến server");
+            showLoading(false);
+            return;
+        }
+
+        System.out.println("📊 Loading leaderboard for subject: " + currentSubject);
+        showLoading(true);
+
+        // ✅ QUAN TRỌNG: Gọi getLeaderboardBySubject với currentSubject
+        serverConnection.getLeaderboardBySubject(currentSubject, 100, leaderboardData -> {
+            Platform.runLater(() -> {
+                if (leaderboardData != null && !leaderboardData.isEmpty()) {
+                    // Convert to User list
+                    allUsers.clear();
+                    for (Map<String, Object> data : leaderboardData) {
+                        User user = new User();
+                        user.setUserId((Integer) data.get("userId"));
+                        user.setUsername((String) data.get("username"));
+                        user.setFullName((String) data.get("fullName"));
+                        user.setTotalScore((Integer) data.get("totalScore")); // Điểm của môn được chọn
+                        user.setOnline((Boolean) data.get("isOnline"));
+
+                        if (data.containsKey("avatarUrl")) {
+                            user.setAvatarUrl((String) data.get("avatarUrl"));
+                        }
+
+                        allUsers.add(user);
+                    }
+
+                    System.out.println("✅ Leaderboard loaded: " + allUsers.size() + " users for " + currentSubject);
+                    displayLeaderboard(allUsers);
+                    showLoading(false);
+                } else {
+                    System.err.println("⚠️ No leaderboard data received");
+                    showError("Không có dữ liệu bảng xếp hạng");
+                    showLoading(false);
+                }
+            });
+        });
+    }
+
+    /**
+     * Display leaderboard in UI
+     */
+    private void displayLeaderboard(List<User> users) {
+        if (leaderboardContainer == null) {
+            System.err.println("❌ leaderboardContainer is null!");
+            return;
+        }
+
+        leaderboardContainer.getChildren().clear();
+
+        if (users.isEmpty()) {
+            Label emptyLabel = new Label("Không có dữ liệu");
+            emptyLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #999;");
+            leaderboardContainer.getChildren().add(emptyLabel);
+            return;
+        }
+
+        // Find current user
+        int currentUserId = serverConnection.getCurrentUserId();
+
+        for (int i = 0; i < users.size(); i++) {
+            User user = users.get(i);
+            int rank = i + 1;
+            boolean isCurrentUser = (user.getUserId() == currentUserId);
+
+            HBox rankItem = createRankItem(rank, user, isCurrentUser);
+            leaderboardContainer.getChildren().add(rankItem);
+        }
+
+        System.out.println("✅ Displayed " + users.size() + " users in leaderboard");
+    }
+
+    /**
+     * Create a rank item UI component
+     */
+    private HBox createRankItem(int rank, User user, boolean isCurrentUser) {
+        HBox rankItem = new HBox(15);
+        rankItem.setPadding(new Insets(12, 20, 12, 20));
+        rankItem.setAlignment(Pos.CENTER_LEFT);
+        rankItem.setStyle(
+                "-fx-background-color: " + (isCurrentUser ? "#e3f2fd" : "white") + ";" +
+                        "-fx-background-radius: 10;" +
+                        "-fx-border-color: " + (isCurrentUser ? "#2196F3" : "#e0e0e0") + ";" +
+                        "-fx-border-width: " + (isCurrentUser ? "2" : "1") + ";" +
+                        "-fx-border-radius: 10;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
+        );
+
+        // Rank badge
+        StackPane rankBadge = createRankBadge(rank);
+
+        // Avatar
+        ImageView avatar = createAvatar(user.getAvatarUrl());
+
+        // User info
+        VBox userInfo = new VBox(5);
+        HBox.setHgrow(userInfo, Priority.ALWAYS);
+
+        // Name with highlight for current user
+        String displayName = isCurrentUser ? "⭐ " +
+                (user.getFullName() != null ? user.getFullName() : user.getUsername()) :
+                (user.getFullName() != null ? user.getFullName() : user.getUsername());
+
+        Label nameLabel = new Label(displayName);
+        nameLabel.setStyle(
+                "-fx-font-size: " + (rank <= 3 ? "16px" : "14px") + ";" +
+                        "-fx-font-weight: " + (rank <= 3 || isCurrentUser ? "bold" : "normal") + ";" +
+                        "-fx-text-fill: " + (isCurrentUser ? "#1976D2" : "#333") + ";"
+        );
+
+        Label usernameLabel = new Label("@" + user.getUsername());
+        usernameLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+
+        userInfo.getChildren().addAll(nameLabel, usernameLabel);
+
+        // Score
+        VBox scoreBox = new VBox(2);
+        scoreBox.setAlignment(Pos.CENTER_RIGHT);
+
+        Label scoreLabel = new Label(formatScore(user.getTotalScore()));
+        scoreLabel.setStyle(
+                "-fx-font-size: " + (rank <= 3 ? "18px" : "16px") + ";" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: " + getRankColor(rank) + ";"
+        );
+
+        Label scoreText = new Label("điểm");
+        scoreText.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+
+        scoreBox.getChildren().addAll(scoreLabel, scoreText);
+
+        // Online indicator
+        if (user.isOnline()) {
+            HBox onlineBox = new HBox(5);
+            onlineBox.setAlignment(Pos.CENTER);
+
+            Text onlineDot = new Text("●");
+            onlineDot.setStyle("-fx-fill: #4CAF50; -fx-font-size: 12px;");
+
+            Label onlineLabel = new Label("Online");
+            onlineLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #4CAF50;");
+
+            onlineBox.getChildren().addAll(onlineDot, onlineLabel);
+
+            rankItem.getChildren().addAll(rankBadge, avatar, userInfo, scoreBox, onlineBox);
+        } else {
+            HBox offlineBox = new HBox(5);
+            offlineBox.setAlignment(Pos.CENTER);
+
+            Text offlineDot = new Text("●");
+            offlineDot.setStyle("-fx-fill: #9E9E9E; -fx-font-size: 12px;");
+
+            Label offlineLabel = new Label("Offline");
+            offlineLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #9E9E9E;");
+
+            offlineBox.getChildren().addAll(offlineDot, offlineLabel);
+
+            rankItem.getChildren().addAll(rankBadge, avatar, userInfo, scoreBox, offlineBox);
+        }
+
+        // Hover effect
+        rankItem.setOnMouseEntered(e -> {
+            rankItem.setStyle(
+                    rankItem.getStyle() +
+                            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 3);" +
+                            "-fx-cursor: hand;"
+            );
+        });
+
+        rankItem.setOnMouseExited(e -> {
+            rankItem.setStyle(
+                    rankItem.getStyle().replace(
+                            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 3);",
+                            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);"
+                    ) +
+                            "-fx-cursor: default;"
+            );
+        });
+
+        return rankItem;
+    }
+
+    /**
+     * Create rank badge
+     */
+    private StackPane createRankBadge(int rank) {
+        StackPane badge = new StackPane();
+        badge.setPrefSize(50, 50);
+        badge.setMinSize(50, 50);
+        badge.setMaxSize(50, 50);
+
+        String bgColor;
+        String textColor;
+        String emoji = "";
+
+        if (rank == 1) {
+            bgColor = "#FFD700";
+            textColor = "#FFF";
+            emoji = "🥇";
+        } else if (rank == 2) {
+            bgColor = "#C0C0C0";
+            textColor = "#FFF";
+            emoji = "🥈";
+        } else if (rank == 3) {
+            bgColor = "#CD7F32";
+            textColor = "#FFF";
+            emoji = "🥉";
+        } else {
+            bgColor = "#f5f5f5";
+            textColor = "#666";
+        }
+
+        badge.setStyle(
+                "-fx-background-color: " + bgColor + ";" +
+                        "-fx-background-radius: 25;" +
+                        "-fx-border-color: white;" +
+                        "-fx-border-width: 2;" +
+                        "-fx-border-radius: 25;"
+        );
+
+        Label rankLabel = new Label(rank <= 3 ? emoji : String.valueOf(rank));
+        rankLabel.setStyle(
+                "-fx-font-size: " + (rank <= 3 ? "20px" : "16px") + ";" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: " + textColor + ";"
+        );
+
+        badge.getChildren().add(rankLabel);
+        return badge;
+    }
+
+    /**
+     * Create avatar image
+     */
+    private ImageView createAvatar(String avatarUrl) {
+        ImageView avatar = new ImageView();
+        avatar.setFitWidth(50);
+        avatar.setFitHeight(50);
+        avatar.setPreserveRatio(true);
+
+        try {
+            String path = "/images/avatars/" +
+                    (avatarUrl != null ? avatarUrl : "avatar4.png");
+            Image image = new Image(getClass().getResourceAsStream(path));
+
+            if (image.isError()) {
+                image = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+            }
+
+            avatar.setImage(image);
+        } catch (Exception e) {
+            System.err.println("❌ Error loading avatar: " + e.getMessage());
+        }
+
+        // Circular clip
+        javafx.scene.shape.Circle clip = new javafx.scene.shape.Circle(25, 25, 25);
+        avatar.setClip(clip);
+
+        return avatar;
+    }
+
+    /**
+     * Filter leaderboard by search text
+     */
+    private void filterLeaderboard(String searchText) {
+        if (searchText == null || searchText.trim().isEmpty()) {
+            displayLeaderboard(allUsers);
+            return;
+        }
+
+        String search = searchText.toLowerCase().trim();
+        List<User> filtered = new ArrayList<>();
+
+        for (User user : allUsers) {
+            String username = user.getUsername().toLowerCase();
+            String fullName = user.getFullName() != null ?
+                    user.getFullName().toLowerCase() : "";
+
+            if (username.contains(search) || fullName.contains(search)) {
+                filtered.add(user);
+            }
+        }
+
+        displayLeaderboard(filtered);
+    }
+
+    /**
+     * Show/hide loading indicator
+     */
+    private void showLoading(boolean show) {
+        if (loadingLabel != null) {
+            loadingLabel.setVisible(show);
+            loadingLabel.setManaged(show);
+        }
+
+        if (loadingIndicator != null) {
+            loadingIndicator.setVisible(show);
+            loadingIndicator.setManaged(show);
+        }
+
+        if (leaderboardContainer != null) {
+            leaderboardContainer.setVisible(!show);
+            leaderboardContainer.setManaged(!show);
+        }
+    }
+
+    /**
+     * Get rank color
+     */
+    private String getRankColor(int rank) {
+        if (rank == 1) return "#FFD700";
+        if (rank == 2) return "#C0C0C0";
+        if (rank == 3) return "#CD7F32";
+        return "#666";
+    }
+
+    /**
+     * Format score with thousands separator
+     */
+    private String formatScore(int score) {
+        return String.format("%,d", score).replace(",", ".");
+    }
+
+    /**
+     * Show error message
+     */
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Lỗi");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    /** ---------------- EVENT HANDLERS ---------------- */
+
     @FXML
     private void handleBack() {
-        cleanup();
         try {
             SceneManager.getInstance().switchScene("home.fxml");
         } catch (Exception e) {
@@ -323,59 +452,48 @@ public class LeaderboardController {
 
     @FXML
     private void handleRefresh() {
-        loadLeaderboard(currentFilter);
+        loadLeaderboardData();
     }
+
+    /** ---------------- FILTER HANDLERS ---------------- */
 
     @FXML
     private void handleFilterAll() {
-        currentFilter = "total";
-        loadLeaderboard("total");
+        System.out.println("🔘 Filter: Tổng điểm");
+        currentSubject = "total";
+        if (subjectFilter != null) {
+            subjectFilter.setValue("Tổng điểm");
+        }
+        loadLeaderboardData();
     }
 
     @FXML
     private void handleFilterMath() {
-        currentFilter = "math";
-        loadLeaderboard("math");
+        System.out.println("🔘 Filter: Toán học");
+        currentSubject = "math";
+        if (subjectFilter != null) {
+            subjectFilter.setValue("Toán học");
+        }
+        loadLeaderboardData();
     }
 
     @FXML
     private void handleFilterEnglish() {
-        currentFilter = "english";
-        loadLeaderboard("english");
+        System.out.println("🔘 Filter: Tiếng Anh");
+        currentSubject = "english";
+        if (subjectFilter != null) {
+            subjectFilter.setValue("Tiếng Anh");
+        }
+        loadLeaderboardData();
     }
 
     @FXML
     private void handleFilterLiterature() {
-        currentFilter = "literature";
-        loadLeaderboard("literature");
-    }
-
-    private String formatScore(int score) {
-        return String.format("%,d điểm", score).replace(",", ".");
-    }
-
-    private void showLoading(boolean show) {
-        if (loadingIndicator != null) {
-            Platform.runLater(() -> loadingIndicator.setVisible(show));
+        System.out.println("🔘 Filter: Văn học");
+        currentSubject = "literature";
+        if (subjectFilter != null) {
+            subjectFilter.setValue("Văn học");
         }
-    }
-
-    private void showError(String message) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Lỗi");
-            alert.setHeaderText(null);
-            alert.setContentText(message);
-            alert.showAndWait();
-        });
-    }
-
-    public void cleanup() {
-        System.out.println("✓ Cleaning up LeaderboardController...");
-        isListening = false;
-
-        if (messageListenerThread != null && messageListenerThread.isAlive()) {
-            messageListenerThread.interrupt();
-        }
+        loadLeaderboardData();
     }
 }

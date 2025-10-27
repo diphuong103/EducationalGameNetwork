@@ -1,14 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.scene.image.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.text.*?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.edugame.client.controller.ProfileController"
-            prefHeight="400.0" prefWidth="600.0">
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.edugame.client.controller.ProfileController">
 
-</AnchorPane>
+    <top>
+        <HBox spacing="10" alignment="CENTER_LEFT" styleClass="profile-header">
+            <Button text="← Quay lại" onAction="#handleBack" styleClass="profile-back-btn"/>
+            <Label text="Hồ sơ cá nhân" styleClass="profile-title"/>
+        </HBox>
+    </top>
+
+    <center>
+        <VBox alignment="CENTER" spacing="15" styleClass="profile-content">
+            <ImageView fx:id="avatarImage" fitHeight="120" fitWidth="120"/>
+            <Button text="Đổi ảnh đại diện" onAction="#handleChangeAvatar" styleClass="profile-change-avatar-btn"/>
+
+            <Label fx:id="nameLabel" text="Tên người dùng" styleClass="profile-name-label"/>
+            <Button text="Chỉnh sửa tên" onAction="#handleEditName" styleClass="profile-edit-name-btn"/>
+
+            <GridPane hgap="20" vgap="10" styleClass="profile-info-grid">
+                <columnConstraints>
+                    <ColumnConstraints halignment="RIGHT"/>
+                    <ColumnConstraints halignment="LEFT"/>
+                </columnConstraints>
+
+                <Label text="Tuổi:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                <Label fx:id="ageLabel" text="20" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                <Label text="Điểm:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                <Label fx:id="scoreLabel" text="1500" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                <Label text="Tổng trận đã chơi:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                <Label fx:id="totalGamesLabel" text="30" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                <Label text="Số trận thắng:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                <Label fx:id="winLabel" text="18" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                <Label text="Tỉ lệ thắng:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                <Label fx:id="winRateLabel" text="60%" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+            </GridPane>
+
+            <Button text="Xem chi tiết" onAction="#handleShowDetails" styleClass="profile-detail-btn"/>
+        </VBox>
+    </center>
+</BorderPane>
+

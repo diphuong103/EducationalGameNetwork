@@ -11,7 +11,8 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.edugame.client.controller.HomeController"
             styleClass="home-root"
-            prefWidth="1000" prefHeight="700">
+            prefWidth="1000" prefHeight="700"
+>
 
     <!-- HEADER -->
     <top>
@@ -24,7 +25,7 @@
             <HBox spacing="12" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
                 <!-- Avatar -->
                 <StackPane styleClass="user-avatar">
-                    <ImageView fx:id="userAvatar" fitHeight="50" fitWidth="50" preserveRatio="true">
+                    <ImageView fx:id="userAvatar" fitHeight="50" fitWidth="50" preserveRatio="true"  onMouseClicked="#handleAvatarClick">
                         <image>
                             <Image url="@../images/avatars/avatar4.png"/>
                         </image>
@@ -35,10 +36,6 @@
                 <VBox spacing="3">
                     <Text fx:id="userNameText" text="Nguyễn Văn An" styleClass="user-name"/>
                     <HBox spacing="15">
-                        <HBox spacing="5" alignment="CENTER_LEFT">
-                            <Text text="⭐" styleClass="info-icon"/>
-                            <Text fx:id="levelText" text="Level 12" styleClass="info-text"/>
-                        </HBox>
                         <HBox spacing="5" alignment="CENTER_LEFT">
                             <Text text="🏆" styleClass="info-icon"/>
                             <Text fx:id="pointsText" text="2,450 điểm" styleClass="info-text"/>
@@ -151,10 +148,10 @@
                 <VBox spacing="0" styleClass="chat-box" HBox.hgrow="ALWAYS">
                     <HBox alignment="CENTER_LEFT" spacing="8" styleClass="box-header chat-header">
                         <StackPane styleClass="chat-header">
-                            <Text text="💬 Chat thế giới" styleClass="box-header-icon"/>
+                            <Text text="💬 Chat Toàn Cầu" styleClass="box-header-icon"/>
                         </StackPane>
 
-                        <Text text="Chat Toàn Cầu" styleClass="box-header-title"/>
+                        <Text text="" styleClass="box-header-title"/>
                     </HBox>
 
                     <!-- Chat Messages -->

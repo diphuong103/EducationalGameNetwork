@@ -1104,3 +1104,182 @@
 .progress-indicator {
     -fx-progress-color: #667eea;
 }
+
+
+
+/* ===== PROFILE STYLES ===== */
+
+/* Header */
+.profile-header {
+    -fx-background-color: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+    -fx-padding: 20;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 10, 0, 0, 2);
+}
+
+.profile-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-padding: 0 0 0 10;
+}
+
+.profile-back-btn {
+    -fx-background-color: rgba(255, 255, 255, 0.2);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 16;
+    -fx-background-radius: 20;
+    -fx-cursor: hand;
+    -fx-border-color: rgba(255, 255, 255, 0.3);
+    -fx-border-radius: 20;
+    -fx-border-width: 1;
+}
+
+.profile-back-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.3);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+/* Content Area */
+.profile-content {
+    -fx-background-color: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+    -fx-padding: 30 20;
+}
+
+/* Avatar */
+.profile-content .image-view {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 15, 0, 0, 3);
+    -fx-background-radius: 60;
+    -fx-border-radius: 60;
+    -fx-border-color: white;
+    -fx-border-width: 4;
+}
+
+.profile-change-avatar-btn {
+    -fx-background-color: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 20;
+    -fx-background-radius: 20;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(102, 126, 234, 0.4), 8, 0, 0, 2);
+}
+
+.profile-change-avatar-btn:hover {
+    -fx-background-color: linear-gradient(to right, #764ba2 0%, #667eea 100%);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+/* Name Label */
+.profile-name-label {
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2d3748;
+    -fx-padding: 10 0 5 0;
+}
+
+.profile-edit-name-btn {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #667eea;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 18;
+    -fx-background-radius: 18;
+    -fx-cursor: hand;
+    -fx-border-color: #667eea;
+    -fx-border-radius: 18;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 5, 0, 0, 2);
+}
+
+.profile-edit-name-btn:hover {
+    -fx-background-color: #667eea;
+    -fx-text-fill: white;
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+/* Info Grid */
+.profile-info-grid {
+    -fx-background-color: white;
+    -fx-background-radius: 15;
+    -fx-padding: 25;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 10, 0, 0, 3);
+    -fx-max-width: 400;
+}
+
+.profile-info-grid .label {
+    -fx-font-size: 15px;
+    -fx-text-fill: #4a5568;
+    -fx-padding: 5;
+}
+
+/*.profile-info-grid .label:first-child {*/
+/*    -fx-font-weight: bold;*/
+/*    -fx-text-fill: #2d3748;*/
+/*}*/
+
+/* Row styling for better visual separation */
+.profile-info-grid > * {
+    -fx-padding: 8 0;
+}
+
+/* Detail Button */
+.profile-detail-btn {
+    -fx-background-color: linear-gradient(to right, #48bb78 0%, #38a169 100%);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 30;
+    -fx-background-radius: 25;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(72, 187, 120, 0.4), 10, 0, 0, 3);
+    -fx-margin: 20 0 0 0;
+}
+
+.profile-detail-btn:hover {
+    -fx-background-color: linear-gradient(to right, #38a169 0%, #2f855a 100%);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+/* Responsive adjustments */
+.profile-content .vbox {
+    -fx-max-width: 500;
+}
+
+/* Animation effects */
+.profile-change-avatar-btn,
+.profile-edit-name-btn,
+.profile-detail-btn,
+.profile-back-btn {
+    -fx-transition: all 0.3s ease;
+}
+
+/* Additional styling for labels with data */
+.profile-info-grid .label[fx\:id$="Label"] {
+    -fx-font-weight: bold;
+    -fx-text-fill: #667eea;
+    -fx-font-size: 16px;
+}
+
+/* Hover effects for info grid rows */
+.profile-info-grid {
+    -fx-border-color: transparent;
+}
+
+.profile-info-grid:hover {
+    -fx-border-color: rgba(102, 126, 234, 0.2);
+    -fx-border-width: 2;
+    -fx-border-radius: 15;
+}
+
+/* Stats highlight */
+.profile-info-grid .label[text*="%"] {
+    -fx-text-fill: #48bb78 !important;
+    -fx-font-weight: bold;
+}
