@@ -1,5 +1,6 @@
 package com.edugame.client.util;
 
+import com.edugame.client.controller.HomeController;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -15,6 +16,7 @@ public class SceneManager {
     private static SceneManager instance;
     private static Stage primaryStage;
     private static Map<String, Scene> sceneCache;
+    private static Object currentController;
 
     private SceneManager() {
         sceneCache = new HashMap<>();
@@ -31,10 +33,14 @@ public class SceneManager {
         this.primaryStage = stage;
     }
 
+    public Object getCurrentController() {
+        return currentController;
+    }
+
     /**
      * Switch to a new scene with fade transition
      */
-    public static void switchScene(String fxmlFile) throws IOException {
+    public void switchScene(String fxmlFile) throws IOException {
         Scene scene = getScene(fxmlFile);
 
         if (primaryStage.getScene() != null) {
@@ -44,6 +50,9 @@ public class SceneManager {
             fadeOut.setToValue(0.0);
             fadeOut.setOnFinished(event -> {
                 primaryStage.setScene(scene);
+
+                // 🔹 AUTO REFRESH HOME CONTROLLER
+                notifySceneShown();
 
                 // Fade in new scene
                 FadeTransition fadeIn = new FadeTransition(Duration.millis(200), scene.getRoot());
@@ -55,6 +64,19 @@ public class SceneManager {
         } else {
             // First scene, no transition
             primaryStage.setScene(scene);
+
+            // 🔹 AUTO REFRESH HOME CONTROLLER
+            notifySceneShown();
+        }
+    }
+
+    /**
+     * 🔹 Notify controller when scene is shown (for auto-refresh)
+     */
+    private void notifySceneShown() {
+        if (currentController instanceof HomeController) {
+            ((HomeController) currentController).onSceneShown();
+            System.out.println("🔄 HomeController auto-refreshed");
         }
     }
 
@@ -62,6 +84,11 @@ public class SceneManager {
      * Get scene from cache or load it
      */
     private static Scene getScene(String fxmlFile) throws IOException {
+        // 🔹 KHÔNG CACHE HOME.FXML để luôn load mới và refresh
+        if ("home.fxml".equalsIgnoreCase(fxmlFile)) {
+            sceneCache.remove(fxmlFile);
+        }
+
         // Check cache first
         if (sceneCache.containsKey(fxmlFile)) {
             return sceneCache.get(fxmlFile);
@@ -71,6 +98,8 @@ public class SceneManager {
         FXMLLoader loader = new FXMLLoader(SceneManager.class.getResource("/fxml/" + fxmlFile));
         Parent root = loader.load();
 
+        currentController = loader.getController();
+
         // Create scene
         Scene scene = new Scene(root);
 
@@ -78,8 +107,10 @@ public class SceneManager {
         String css = SceneManager.class.getResource("/css/client-style.css").toExternalForm();
         scene.getStylesheets().add(css);
 
-        // Cache scene
-        sceneCache.put(fxmlFile, scene);
+        // Cache scene (except home.fxml)
+        if (!"home.fxml".equalsIgnoreCase(fxmlFile)) {
+            sceneCache.put(fxmlFile, scene);
+        }
 
         return scene;
     }

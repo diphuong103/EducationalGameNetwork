@@ -18,6 +18,7 @@ import javafx.scene.text.Text;
 import javafx.util.Duration;
 import javafx.geometry.Pos;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -127,7 +128,7 @@ public class HomeController {
      */
     public void onSceneShown() {
         System.out.println("🔄 HomeController scene shown");
-
+        loadUserData();
         // Reload leaderboard
         loadLeaderboardData();
 
@@ -190,12 +191,41 @@ public class HomeController {
         if (userAvatar == null) return;
 
         try {
-            String avatarPath = "/images/avatars/" +
-                    (avatarFileName != null ? avatarFileName : "avatar4.png");
-            Image avatarImage = new Image(getClass().getResourceAsStream(avatarPath));
+            Image avatarImage;
 
-            if (avatarImage.isError()) {
+            if (avatarFileName == null || avatarFileName.isBlank()) {
+                // 🔹 Không có ảnh → dùng mặc định
                 avatarImage = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+            }
+            else if (avatarFileName.startsWith("http")) {
+                // 🔹 URL từ internet (ImgBB, Firebase...)
+                avatarImage = new Image(avatarFileName, true);
+            }
+            else if (avatarFileName.contains(File.separator) || new File(avatarFileName).isAbsolute()) {
+                // 🔹 ĐÂY LÀ FIX CHÍNH: File từ máy tính (đường dẫn đầy đủ)
+                File avatarFile = new File(avatarFileName);
+
+                if (avatarFile.exists() && avatarFile.isFile()) {
+                    // ✅ File tồn tại → load trực tiếp
+                    avatarImage = new Image(avatarFile.toURI().toString(), true);
+                    System.out.println("✅ Loaded local file: " + avatarFileName);
+                } else {
+                    // ❌ File không tồn tại → fallback
+                    System.err.println("⚠️ Local file not found: " + avatarFileName);
+                    avatarImage = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+                }
+            }
+            else {
+                // 🔹 Avatar mặc định từ resources (avatar1.png, avatar2.png...)
+                String resourcePath = "/images/avatars/" + avatarFileName;
+                var inputStream = getClass().getResourceAsStream(resourcePath);
+
+                if (inputStream != null) {
+                    avatarImage = new Image(inputStream);
+                } else {
+                    System.err.println("⚠️ Resource not found: " + resourcePath);
+                    avatarImage = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+                }
             }
 
             userAvatar.setImage(avatarImage);
@@ -204,14 +234,17 @@ public class HomeController {
 
         } catch (Exception e) {
             System.err.println("❌ Error loading avatar: " + e.getMessage());
+            e.printStackTrace();
+
             try {
                 Image defaultAvatar = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
                 userAvatar.setImage(defaultAvatar);
             } catch (Exception ex) {
-                System.err.println("❌ Failed to load default avatar");
+                System.err.println("❌ Failed to load default avatar fallback");
             }
         }
     }
+
 
     /** ---------------- LEADERBOARD ---------------- */
     private void loadLeaderboardData() {
@@ -741,6 +774,7 @@ public class HomeController {
 
     public void handleAvatarClick() {
         try {
+            System.out.println("🖱️ Avatar clicked");
             cleanup(); // Clean up before switching
             SceneManager.getInstance().switchScene("Profile.fxml");
         } catch (Exception e) {
@@ -832,8 +866,11 @@ public class HomeController {
     }
 
     public void refreshUserData() {
-        loadUserData();
-        loadLeaderboardData();
-        loadDailyQuests();
+        System.out.println("🔄 Refreshing user data...");
+
+        Platform.runLater(() -> {
+            loadUserData();      // ✅ Load lại avatar + tên
+            loadLeaderboardData(); // ✅ Load lại bảng xếp hạng (nếu rank thay đổi)
+        });
     }
 }

@@ -232,6 +232,26 @@ public class UserDAO {
         return null;
     }
 
+    public boolean updateUserProfile(int userId, String newName, String newAvatar) {
+        String sql = "UPDATE users SET " +
+                "full_name = COALESCE(?, full_name), " +
+                "avatar_url = COALESCE(?, avatar_url) " +
+                "WHERE user_id = ?";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, newName);
+            pstmt.setString(2, newAvatar);
+            pstmt.setInt(3, userId);
+
+            int rows = pstmt.executeUpdate();
+            System.out.println("✅ Updated profile for user_id=" + userId + " (" + rows + " rows)");
+            return rows > 0;
+        } catch (SQLException e) {
+            System.err.println("❌ Error updating profile: " + e.getMessage());
+            return false;
+        }
+    }
+
     /**
      * Hash password using SHA-256
      */
@@ -254,4 +274,7 @@ public class UserDAO {
             return password; // Fallback (not recommended for production)
         }
     }
+
+
+
 }

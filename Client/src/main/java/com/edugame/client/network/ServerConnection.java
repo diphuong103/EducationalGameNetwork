@@ -5,6 +5,8 @@ import com.edugame.common.Protocol;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
 
 import java.io.*;
 import java.net.Socket;
@@ -147,7 +149,44 @@ public class ServerConnection {
                     profileCallback = null; // One-time callback
                 }
                 break;
+            case Protocol.UPDATE_PROFILE:
+                boolean success = json.get("success").getAsBoolean();
+                String message = json.get("message").getAsString();
 
+                if (success) {
+                    System.out.println("✅ Hồ sơ được cập nhật trên server!");
+
+                    // Cập nhật thông tin user hiện tại
+                    if (json.has("fullName"))
+                        currentFullName = json.get("fullName").getAsString();
+                    if (json.has("avatarUrl"))
+                        currentAvatarUrl = json.get("avatarUrl").getAsString();
+
+                    // Đồng bộ vào currentUser object
+                    if (currentUser != null) {
+                        if (json.has("fullName"))
+                            currentUser.setFullName(json.get("fullName").getAsString());
+                        if (json.has("avatarUrl"))
+                            currentUser.setAvatarUrl(json.get("avatarUrl").getAsString());
+                    }
+
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                        alert.setTitle("Cập nhật thành công");
+                        alert.setHeaderText(null);
+                        alert.setContentText(message);
+                        alert.showAndWait();
+                    });
+                } else {
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Cập nhật thất bại");
+                        alert.setHeaderText(null);
+                        alert.setContentText(message);
+                        alert.showAndWait();
+                    });
+                }
+                break;
             case Protocol.GET_LEADERBOARD:
                 if (leaderboardCallback != null) {
                     leaderboardCallback.accept(json);
@@ -221,6 +260,10 @@ public class ServerConnection {
     /** Calculate level */
     private int calculateLevel(int score) {
         return (score / 200) + 1;
+    }
+
+    public void setCurrentAvatarUrl(String avatarUrl) {
+        this.currentAvatarUrl = avatarUrl;
     }
 
     /** Register new user */

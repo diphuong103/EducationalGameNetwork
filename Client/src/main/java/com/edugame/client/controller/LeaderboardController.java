@@ -13,6 +13,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.text.Text;
 
+import java.io.File;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -343,19 +345,20 @@ public class LeaderboardController {
         avatar.setFitWidth(50);
         avatar.setFitHeight(50);
         avatar.setPreserveRatio(true);
+        avatar.setSmooth(true); // 🔹 Làm mượt ảnh
 
         try {
-            String path = "/images/avatars/" +
-                    (avatarUrl != null ? avatarUrl : "avatar4.png");
-            Image image = new Image(getClass().getResourceAsStream(path));
-
-            if (image.isError()) {
-                image = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
-            }
-
+            Image image = loadAvatarImage(avatarUrl);
             avatar.setImage(image);
         } catch (Exception e) {
             System.err.println("❌ Error loading avatar: " + e.getMessage());
+            // Fallback to default
+            try {
+                Image defaultImage = new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+                avatar.setImage(defaultImage);
+            } catch (Exception ex) {
+                System.err.println("❌ Failed to load default avatar");
+            }
         }
 
         // Circular clip
@@ -363,6 +366,59 @@ public class LeaderboardController {
         avatar.setClip(clip);
 
         return avatar;
+    }
+
+    /**
+     * Load avatar image from various sources
+     */
+    private Image loadAvatarImage(String avatarUrl) {
+        // 🔹 Null hoặc empty → dùng default
+        if (avatarUrl == null || avatarUrl.isBlank()) {
+            return new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+        }
+
+        // 🔹 URL từ internet (http/https)
+        if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
+            try {
+                return new Image(avatarUrl, true); // true = background loading
+            } catch (Exception e) {
+                System.err.println("⚠️ Failed to load from URL: " + avatarUrl);
+                return new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+            }
+        }
+
+        // 🔹 File từ máy tính (đường dẫn tuyệt đối hoặc có File.separator)
+        if (avatarUrl.contains(File.separator) || new File(avatarUrl).isAbsolute()) {
+            File avatarFile = new File(avatarUrl);
+
+            if (avatarFile.exists() && avatarFile.isFile()) {
+                try {
+                    return new Image(avatarFile.toURI().toString(), true);
+                } catch (Exception e) {
+                    System.err.println("⚠️ Failed to load local file: " + avatarUrl);
+                    return new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+                }
+            } else {
+                System.err.println("⚠️ Local file not found: " + avatarUrl);
+                return new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+            }
+        }
+
+        // 🔹 Avatar mặc định từ resources (avatar1.png, avatar2.png...)
+        try {
+            String resourcePath = "/images/avatars/" + avatarUrl;
+            InputStream inputStream = getClass().getResourceAsStream(resourcePath);
+
+            if (inputStream != null) {
+                return new Image(inputStream);
+            } else {
+                System.err.println("⚠️ Resource not found: " + resourcePath);
+                return new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Error loading resource: " + avatarUrl);
+            return new Image(getClass().getResourceAsStream("/images/avatars/avatar4.png"));
+        }
     }
 
     /**
