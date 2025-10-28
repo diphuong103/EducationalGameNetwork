@@ -142,7 +142,7 @@ public class UserDAO {
      * Update user's last login time
      */
     private void updateLastLogin(int userId) {
-        String sql = "UPDATE users SET last_login = NOW(), is_online = TRUE WHERE user_id = ?";
+        String sql = "UPDATE users SET last_login = NOW(), is_online = 1, status = 'online' WHERE user_id = ?";
 
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setInt(1, userId);
@@ -152,24 +152,50 @@ public class UserDAO {
         }
     }
 
+
     /**
      * Update user online status
      */
+//    public void updateOnlineStatus(int userId, boolean isOnline) {
+//        String sql = "UPDATE users SET is_online = ?, status = ? WHERE user_id = ?";
+//
+//        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+//            pstmt.setBoolean(1, isOnline);
+//            pstmt.setString(2, isOnline ? "online" : "offline");
+//            pstmt.setInt(3, userId);
+//            pstmt.executeUpdate();
+//
+//            System.out.println("✓ User " + userId + " status: " + (isOnline ? "online" : "offline"));
+//
+//        } catch (SQLException e) {
+//            System.err.println("✗ Error updating online status: " + e.getMessage());
+//        }
+//    }
+
     public void updateOnlineStatus(int userId, boolean isOnline) {
         String sql = "UPDATE users SET is_online = ?, status = ? WHERE user_id = ?";
 
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setBoolean(1, isOnline);
+            // Ép kiểu rõ ràng để tránh MySQL hiểu sai
+            pstmt.setInt(1, isOnline ? 1 : 0);
             pstmt.setString(2, isOnline ? "online" : "offline");
             pstmt.setInt(3, userId);
-            pstmt.executeUpdate();
 
-            System.out.println("✓ User " + userId + " status: " + (isOnline ? "online" : "offline"));
+            int rows = pstmt.executeUpdate();
+
+            if (!connection.getAutoCommit()) {
+                connection.commit();
+            }
+
+            System.out.println("✅ Updated user_id=" + userId +
+                    " → " + (isOnline ? "online" : "offline") +
+                    " (" + rows + " rows)");
 
         } catch (SQLException e) {
-            System.err.println("✗ Error updating online status: " + e.getMessage());
+            System.err.println("❌ Error updating online status: " + e.getMessage());
         }
     }
+
 
     /**
      * Get user by ID

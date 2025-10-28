@@ -175,6 +175,8 @@ public class ServerConnection {
     /** Login to server */
     public boolean login(String username, String password) {
         try {
+            clearSessionData();
+
             Map<String, Object> request = new HashMap<>();
             request.put("type", "LOGIN");
             request.put("username", username);
@@ -209,6 +211,7 @@ public class ServerConnection {
             }
 
             return success;
+
         } catch (IOException e) {
             System.err.println("❌ Login error: " + e.getMessage());
             return false;
@@ -494,6 +497,52 @@ public class ServerConnection {
 
         System.out.println("🧹 Session data cleared");
     }
+
+    public void logoutAndClearSession() {
+        try {
+            // Gửi logout message cho server
+            if (isConnected() && currentUsername != null) {
+                Map<String, Object> request = new HashMap<>();
+                request.put("type", "LOGOUT");
+                request.put("username", currentUsername);
+                sendJson(request);
+            }
+
+            // Dừng listener
+            isListening = false;
+            if (listenerThread != null && listenerThread.isAlive()) {
+                listenerThread.interrupt();
+                listenerThread = null;
+            }
+
+            // Ngắt socket
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+
+            connected = false;
+
+            // 🧹 Xóa toàn bộ dữ liệu user hiện tại
+            currentUserId = 0;
+            currentUsername = null;
+            currentFullName = null;
+            currentEmail = null;
+            currentAvatarUrl = null;
+            totalScore = 0;
+            mathScore = 0;
+            englishScore = 0;
+            scienceScore = 0;
+            totalGames = 0;
+            wins = 0;
+            currentLevel = 0;
+
+            System.out.println("🧹 Client session cleared completely");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error during logout: " + e.getMessage());
+        }
+    }
+
 
     // Getters
     public boolean isConnected() {

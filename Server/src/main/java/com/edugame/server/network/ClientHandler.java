@@ -61,6 +61,7 @@ public class ClientHandler implements Runnable {
         } catch (IOException e) {
             System.err.println("✗ Client disconnected: " + e.getMessage());
         } finally {
+            handleLogout();
             disconnect();
         }
     }
@@ -260,14 +261,27 @@ public class ClientHandler implements Runnable {
     }
 
     private void handleLogout() {
-        if (currentUser != null) {
-            userDAO.updateOnlineStatus(currentUser.getUserId(), false);
-            System.out.println("✓ User logged out: " + currentUser.getUsername());
-            currentUser = null;
-        }
+        try {
+            if (currentUser != null) {
+                userDAO.updateOnlineStatus(currentUser.getUserId(), false);
+                System.out.println("✓ User logged out: " + currentUser.getUsername());
+                currentUser = null;
+            }
 
-        running = false;
+            running = false;
+
+            // 🔒 Đóng socket và streams (rất quan trọng)
+            if (clientSocket != null && !clientSocket.isClosed()) {
+                clientSocket.close();
+                System.out.println("🔒 Server socket closed for client");
+            }
+
+
+        } catch (Exception e) {
+            System.err.println("❌ Error during logout: " + e.getMessage());
+        }
     }
+
 
     private void handleGetLeaderboard(JsonObject jsonMessage) {
         try {

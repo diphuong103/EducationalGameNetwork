@@ -90,6 +90,7 @@ public class HomeController {
 
         // Load data in background
         loadDataInBackground();
+        loadUserData();
 
         isInitialized = true;
         System.out.println("✅ HomeController initialized");
@@ -760,8 +761,17 @@ public class HomeController {
                     cleanup();
 
                     if (serverConnection != null && serverConnection.isConnected()) {
+                        serverConnection.logoutAndClearSession();
                         serverConnection.disconnect();
+                        System.out.println("🔌 Disconnected from server.");
                     }
+
+                    SceneManager.getInstance().clearCache();
+                    // Xóa thông tin rememberMe
+                    System.clearProperty("saved.username");
+
+                    // Gợi ý GC dọn rác
+                    System.gc();
 
                     SceneManager.getInstance().switchScene("Login.fxml");
                     System.out.println("✅ Logged out successfully");

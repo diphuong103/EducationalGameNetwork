@@ -60,17 +60,21 @@ public class LoginController {
         // Connect to server and authenticate
         new Thread(() -> {
             try {
-                // Connect to server if not connected
-                if (!serverConnection.isConnected()) {
-                    boolean connected = serverConnection.connect("localhost", 8888);
-                    if (!connected) {
-                        Platform.runLater(() -> {
-                            showLoading(false);
-                            loginButton.setDisable(false);
-                            showError("Không thể kết nối đến server!\nVui lòng kiểm tra kết nối mạng.");
-                        });
-                        return;
-                    }
+                // 🧹 Nếu đã có kết nối cũ, ngắt trước để tránh trùng session
+                if (serverConnection.isConnected()) {
+                    serverConnection.disconnect();
+                    Thread.sleep(200);
+                }
+
+                // ✅ Tạo kết nối mới
+                boolean connected = serverConnection.connect("localhost", 8888);
+                if (!connected) {
+                    Platform.runLater(() -> {
+                        showLoading(false);
+                        loginButton.setDisable(false);
+                        showError("Không thể kết nối đến server!\nVui lòng kiểm tra kết nối mạng.");
+                    });
+                    return;
                 }
 
                 // Send login request
