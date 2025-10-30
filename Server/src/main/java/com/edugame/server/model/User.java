@@ -7,6 +7,7 @@ public class User {
     private String username;
     private String email;
     private String fullName;
+    private int age;
     private String avatarUrl;
     private int totalScore;
     private int mathScore;
@@ -61,6 +62,15 @@ public class User {
     public void setFullName(String fullName) {
         this.fullName = fullName;
     }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
 
     public String getAvatarUrl() {
         return avatarUrl;

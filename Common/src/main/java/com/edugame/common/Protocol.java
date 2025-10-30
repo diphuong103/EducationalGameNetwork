@@ -5,11 +5,12 @@ package com.edugame.common;
  */
 public class Protocol {
 
-    // Message Types
+    // Authentication
     public static final String LOGIN = "LOGIN";
     public static final String REGISTER = "REGISTER";
     public static final String LOGOUT = "LOGOUT";
 
+    // Game
     public static final String CREATE_ROOM = "CREATE_ROOM";
     public static final String JOIN_ROOM = "JOIN_ROOM";
     public static final String LEAVE_ROOM = "LEAVE_ROOM";
@@ -20,17 +21,25 @@ public class Protocol {
     public static final String GAME_RESULT = "GAME_RESULT";
     public static final String NEXT_QUESTION = "NEXT_QUESTION";
 
+    // Chat
     public static final String CHAT_MESSAGE = "CHAT_MESSAGE";
     public static final String PRIVATE_MESSAGE = "PRIVATE_MESSAGE";
     public static final String GLOBAL_CHAT = "GLOBAL_CHAT";
 
+    // Friends
+    public static final String SEARCH_USERS = "SEARCH_USERS";
     public static final String ADD_FRIEND = "ADD_FRIEND";
     public static final String ACCEPT_FRIEND = "ACCEPT_FRIEND";
     public static final String REJECT_FRIEND = "REJECT_FRIEND";
     public static final String REMOVE_FRIEND = "REMOVE_FRIEND";
-    public static final String GET_FRIENDS = "GET_FRIENDS";
+    public static final String GET_FRIENDS_LIST = "GET_FRIENDS_LIST";
+    public static final String GET_PENDING_REQUESTS = "GET_PENDING_REQUESTS";
 
+
+    // Leaderboard
     public static final String GET_LEADERBOARD = "GET_LEADERBOARD";
+
+    // Profile
     public static final String GET_PROFILE = "GET_PROFILE";
     public static final String UPDATE_PROFILE = "UPDATE_PROFILE";
 

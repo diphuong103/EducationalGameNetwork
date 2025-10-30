@@ -6,7 +6,7 @@ import java.sql.SQLException;
 
 public class DatabaseConnection {
     private static DatabaseConnection instance;
-    private Connection connection;
+    private static Connection connection;
 
     // Database configuration
     private static final String DB_HOST = "localhost";
@@ -44,7 +44,7 @@ public class DatabaseConnection {
         return instance;
     }
 
-    public Connection getConnection() {
+    public static Connection getConnection() {
         try {
             // Check if connection is still valid
             if (connection == null || connection.isClosed()) {

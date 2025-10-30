@@ -586,6 +586,581 @@ public class ServerConnection {
         }
     }
 
+    // Friends
+
+    public void searchUsers(String query, Consumer<List<Map<String, Object>>> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot search users - not connected");
+            callback.accept(new ArrayList<>());
+            return;
+        }
+
+        System.out.println("🔍 Searching users: " + query);
+
+        // Cờ để xác định callback đã được thực thi hay chưa
+        final boolean[] callbackExecuted = {false};
+
+        // Register callback
+        setPendingCallback(Protocol.SEARCH_USERS, (json) -> {
+            try {
+                callbackExecuted[0] = true; // ✅ Đánh dấu callback đã được thực thi
+                removePendingCallback(Protocol.SEARCH_USERS); // ✅ Xóa callback ngay khi nhận phản hồi
+
+                System.out.println("🔄 Search users callback executing");
+
+                boolean success = json.get("success").getAsBoolean();
+                if (!success) {
+                    String message = json.get("message").getAsString();
+                    System.err.println("❌ Search failed: " + message);
+
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.WARNING);
+                        alert.setTitle("Tìm kiếm");
+                        alert.setHeaderText(null);
+                        alert.setContentText(message);
+                        alert.showAndWait();
+                    });
+
+                    callback.accept(new ArrayList<>());
+                    return;
+                }
+
+                JsonArray arr = json.getAsJsonArray("users");
+                List<Map<String, Object>> users = new ArrayList<>();
+
+                for (int i = 0; i < arr.size(); i++) {
+                    JsonObject userObj = arr.get(i).getAsJsonObject();
+                    Map<String, Object> user = new HashMap<>();
+
+                    user.put("userId", userObj.get("userId").getAsInt());
+                    user.put("username", userObj.get("username").getAsString());
+                    user.put("fullName", userObj.get("fullName").getAsString());
+
+                    if (userObj.has("email") && !userObj.get("email").isJsonNull()) {
+                        user.put("email", userObj.get("email").getAsString());
+                    }
+
+                    if (userObj.has("age") && !userObj.get("age").isJsonNull()) {
+                        user.put("age", userObj.get("age").getAsString());
+                    }
+
+                    if (userObj.has("avatarUrl") && !userObj.get("avatarUrl").isJsonNull()) {
+                        user.put("avatarUrl", userObj.get("avatarUrl").getAsString());
+                    }
+
+                    user.put("totalScore", userObj.get("totalScore").getAsInt());
+                    user.put("isOnline", userObj.get("isOnline").getAsBoolean());
+
+                    if (userObj.has("friendshipStatus")) {
+                        user.put("friendshipStatus", userObj.get("friendshipStatus").getAsString());
+                    } else {
+                        user.put("friendshipStatus", "none");
+                    }
+
+                    users.add(user);
+                }
+
+                System.out.println("✅ Found " + users.size() + " users");
+                callback.accept(users);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error parsing search results: " + e.getMessage());
+                e.printStackTrace();
+                callback.accept(new ArrayList<>());
+            }
+        });
+
+        // Send request
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.SEARCH_USERS);
+        request.put("query", query);
+        request.put("limit", 50);
+        sendJson(request);
+
+        // Timeout
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                if (!callbackExecuted[0]) { // ✅ Chỉ timeout nếu callback chưa được gọi
+                    removePendingCallback(Protocol.SEARCH_USERS);
+                    System.err.println("⚠️ Search users timeout");
+                    callback.accept(new ArrayList<>());
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "SearchUsersTimeout").start();
+    }
+
+    /**
+     * Gửi yêu cầu kết bạn
+     */
+    public void sendFriendRequest(int targetUserId, Consumer<Boolean> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot send friend request - not connected");
+            callback.accept(false);
+            return;
+        }
+
+        System.out.println("🤝 Sending friend request to userId=" + targetUserId);
+
+        // Đăng ký callback
+        setPendingCallback(Protocol.ADD_FRIEND, (json) -> {
+            try {
+                removePendingCallback(Protocol.ADD_FRIEND);
+
+                boolean success = json.get("success").getAsBoolean();
+                String message = json.get("message").getAsString();
+
+                if (success) {
+                    System.out.println("✅ Friend request sent successfully: " + message);
+                } else {
+                    System.err.println("❌ Friend request failed: " + message);
+                }
+
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Kết bạn");
+                    alert.setHeaderText(null);
+                    alert.setContentText(message);
+                    alert.showAndWait();
+                });
+
+                callback.accept(success);
+            } catch (Exception e) {
+                System.err.println("❌ Error handling ADD_FRIEND response: " + e.getMessage());
+                e.printStackTrace();
+                callback.accept(false);
+            }
+        });
+
+        // Gửi request
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.ADD_FRIEND);
+        request.put("targetUserId", targetUserId);
+        sendJson(request);
+
+        // Timeout
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                removePendingCallback(Protocol.ADD_FRIEND);
+                System.err.println("⚠️ Add friend timeout");
+                callback.accept(false);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "AddFriendTimeout").start();
+    }
+
+    /**
+     * Chấp nhận lời mời kết bạn
+     */
+    public void acceptFriendRequest(int friendId, Consumer<Boolean> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot accept friend request - not connected");
+            callback.accept(false);
+            return;
+        }
+
+        System.out.println("✅ Accepting friend request from userId: " + friendId);
+
+        // ✅ CỜ BOOLEAN
+        final boolean[] callbackCalled = new boolean[]{false};
+
+        setPendingCallback(Protocol.ACCEPT_FRIEND, (json) -> {
+            try {
+                // ✅ CHECK VÀ SET CỜ
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) {
+                        System.err.println("⚠️ Callback already called, ignoring");
+                        return;
+                    }
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.ACCEPT_FRIEND);
+
+                boolean success = json.get("success").getAsBoolean();
+                System.out.println(success ? "✅ Friend request accepted" : "❌ Failed to accept friend request");
+
+                callback.accept(success);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error parsing accept response: " + e.getMessage());
+                e.printStackTrace();
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(false);
+                    }
+                }
+            }
+        });
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.ACCEPT_FRIEND);
+        request.put("friendId", friendId);
+        sendJson(request);
+
+        // ✅ TIMEOUT VỚI CHECK CỜ
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.ACCEPT_FRIEND);
+                        System.err.println("⚠️ Accept friend request timeout");
+                        callback.accept(false);
+                    } else {
+                        System.out.println("✅ Timeout thread: Accept already processed");
+                    }
+                }
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "AcceptFriendTimeout").start();
+    }
+
+    /**
+     * Từ chối lời mời kết bạn
+     */
+    public void rejectFriendRequest(int friendId, Consumer<Boolean> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot reject friend request - not connected");
+            callback.accept(false);
+            return;
+        }
+
+        System.out.println("❌ Rejecting friend request from userId: " + friendId);
+
+        // ✅ CỜ BOOLEAN
+        final boolean[] callbackCalled = new boolean[]{false};
+
+        setPendingCallback(Protocol.REJECT_FRIEND, (json) -> {
+            try {
+                // ✅ CHECK VÀ SET CỜ
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) {
+                        System.err.println("⚠️ Callback already called, ignoring");
+                        return;
+                    }
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.REJECT_FRIEND);
+
+                boolean success = json.get("success").getAsBoolean();
+                System.out.println(success ? "✅ Friend request rejected" : "❌ Failed to reject friend request");
+
+                callback.accept(success);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error parsing reject response: " + e.getMessage());
+                e.printStackTrace();
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(false);
+                    }
+                }
+            }
+        });
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.REJECT_FRIEND);
+        request.put("friendId", friendId);
+        sendJson(request);
+
+        // ✅ TIMEOUT VỚI CHECK CỜ
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.REJECT_FRIEND);
+                        System.err.println("⚠️ Reject friend request timeout");
+                        callback.accept(false);
+                    } else {
+                        System.out.println("✅ Timeout thread: Reject already processed");
+                    }
+                }
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "RejectFriendTimeout").start();
+    }
+
+    /**
+     * Xóa bạn bè
+     */
+    public void removeFriend(int friendId, Consumer<Boolean> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot remove friend - not connected");
+            callback.accept(false);
+            return;
+        }
+
+        System.out.println("🗑️ Removing friend userId=" + friendId);
+
+        // Đăng ký callback
+        setPendingCallback(Protocol.REMOVE_FRIEND, (json) -> {
+            try {
+                removePendingCallback(Protocol.REMOVE_FRIEND);
+
+                boolean success = json.get("success").getAsBoolean();
+                String message = json.get("message").getAsString();
+
+                if (success) {
+                    System.out.println("✅ Friend removed: " + message);
+                } else {
+                    System.err.println("❌ Remove friend failed: " + message);
+                }
+
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Xóa bạn bè");
+                    alert.setHeaderText(null);
+                    alert.setContentText(message);
+                    alert.showAndWait();
+                });
+
+                callback.accept(success);
+            } catch (Exception e) {
+                System.err.println("❌ Error handling REMOVE_FRIEND response: " + e.getMessage());
+                e.printStackTrace();
+                callback.accept(false);
+            }
+        });
+
+        // Gửi request
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.REMOVE_FRIEND);
+        request.put("friendId", friendId);
+        sendJson(request);
+
+        // Timeout
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                removePendingCallback(Protocol.REMOVE_FRIEND);
+                System.err.println("⚠️ Remove friend timeout");
+                callback.accept(false);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "RemoveFriendTimeout").start();
+    }
+
+    /**
+     * Lấy danh sách bạn bè
+     */
+    public void getFriendsList(Consumer<List<Map<String, Object>>> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot get friends list - not connected");
+            callback.accept(new ArrayList<>());
+            return;
+        }
+
+        System.out.println("👥 Getting friends list...");
+
+        // ✅ CỜ BOOLEAN
+        final boolean[] callbackCalled = new boolean[]{false};
+
+        setPendingCallback(Protocol.GET_FRIENDS_LIST, (json) -> {
+            try {
+                // ✅ CHECK VÀ SET CỜ
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) {
+                        System.err.println("⚠️ Callback already called, ignoring");
+                        return;
+                    }
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.GET_FRIENDS_LIST);
+
+                boolean success = json.get("success").getAsBoolean();
+                if (!success) {
+                    System.err.println("❌ Get friends list failed");
+                    callback.accept(new ArrayList<>());
+                    return;
+                }
+
+                JsonArray arr = json.getAsJsonArray("friends");
+                List<Map<String, Object>> friends = new ArrayList<>();
+
+                for (int i = 0; i < arr.size(); i++) {
+                    JsonObject friendObj = arr.get(i).getAsJsonObject();
+                    Map<String, Object> friend = new HashMap<>();
+
+                    friend.put("userId", friendObj.get("userId").getAsInt());
+                    friend.put("username", friendObj.get("username").getAsString());
+                    friend.put("fullName", friendObj.get("fullName").getAsString());
+
+                    if (friendObj.has("avatarUrl") && !friendObj.get("avatarUrl").isJsonNull()) {
+                        friend.put("avatarUrl", friendObj.get("avatarUrl").getAsString());
+                    }
+
+                    friend.put("totalScore", friendObj.get("totalScore").getAsInt());
+                    friend.put("isOnline", friendObj.get("isOnline").getAsBoolean());
+
+                    friends.add(friend);
+                }
+
+                System.out.println("✅ Found " + friends.size() + " friends");
+                callback.accept(friends);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error parsing friends list: " + e.getMessage());
+                e.printStackTrace();
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(new ArrayList<>());
+                    }
+                }
+            }
+        });
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GET_FRIENDS_LIST);
+        sendJson(request);
+
+        // ✅ TIMEOUT VỚI CHECK CỜ
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.GET_FRIENDS_LIST);
+                        System.err.println("⚠️ Get friends list timeout");
+                        callback.accept(new ArrayList<>());
+                    } else {
+                        System.out.println("✅ Timeout thread: Friends list already loaded");
+                    }
+                }
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "GetFriendsListTimeout").start();
+    }
+    /**
+     * Lấy danh sách lời mời kết bạn đang chờ
+     */
+    public void getPendingRequests(Consumer<List<Map<String, Object>>> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot get pending requests - not connected");
+            callback.accept(new ArrayList<>());
+            return;
+        }
+
+        System.out.println("📬 Getting pending requests...");
+
+        // ✅ CỜ ĐỂ ĐÁNH DẤU CALLBACK ĐÃ ĐƯỢC GỌI
+        final boolean[] callbackCalled = new boolean[]{false};
+
+        // Đăng ký callback
+        setPendingCallback(Protocol.GET_PENDING_REQUESTS, (json) -> {
+            try {
+                // ✅ CHECK VÀ SET CỜ NGAY LẬP TỨC
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) {
+                        System.err.println("⚠️ Callback already called, ignoring duplicate");
+                        return;
+                    }
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.GET_PENDING_REQUESTS);
+
+                boolean success = json.get("success").getAsBoolean();
+                if (!success) {
+                    System.err.println("❌ Get pending requests failed");
+                    callback.accept(new ArrayList<>());
+                    return;
+                }
+
+                JsonArray arr = json.getAsJsonArray("requests");
+                List<Map<String, Object>> requests = new ArrayList<>();
+
+                for (int i = 0; i < arr.size(); i++) {
+                    JsonObject reqObj = arr.get(i).getAsJsonObject();
+                    Map<String, Object> request = new HashMap<>();
+
+                    request.put("friendshipId", reqObj.get("friendshipId").getAsInt());
+                    request.put("userId", reqObj.get("userId").getAsInt());
+                    request.put("username", reqObj.get("username").getAsString());
+                    request.put("fullName", reqObj.get("fullName").getAsString());
+
+                    if (reqObj.has("avatarUrl") && !reqObj.get("avatarUrl").isJsonNull()) {
+                        request.put("avatarUrl", reqObj.get("avatarUrl").getAsString());
+                    }
+
+                    request.put("totalScore", reqObj.get("totalScore").getAsInt());
+                    request.put("isOnline", reqObj.get("isOnline").getAsBoolean());
+                    request.put("createdAt", reqObj.get("createdAt").getAsString());
+
+                    requests.add(request);
+                }
+
+                System.out.println("✅ Found " + requests.size() + " pending requests");
+                callback.accept(requests);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error parsing pending requests: " + e.getMessage());
+                e.printStackTrace();
+
+                // ✅ CHỈ GỌI CALLBACK NẾU CHƯA ĐƯỢC GỌI
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(new ArrayList<>());
+                    }
+                }
+            }
+        });
+
+        // Gửi request
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GET_PENDING_REQUESTS);
+        sendJson(request);
+
+        // ✅ TIMEOUT VỚI CHECK CỜ
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+
+                // ✅ CHỈ TIMEOUT NẾU CALLBACK CHƯA ĐƯỢC GỌI
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.GET_PENDING_REQUESTS);
+                        System.err.println("⚠️ Get pending requests timeout");
+                        callback.accept(new ArrayList<>());
+                    } else {
+                        System.out.println("✅ Timeout thread: Callback already called, skipping timeout");
+                    }
+                }
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "GetPendingRequestsTimeout").start();
+    }
+
 
     // Getters
     public boolean isConnected() {

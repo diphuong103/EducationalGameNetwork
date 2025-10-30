@@ -1283,3 +1283,236 @@
     -fx-text-fill: #48bb78 !important;
     -fx-font-weight: bold;
 }
+
+/* ============================================
+   FRIENDS.CSS - Styling cho giao diện bạn bè
+   ============================================ */
+
+/* Root container */
+.friends-root {
+    -fx-background-color: linear-gradient(to bottom, #667eea 0%, #764ba2 100%);
+}
+
+/* Header */
+.friends-header {
+    -fx-background-color: rgba(255, 255, 255, 0.95);
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 10, 0, 0, 2);
+}
+
+.friends-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-fill: linear-gradient(to right, #667eea, #764ba2);
+}
+
+.back-button {
+    -fx-background-color: #667eea;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 10 20;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+.back-button:hover {
+    -fx-background-color: #5568d3;
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+/* Tabs */
+.tab-button {
+    -fx-background-color: rgba(255, 255, 255, 0.3);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 25;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+    -fx-border-width: 0;
+}
+
+.tab-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.4);
+}
+
+.tab-button:selected {
+    -fx-background-color: white;
+    -fx-text-fill: #667eea;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 10, 0, 0, 2);
+}
+
+/* Search Field */
+.search-field {
+    -fx-background-color: white;
+    -fx-background-radius: 25;
+    -fx-padding: 12 20;
+    -fx-font-size: 14px;
+    -fx-prompt-text-fill: #999;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 8, 0, 0, 2);
+}
+
+.search-field:focused {
+    -fx-effect: dropshadow(gaussian, rgba(102, 126, 234, 0.4), 12, 0, 0, 2);
+    -fx-border-color: #667eea;
+    -fx-border-width: 2;
+    -fx-border-radius: 25;
+}
+
+/* Search Button */
+.search-button {
+    -fx-background-color: #667eea;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 30;
+    -fx-background-radius: 25;
+    -fx-cursor: hand;
+}
+
+.search-button:hover {
+    -fx-background-color: #5568d3;
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+/* Refresh Button */
+.refresh-button {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 15;
+    -fx-background-radius: 20;
+    -fx-cursor: hand;
+}
+
+.refresh-button:hover {
+    -fx-background-color: #45a049;
+}
+
+/* Filter Container */
+.filter-container {
+    -fx-background-color: rgba(255, 255, 255, 0.2);
+    -fx-padding: 15;
+    -fx-background-radius: 10;
+}
+
+.filter-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-fill: white;
+}
+
+.filter-label {
+    -fx-font-size: 12px;
+    -fx-fill: white;
+}
+
+.filter-combo {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-padding: 8 12;
+}
+
+.filter-apply-button {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 10 20;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+.filter-apply-button:hover {
+    -fx-background-color: #45a049;
+}
+
+.filter-reset-button {
+    -fx-background-color: #f44336;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 10 20;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+.filter-reset-button:hover {
+    -fx-background-color: #da190b;
+}
+
+/* Info Box */
+.info-box {
+    -fx-background-color: rgba(255, 255, 255, 0.2);
+    -fx-padding: 15;
+    -fx-background-radius: 10;
+}
+
+.info-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-fill: #FFC107;
+}
+
+.info-text {
+    -fx-font-size: 12px;
+    -fx-fill: white;
+}
+
+/* Count Text */
+.friends-count {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-fill: white;
+}
+
+.search-results-text {
+    -fx-font-size: 14px;
+    -fx-fill: white;
+}
+
+/* Scroll Pane */
+.friends-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.friends-scroll .viewport {
+    -fx-background-color: transparent;
+}
+
+.friends-scroll .scroll-bar {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+}
+
+.friends-scroll .scroll-bar .thumb {
+    -fx-background-color: rgba(255, 255, 255, 0.4);
+    -fx-background-radius: 5;
+}
+
+.friends-scroll .scroll-bar .thumb:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Container */
+.friends-container {
+    -fx-background-color: transparent;
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from {
+        -fx-opacity: 0;
+        -fx-translate-y: 20;
+    }
+    to {
+        -fx-opacity: 1;
+        -fx-translate-y: 0;
+    }
+}
+
+/* Responsive adjustments */
+.friends-root .button:hover {
+    -fx-cursor: hand;
+}

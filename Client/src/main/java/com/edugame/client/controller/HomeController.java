@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
@@ -872,5 +873,15 @@ public class HomeController {
             loadUserData();      // ✅ Load lại avatar + tên
             loadLeaderboardData(); // ✅ Load lại bảng xếp hạng (nếu rank thay đổi)
         });
+    }
+
+    public void handleFriends() {
+        try {
+            SceneManager.getInstance().switchScene("Friends.fxml");
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Không thể mở danh sách bạn bè!");
+            alert.showAndWait();
+        }
     }
 }

@@ -1,14 +1,157 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Text?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
+<?import java.lang.String?>
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.edugame.client.controller.FriendsController"
-            prefHeight="400.0" prefWidth="600.0">
+            prefWidth="1000" prefHeight="700"
+            styleClass="friends-root">
 
-</AnchorPane>
+    <!-- HEADER -->
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="10" styleClass="friends-header">
+            <padding>
+                <Insets top="15" bottom="15" left="20" right="20"/>
+            </padding>
+
+            <Button text="← Quay lại" styleClass="back-button" onAction="#handleBack"/>
+
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <Text text="👥 Quản Lý Bạn Bè" styleClass="friends-title"/>
+
+            <Region HBox.hgrow="ALWAYS"/>
+        </HBox>
+    </top>
+
+    <!-- MAIN CONTENT -->
+    <center>
+        <VBox spacing="15">
+            <padding>
+                <Insets top="20" right="20" bottom="20" left="20"/>
+            </padding>
+
+            <!-- Tabs -->
+            <HBox spacing="10">
+                <ToggleButton fx:id="friendsListTab" text="📋 Bạn Bè" selected="true"
+                              styleClass="tab-button" onAction="#showFriendsTab"/>
+                <ToggleButton fx:id="pendingRequestsTab" text="📬 Lời Mời Kết Bạn"
+                              styleClass="tab-button" onAction="#showPendingRequestsTab"/>
+                <ToggleButton fx:id="searchFriendsTab" text="🔍 Tìm Kiếm Bạn Bè"
+                              styleClass="tab-button" onAction="#showSearchTab"/>
+            </HBox>
+
+            <!-- TAB 1: DANH SÁCH BẠN BÈ -->
+            <VBox fx:id="friendsListContent" spacing="15" VBox.vgrow="ALWAYS">
+                <!-- Search Field for Friends List -->
+                <TextField fx:id="searchFriendsField" promptText="🔍 Tìm kiếm trong danh sách bạn bè..."
+                           styleClass="search-field"/>
+
+                <!-- Friends Count -->
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Text fx:id="friendsCountText" text="Tổng số bạn bè: 0" styleClass="friends-count"/>
+                </HBox>
+
+                <!-- Friends List -->
+                <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="friends-scroll">
+                    <FlowPane fx:id="friendsContainer" hgap="20" vgap="20" styleClass="friends-container">
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+                    </FlowPane>
+                </ScrollPane>
+            </VBox>
+
+            <!-- TAB 2: LỜI MỜI KẾT BẠN -->
+            <VBox fx:id="pendingRequestsContent" spacing="15" VBox.vgrow="ALWAYS" visible="false" managed="false">
+                <!-- Pending Requests Count -->
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Text fx:id="pendingRequestsCountText" text="Lời mời kết bạn: 0" styleClass="friends-count"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button text="🔄 Làm mới" onAction="#handleRefreshPendingRequests"
+                            styleClass="refresh-button"/>
+                </HBox>
+
+                <!-- Info Text -->
+                <VBox spacing="5" styleClass="info-box">
+                    <Text text="💡 Mẹo:" styleClass="info-title"/>
+                    <Text text="• Chấp nhận lời mời để thêm bạn mới vào danh sách"
+                          styleClass="info-text"/>
+                    <Text text="• Từ chối nếu bạn không muốn kết bạn với người này"
+                          styleClass="info-text"/>
+                </VBox>
+
+                <!-- Pending Requests List -->
+                <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="friends-scroll">
+                    <FlowPane fx:id="pendingRequestsContainer" hgap="20" vgap="20" styleClass="friends-container">
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+                    </FlowPane>
+                </ScrollPane>
+            </VBox>
+
+            <!-- TAB 3: TÌM KIẾM BẠN BÈ -->
+            <VBox fx:id="searchFriendsContent" spacing="15" VBox.vgrow="ALWAYS" visible="false" managed="false">
+                <!-- Search Input -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <TextField fx:id="searchNewFriendsField" promptText="Nhập tên hoặc username..."
+                               styleClass="search-field" HBox.hgrow="ALWAYS"/>
+                    <Button text="Tìm kiếm" onAction="#handleSearchNewFriends"
+                            styleClass="search-button"/>
+                </HBox>
+
+                <!-- Filters -->
+                <VBox spacing="10" styleClass="filter-container">
+                    <Text text="Bộ lọc tìm kiếm:" styleClass="filter-title"/>
+
+                    <HBox spacing="15" alignment="CENTER_LEFT">
+                        <VBox spacing="5">
+                            <Text text="Độ tuổi:" styleClass="filter-label"/>
+                            <ComboBox fx:id="ageFilter" promptText="Chọn độ tuổi"
+                                      styleClass="filter-combo" prefWidth="200">
+                                <items>
+                                    <javafx.collections.FXCollections fx:factory="observableArrayList">
+                                        <String fx:value="Tất cả"/>
+                                        <String fx:value="7"/>
+                                        <String fx:value="8"/>
+                                        <String fx:value="9"/>
+                                        <String fx:value="10"/>
+                                        <String fx:value="11"/>
+                                        <String fx:value="12"/>
+                                    </javafx.collections.FXCollections>
+                                </items>
+                            </ComboBox>
+                        </VBox>
+
+                        <Button text="Áp dụng" onAction="#handleApplyFilters"
+                                styleClass="filter-apply-button"/>
+                        <Button text="Đặt lại" onAction="#handleResetFilters"
+                                styleClass="filter-reset-button"/>
+                    </HBox>
+                </VBox>
+
+                <!-- Search Results -->
+                <VBox spacing="10">
+                    <Text fx:id="searchResultsText" text="Kết quả tìm kiếm sẽ hiển thị ở đây"
+                          styleClass="search-results-text"/>
+                </VBox>
+
+                <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="friends-scroll">
+                    <FlowPane fx:id="searchResultsContainer" hgap="20" vgap="20" styleClass="friends-container">
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+                    </FlowPane>
+                </ScrollPane>
+            </VBox>
+
+        </VBox>
+    </center>
+
+</BorderPane>

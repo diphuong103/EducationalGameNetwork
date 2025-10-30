@@ -15,7 +15,7 @@ public class User {
     private int englishScore;
     private int literatureScore;
     private String email;
-    private int age; // nếu có hoặc giả định sau này thêm
+    private int age;
 
     // ---- Getter & Setter ----
     public int getUserId() { return userId; }

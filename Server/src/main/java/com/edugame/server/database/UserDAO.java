@@ -18,7 +18,7 @@ public class UserDAO {
      */
     public boolean registerUser(String username, String password, String email,
                                 String fullName, String age, String avatarUrl) {
-        String sql = "INSERT INTO users (username, password, email, full_name, avatar_url) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, password, email, full_name, age, avatar_url) VALUES (?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             // Hash password
@@ -27,8 +27,9 @@ public class UserDAO {
             pstmt.setString(1, username);
             pstmt.setString(2, hashedPassword);
             pstmt.setString(3, email);
-            pstmt.setString(4, fullName + " (" + age + " tuổi)");
-            pstmt.setString(5, avatarUrl);
+            pstmt.setString(4, fullName);
+            pstmt.setString(4, age);
+            pstmt.setString(6, avatarUrl);
 
             int rowsAffected = pstmt.executeUpdate();
 
@@ -73,6 +74,7 @@ public class UserDAO {
                 user.setUsername(rs.getString("username"));
                 user.setEmail(rs.getString("email"));
                 user.setFullName(rs.getString("full_name"));
+                user.setAge(rs.getInt("age"));
                 user.setAvatarUrl(rs.getString("avatar_url"));
                 user.setTotalScore(rs.getInt("total_score"));
                 user.setMathScore(rs.getInt("math_score"));
@@ -213,6 +215,7 @@ public class UserDAO {
                 user.setUsername(rs.getString("username"));
                 user.setEmail(rs.getString("email"));
                 user.setFullName(rs.getString("full_name"));
+                user.setAge(rs.getInt("age"));
                 user.setAvatarUrl(rs.getString("avatar_url"));
                 user.setTotalScore(rs.getInt("total_score"));
                 user.setMathScore(rs.getInt("math_score"));
