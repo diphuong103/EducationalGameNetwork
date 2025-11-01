@@ -17,6 +17,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
+/**
+ * ServerConnection - Handle all client-server communication
+ *
+ * Supports 4 types of chat:
+ * 1. Global Chat - Chat toàn server
+ * 2. Private Chat - Chat 1-1 với bạn bè
+ * 3. Room Chat - Chat trong phòng chờ
+ * 4. Game Chat - Chat trong game (đang phát triển)
+ */
 public class ServerConnection {
     private static ServerConnection instance;
     private Socket socket;
@@ -48,8 +57,20 @@ public class ServerConnection {
     // Callback storage for different message types
     private Consumer<JsonObject> leaderboardCallback;
     private Consumer<JsonObject> profileCallback;
-    private Consumer<JsonObject> chatCallback;
+
+    // ✅ 4 CHAT CALLBACKS
+    private Consumer<JsonObject> globalChatCallback;           // Chat toàn cầu
+//    private Consumer<Map<String, Object>> privateChatCallback; // Chat riêng (real-time)
+private Map<Integer, Consumer<Map<String, Object>>> privateChatListeners = new ConcurrentHashMap<>();
+    private Consumer<JsonObject> roomChatCallback;             // Chat phòng chờ
+    private Consumer<JsonObject> gameChatCallback;             // Chat trong game
+
     private Map<String, Consumer<JsonObject>> pendingRequests = new ConcurrentHashMap<>();
+
+    // Loading states
+    private boolean isLoadingFriends = false;
+    private boolean isLoadingRequests = false;
+    private boolean isLoadingMessages = false;
 
     private ServerConnection() {
         gson = new Gson();
@@ -143,73 +164,203 @@ public class ServerConnection {
      */
     private void handleIncomingMessage(String type, JsonObject json) {
         switch (type) {
+            case "ERROR":
+                handleErrorMessage(json);
+                break;
+                
+            // Profile
             case Protocol.GET_PROFILE:
                 if (profileCallback != null) {
                     profileCallback.accept(json);
-                    profileCallback = null; // One-time callback
+                    profileCallback = null;
                 }
                 break;
+
             case Protocol.UPDATE_PROFILE:
-                boolean success = json.get("success").getAsBoolean();
-                String message = json.get("message").getAsString();
-
-                if (success) {
-                    System.out.println("✅ Hồ sơ được cập nhật trên server!");
-
-                    // Cập nhật thông tin user hiện tại
-                    if (json.has("fullName"))
-                        currentFullName = json.get("fullName").getAsString();
-                    if (json.has("avatarUrl"))
-                        currentAvatarUrl = json.get("avatarUrl").getAsString();
-
-                    // Đồng bộ vào currentUser object
-                    if (currentUser != null) {
-                        if (json.has("fullName"))
-                            currentUser.setFullName(json.get("fullName").getAsString());
-                        if (json.has("avatarUrl"))
-                            currentUser.setAvatarUrl(json.get("avatarUrl").getAsString());
-                    }
-
-                    Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                        alert.setTitle("Cập nhật thành công");
-                        alert.setHeaderText(null);
-                        alert.setContentText(message);
-                        alert.showAndWait();
-                    });
-                } else {
-                    Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.ERROR);
-                        alert.setTitle("Cập nhật thất bại");
-                        alert.setHeaderText(null);
-                        alert.setContentText(message);
-                        alert.showAndWait();
-                    });
-                }
+                handleUpdateProfileResponse(json);
                 break;
+
+            // Leaderboard
             case Protocol.GET_LEADERBOARD:
                 if (leaderboardCallback != null) {
                     leaderboardCallback.accept(json);
-                    leaderboardCallback = null; // One-time callback
+                    leaderboardCallback = null;
                 }
                 break;
 
+            // ============================================================
+            // CHAT TYPE 1: GLOBAL CHAT - Chat toàn cầu
+            // ============================================================
             case Protocol.GLOBAL_CHAT:
-            case "SYSTEM_MESSAGE":
-                if (chatCallback != null) {
-                    chatCallback.accept(json);
+            case "GLOBAL_CHAT_MESSAGE":
+                if (globalChatCallback != null) {
+                    System.out.println("💬 [GLOBAL CHAT] New message received");
+                    globalChatCallback.accept(json);
                 }
                 break;
 
-            default:
-                // Check pending requests for other types
+            // ============================================================
+            // CHAT TYPE 2: PRIVATE CHAT - Chat riêng 1-1
+            // ============================================================
+            case Protocol.NEW_MESSAGE:
+                handleNewPrivateMessage(json);
+                break;
+
+            case Protocol.GET_MESSAGES:
+            case Protocol.SEND_MESSAGE:
+            case Protocol.MESSAGE_READ:
+                // Handle via pendingRequests
                 Consumer<JsonObject> callback = pendingRequests.remove(type);
                 if (callback != null) {
                     callback.accept(json);
                 }
                 break;
+
+            // ============================================================
+            // CHAT TYPE 3: ROOM CHAT - Chat trong phòng chờ
+            // ============================================================
+            case Protocol.ROOM_CHAT:
+            case "ROOM_CHAT_MESSAGE":
+                if (roomChatCallback != null) {
+                    System.out.println("🏠 [ROOM CHAT] New message in room");
+                    roomChatCallback.accept(json);
+                }
+                break;
+
+            // ============================================================
+            // CHAT TYPE 4: GAME CHAT - Chat trong game (đang phát triển)
+            // ============================================================
+            case Protocol.GAME_CHAT:
+            case "GAME_CHAT_MESSAGE":
+                if (gameChatCallback != null) {
+                    System.out.println("🎮 [GAME CHAT] New message in game");
+                    gameChatCallback.accept(json);
+                } else {
+                    System.out.println("⚠️ [GAME CHAT] Tính năng đang phát triển");
+                }
+                break;
+
+            default:
+                // Check pending requests for other types
+                Consumer<JsonObject> cb = pendingRequests.remove(type);
+                if (cb != null) {
+                    cb.accept(json);
+                } else {
+                    System.out.println("⚠️ No handler for message type: " + type);
+                }
+                break;
         }
     }
+
+
+
+    private void handleErrorMessage(JsonObject json) {
+        try {
+            String message = json.has("message") ? json.get("message").getAsString() : "Unknown error";
+            System.err.println("❌ [SERVER ERROR] " + message);
+
+            // Hiển thị error cho user nếu cần
+            Platform.runLater(() -> {
+                // Có thể show alert hoặc log
+                System.err.println("❌ Server error: " + message);
+            });
+
+        } catch (Exception e) {
+            System.err.println("❌ Error handling error message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle update profile response
+     */
+    private void handleUpdateProfileResponse(JsonObject json) {
+        boolean success = json.get("success").getAsBoolean();
+        String message = json.get("message").getAsString();
+
+        if (success) {
+            System.out.println("✅ Hồ sơ được cập nhật trên server!");
+
+            // Cập nhật thông tin user hiện tại
+            if (json.has("fullName"))
+                currentFullName = json.get("fullName").getAsString();
+            if (json.has("avatarUrl"))
+                currentAvatarUrl = json.get("avatarUrl").getAsString();
+
+            // Đồng bộ vào currentUser object
+            if (currentUser != null) {
+                if (json.has("fullName"))
+                    currentUser.setFullName(json.get("fullName").getAsString());
+                if (json.has("avatarUrl"))
+                    currentUser.setAvatarUrl(json.get("avatarUrl").getAsString());
+            }
+
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Cập nhật thành công");
+                alert.setHeaderText(null);
+                alert.setContentText(message);
+                alert.showAndWait();
+            });
+        } else {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Cập nhật thất bại");
+                alert.setHeaderText(null);
+                alert.setContentText(message);
+                alert.showAndWait();
+            });
+        }
+    }
+
+    /**
+     * Handle new private message (real-time)
+     */
+    private void handleNewPrivateMessage(JsonObject json) {
+        try {
+            int senderId = json.get("senderId").getAsInt();
+            String senderName = json.get("senderName").getAsString();
+            String content = json.get("content").getAsString();
+            int messageId = json.get("messageId").getAsInt();
+            String sentAt = json.get("sentAt").getAsString();
+
+            System.out.println("📨 [PRIVATE CHAT] New message from userId=" + senderId + " (" + senderName + ")");
+
+            // ✅ Tạo message object
+            Map<String, Object> message = new HashMap<>();
+            message.put("messageId", messageId);
+            message.put("senderId", senderId);
+            message.put("senderName", senderName);
+            message.put("content", content);
+            message.put("sentAt", sentAt);
+
+            // ✅ Tìm listener tương ứng với senderId (người gửi)
+            Consumer<Map<String, Object>> listener = privateChatListeners.get(senderId);
+
+            if (listener != null) {
+                System.out.println("✅ [PRIVATE CHAT] Calling listener for friendId=" + senderId);
+                listener.accept(message);
+            } else {
+                System.out.println("⚠️ [PRIVATE CHAT] No listener for friendId=" + senderId + " (chat window not open)");
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Error handling new private message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * ✅ Clear tất cả listeners
+     */
+    public void clearAllPrivateChatListeners() {
+        privateChatListeners.clear();
+        System.out.println("🗑️ Cleared all private chat listeners");
+    }
+
+    // ================================================================
+    // AUTHENTICATION
+    // ================================================================
 
     /** Login to server */
     public boolean login(String username, String password) {
@@ -298,6 +449,328 @@ public class ServerConnection {
         }
     }
 
+    // ================================================================
+    // CHAT TYPE 1: GLOBAL CHAT - Chat toàn cầu
+    // ================================================================
+
+    /**
+     * Set callback for global chat messages
+     */
+    public void setGlobalChatCallback(Consumer<JsonObject> callback) {
+        this.globalChatCallback = callback;
+        System.out.println("✅ Global chat callback registered");
+    }
+
+    /**
+     * Clear global chat callback
+     */
+    public void clearGlobalChatCallback() {
+        this.globalChatCallback = null;
+        System.out.println("🗑️ Global chat callback cleared");
+    }
+
+    /**
+     * Send global chat message
+     */
+    public void sendGlobalChatMessage(String message) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot send global chat - not connected");
+            return;
+        }
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GLOBAL_CHAT);
+        request.put("username", currentUsername);
+        request.put("message", message);
+        sendJson(request);
+
+        System.out.println("💬 [GLOBAL CHAT] Message sent: " + message);
+    }
+
+    // ================================================================
+    // CHAT TYPE 2: PRIVATE CHAT - Chat riêng 1-1
+    // ================================================================
+
+
+
+    public void addPrivateChatListener(int friendId, Consumer<Map<String, Object>> callback) {
+        privateChatListeners.put(friendId, callback);
+        System.out.println("✅ Added private chat listener for friendId=" + friendId);
+    }
+    /**
+     * ✅ Remove listener khi đóng chat window
+     */
+    public void removePrivateChatListener(int friendId) {
+        privateChatListeners.remove(friendId);
+        System.out.println("🗑️ Removed private chat listener for friendId=" + friendId);
+    }
+
+    /**
+     * Get chat messages with a friend
+     */
+    public void getMessages(int friendId, int limit, Consumer<List<Map<String, Object>>> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot get messages - not connected");
+            callback.accept(new ArrayList<>());
+            return;
+        }
+
+        if (isLoadingMessages) {
+            System.out.println("⏭️ Already loading messages, skipping");
+            return;
+        }
+        isLoadingMessages = true;
+
+        System.out.println("💬 [PRIVATE CHAT] Getting messages from friendId=" + friendId);
+
+        removePendingCallback(Protocol.GET_MESSAGES);
+        final boolean[] callbackCalled = new boolean[]{false};
+
+        setPendingCallback(Protocol.GET_MESSAGES, (json) -> {
+            try {
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) return;
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.GET_MESSAGES);
+
+                boolean success = json.get("success").getAsBoolean();
+                if (!success) {
+                    callback.accept(new ArrayList<>());
+                    return;
+                }
+
+                JsonArray arr = json.getAsJsonArray("messages");
+                List<Map<String, Object>> messages = new ArrayList<>();
+
+                for (int i = 0; i < arr.size(); i++) {
+                    JsonObject msgObj = arr.get(i).getAsJsonObject();
+                    Map<String, Object> message = new HashMap<>();
+
+                    message.put("messageId", msgObj.get("messageId").getAsInt());
+                    message.put("senderId", msgObj.get("senderId").getAsInt());
+                    message.put("receiverId", msgObj.get("receiverId").getAsInt());
+                    message.put("content", msgObj.get("content").getAsString());
+                    message.put("sentAt", msgObj.get("sentAt").getAsString());
+                    message.put("isRead", msgObj.get("isRead").getAsBoolean());
+
+                    if (msgObj.has("senderName")) {
+                        message.put("senderName", msgObj.get("senderName").getAsString());
+                    }
+                    if (msgObj.has("senderAvatar")) {
+                        message.put("senderAvatar", msgObj.get("senderAvatar").getAsString());
+                    }
+
+                    messages.add(message);
+                }
+
+                System.out.println("✅ [PRIVATE CHAT] Loaded " + messages.size() + " messages");
+                callback.accept(messages);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error parsing messages: " + e.getMessage());
+                e.printStackTrace();
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(new ArrayList<>());
+                    }
+                }
+            } finally {
+                isLoadingMessages = false;
+            }
+        });
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GET_MESSAGES);
+        request.put("friendId", friendId);
+        request.put("limit", limit);
+        sendJson(request);
+
+        // Timeout
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.GET_MESSAGES);
+                        System.err.println("⚠️ Get messages timeout");
+                        callback.accept(new ArrayList<>());
+                    }
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                isLoadingMessages = false;
+            }
+        }, "GetMessagesTimeout").start();
+    }
+
+    /**
+     * Send message to friend
+     */
+    public void sendMessage(int friendId, String content, Consumer<Boolean> callback) {
+        if (!isConnected()) {
+            callback.accept(false);
+            return;
+        }
+
+        System.out.println("💬 [PRIVATE CHAT] Sending message to friendId=" + friendId);
+
+        removePendingCallback(Protocol.SEND_MESSAGE);
+        final boolean[] callbackCalled = new boolean[]{false};
+
+        setPendingCallback(Protocol.SEND_MESSAGE, (json) -> {
+            try {
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) return;
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.SEND_MESSAGE);
+
+                boolean success = json.get("success").getAsBoolean();
+                System.out.println("✅ [PRIVATE CHAT] Message " + (success ? "sent" : "failed"));
+                callback.accept(success);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error: " + e.getMessage());
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(false);
+                    }
+                }
+            }
+        });
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.SEND_MESSAGE);
+        request.put("receiverId", friendId);
+        request.put("content", content);
+        sendJson(request);
+
+        // Timeout
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.SEND_MESSAGE);
+                        callback.accept(false);
+                    }
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "SendMessageTimeout").start();
+    }
+
+    /**
+     * Mark messages as read
+     */
+    public void markMessagesAsRead(int friendId) {
+        if (!isConnected()) return;
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.MESSAGE_READ);
+        request.put("senderId", friendId);
+        sendJson(request);
+
+        System.out.println("✅ [PRIVATE CHAT] Marked messages as read from friendId=" + friendId);
+    }
+
+    // ================================================================
+    // CHAT TYPE 3: ROOM CHAT - Chat trong phòng chờ
+    // ================================================================
+
+    /**
+     * Set callback for room chat messages
+     */
+    public void setRoomChatCallback(Consumer<JsonObject> callback) {
+        this.roomChatCallback = callback;
+        System.out.println("✅ Room chat callback registered");
+    }
+
+    /**
+     * Clear room chat callback
+     */
+    public void clearRoomChatCallback() {
+        this.roomChatCallback = null;
+        System.out.println("🗑️ Room chat callback cleared");
+    }
+
+    /**
+     * Send room chat message
+     */
+    public void sendRoomChatMessage(int roomId, String message) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot send room chat - not connected");
+            return;
+        }
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.ROOM_CHAT);
+        request.put("roomId", roomId);
+        request.put("username", currentUsername);
+        request.put("message", message);
+        sendJson(request);
+
+        System.out.println("🏠 [ROOM CHAT] Message sent in room " + roomId + ": " + message);
+    }
+
+    // ================================================================
+    // CHAT TYPE 4: GAME CHAT - Chat trong game (đang phát triển)
+    // ================================================================
+
+    /**
+     * Set callback for game chat messages
+     */
+    public void setGameChatCallback(Consumer<JsonObject> callback) {
+        this.gameChatCallback = callback;
+        System.out.println("✅ Game chat callback registered");
+    }
+
+    /**
+     * Clear game chat callback
+     */
+    public void clearGameChatCallback() {
+        this.gameChatCallback = null;
+        System.out.println("🗑️ Game chat callback cleared");
+    }
+
+    /**
+     * Send game chat message (đang phát triển)
+     */
+    public void sendGameChatMessage(int gameId, String message) {
+        System.out.println("⚠️ [GAME CHAT] Tính năng đang phát triển");
+        System.out.println("🎮 [GAME CHAT] gameId=" + gameId + ", message=" + message);
+
+        // TODO: Implement when game chat is ready
+        /*
+        if (!isConnected()) {
+            System.err.println("❌ Cannot send game chat - not connected");
+            return;
+        }
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GAME_CHAT);
+        request.put("gameId", gameId);
+        request.put("username", currentUsername);
+        request.put("message", message);
+        sendJson(request);
+
+        System.out.println("🎮 [GAME CHAT] Message sent in game " + gameId + ": " + message);
+        */
+    }
+
+    // ================================================================
+    // UTILITIES
+    // ================================================================
+
     /** Send JSON with error handling */
     public void sendJson(Map<String, Object> data) {
         if (!isConnected()) {
@@ -307,7 +780,7 @@ public class ServerConnection {
 
         if (writer != null && !writer.checkError()) {
             String json = gson.toJson(data);
-            System.out.println("📤 Sending: " + data.get("type") + " (subject: " + data.get("subject") + ")");
+            System.out.println("📤 Sending: " + data.get("type"));
             writer.println(json);
             writer.flush();
 
@@ -317,6 +790,22 @@ public class ServerConnection {
         } else {
             System.err.println("❌ Writer is null or has error");
         }
+    }
+
+    /**
+     * Register a one-time callback for any message type
+     */
+    public void setPendingCallback(String messageType, Consumer<JsonObject> callback) {
+        pendingRequests.put(messageType, callback);
+        System.out.println("✅ Registered callback for: " + messageType);
+    }
+
+    /**
+     * Remove a pending callback
+     */
+    public void removePendingCallback(String messageType) {
+        pendingRequests.remove(messageType);
+        System.out.println("🗑️ Removed callback for: " + messageType);
     }
 
     /**
@@ -331,7 +820,6 @@ public class ServerConnection {
 
         System.out.println("📝 Getting profile...");
 
-        // Register callback BEFORE sending request
         profileCallback = (json) -> {
             try {
                 System.out.println("🔄 Profile callback executing");
@@ -346,15 +834,14 @@ public class ServerConnection {
             }
         };
 
-        // Send request
         Map<String, Object> req = new HashMap<>();
         req.put("type", Protocol.GET_PROFILE);
         sendJson(req);
 
-        // Timeout handler
+        // Timeout
         new Thread(() -> {
             try {
-                Thread.sleep(5000); // 5 second timeout
+                Thread.sleep(5000);
                 if (profileCallback != null) {
                     System.err.println("⚠️ Profile request timeout");
                     profileCallback = null;
@@ -367,7 +854,7 @@ public class ServerConnection {
     }
 
     /**
-     * Get leaderboard with callback (mặc định lấy tổng điểm)
+     * Get leaderboard with callback
      */
     public void getLeaderboard(int limit, Consumer<List<Map<String, Object>>> callback) {
         getLeaderboardBySubject("total", limit, callback);
@@ -385,7 +872,6 @@ public class ServerConnection {
 
         System.out.println("📊 Getting leaderboard for subject: " + subject);
 
-        // Register callback BEFORE sending request
         leaderboardCallback = (json) -> {
             try {
                 System.out.println("🔄 Leaderboard callback executing for: " + subject);
@@ -433,14 +919,13 @@ public class ServerConnection {
             }
         };
 
-        // Send request with subject parameter
         Map<String, Object> request = new HashMap<>();
         request.put("type", Protocol.GET_LEADERBOARD);
         request.put("limit", limit);
         request.put("subject", subject);
         sendJson(request);
 
-        // Timeout handler
+        // Timeout
         new Thread(() -> {
             try {
                 Thread.sleep(5000);
@@ -455,139 +940,13 @@ public class ServerConnection {
         }, "LeaderboardTimeout-" + subject).start();
     }
 
-    /**
-     * Register chat message callback
-     */
-    public void setChatCallback(Consumer<JsonObject> callback) {
-        this.chatCallback = callback;
-    }
+    // ================================================================
+    // FRIENDS MANAGEMENT (GIỮ NGUYÊN CODE CŨ)
+    // ================================================================
 
     /**
-     * Clear chat callback
+     * Tìm kiếm người dùng
      */
-    public void clearChatCallback() {
-        this.chatCallback = null;
-    }
-
-    /**
-     * Register a one-time callback for any message type
-     */
-    public void setPendingCallback(String messageType, Consumer<JsonObject> callback) {
-        pendingRequests.put(messageType, callback);
-        System.out.println("✅ Registered callback for: " + messageType);
-    }
-
-    /**
-     * Remove a pending callback
-     */
-    public void removePendingCallback(String messageType) {
-        pendingRequests.remove(messageType);
-        System.out.println("🗑️ Removed callback for: " + messageType);
-    }
-
-    /** Disconnect and cleanup */
-    public void disconnect() {
-        try {
-            // Stop listener first
-            isListening = false;
-
-            if (socket != null && !socket.isClosed()) {
-                Map<String, Object> req = new HashMap<>();
-                req.put("type", "LOGOUT");
-                req.put("username", currentUsername);
-                sendJson(req);
-
-                // Wait a bit for logout message to send
-                Thread.sleep(200);
-
-                socket.close();
-            }
-
-            // Clear all session data
-            clearSessionData();
-
-            connected = false;
-            System.out.println("✅ Disconnected from server");
-
-        } catch (Exception e) {
-            System.err.println("❌ Error disconnecting: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Clear all session data - IMPORTANT for clean logout
-     */
-    private void clearSessionData() {
-        currentUsername = null;
-        currentUserId = 0;
-        currentFullName = null;
-        currentEmail = null;
-        currentAvatarUrl = null;
-        totalScore = 0;
-        mathScore = 0;
-        englishScore = 0;
-        scienceScore = 0;
-        totalGames = 0;
-        wins = 0;
-        currentLevel = 0;
-        currentUser = null;
-
-        // Clear callbacks
-        profileCallback = null;
-        leaderboardCallback = null;
-        chatCallback = null;
-        pendingRequests.clear();
-
-        System.out.println("🧹 Session data cleared");
-    }
-
-    public void logoutAndClearSession() {
-        try {
-            // Gửi logout message cho server
-            if (isConnected() && currentUsername != null) {
-                Map<String, Object> request = new HashMap<>();
-                request.put("type", "LOGOUT");
-                request.put("username", currentUsername);
-                sendJson(request);
-            }
-
-            // Dừng listener
-            isListening = false;
-            if (listenerThread != null && listenerThread.isAlive()) {
-                listenerThread.interrupt();
-                listenerThread = null;
-            }
-
-            // Ngắt socket
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
-            }
-
-            connected = false;
-
-            // 🧹 Xóa toàn bộ dữ liệu user hiện tại
-            currentUserId = 0;
-            currentUsername = null;
-            currentFullName = null;
-            currentEmail = null;
-            currentAvatarUrl = null;
-            totalScore = 0;
-            mathScore = 0;
-            englishScore = 0;
-            scienceScore = 0;
-            totalGames = 0;
-            wins = 0;
-            currentLevel = 0;
-
-            System.out.println("🧹 Client session cleared completely");
-
-        } catch (Exception e) {
-            System.err.println("❌ Error during logout: " + e.getMessage());
-        }
-    }
-
-    // Friends
-
     public void searchUsers(String query, Consumer<List<Map<String, Object>>> callback) {
         if (!isConnected()) {
             System.err.println("❌ Cannot search users - not connected");
@@ -595,23 +954,29 @@ public class ServerConnection {
             return;
         }
 
-        System.out.println("🔍 Searching users: " + query);
+        System.out.println("🔍 [CLIENT] Searching users: " + query);
 
-        // Cờ để xác định callback đã được thực thi hay chưa
-        final boolean[] callbackExecuted = {false};
+        removePendingCallback(Protocol.SEARCH_USERS);
+        final boolean[] callbackCalled = new boolean[]{false};
 
-        // Register callback
         setPendingCallback(Protocol.SEARCH_USERS, (json) -> {
-            try {
-                callbackExecuted[0] = true; // ✅ Đánh dấu callback đã được thực thi
-                removePendingCallback(Protocol.SEARCH_USERS); // ✅ Xóa callback ngay khi nhận phản hồi
+            System.out.println("🔔 [CLIENT] SEARCH_USERS callback triggered");
 
-                System.out.println("🔄 Search users callback executing");
+            try {
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) {
+                        System.err.println("⚠️ [CLIENT] Callback already called, ignoring");
+                        return;
+                    }
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.SEARCH_USERS);
 
                 boolean success = json.get("success").getAsBoolean();
                 if (!success) {
                     String message = json.get("message").getAsString();
-                    System.err.println("❌ Search failed: " + message);
+                    System.err.println("❌ [CLIENT] Search failed: " + message);
 
                     Platform.runLater(() -> {
                         Alert alert = new Alert(Alert.AlertType.WARNING);
@@ -660,32 +1025,43 @@ public class ServerConnection {
                     users.add(user);
                 }
 
-                System.out.println("✅ Found " + users.size() + " users");
+                System.out.println("✅ [CLIENT] Found " + users.size() + " users");
                 callback.accept(users);
 
             } catch (Exception e) {
-                System.err.println("❌ Error parsing search results: " + e.getMessage());
+                System.err.println("❌ [CLIENT] Error parsing search results: " + e.getMessage());
                 e.printStackTrace();
-                callback.accept(new ArrayList<>());
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(new ArrayList<>());
+                    }
+                }
             }
         });
 
-        // Send request
         Map<String, Object> request = new HashMap<>();
         request.put("type", Protocol.SEARCH_USERS);
         request.put("query", query);
         request.put("limit", 50);
         sendJson(request);
 
-        // Timeout
         new Thread(() -> {
             try {
                 Thread.sleep(5000);
-                if (!callbackExecuted[0]) { // ✅ Chỉ timeout nếu callback chưa được gọi
-                    removePendingCallback(Protocol.SEARCH_USERS);
-                    System.err.println("⚠️ Search users timeout");
-                    callback.accept(new ArrayList<>());
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.SEARCH_USERS);
+                        System.err.println("⚠️ [CLIENT] Search users timeout");
+                        callback.accept(new ArrayList<>());
+                    } else {
+                        System.out.println("✅ [CLIENT] Timeout thread: Search already completed");
+                    }
                 }
+
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -702,21 +1078,29 @@ public class ServerConnection {
             return;
         }
 
-        System.out.println("🤝 Sending friend request to userId=" + targetUserId);
+        System.out.println("🤝 [CLIENT] Sending friend request to userId=" + targetUserId);
 
-        // Đăng ký callback
+        removePendingCallback(Protocol.ADD_FRIEND);
+        final boolean[] callbackCalled = new boolean[]{false};
+
         setPendingCallback(Protocol.ADD_FRIEND, (json) -> {
+            System.out.println("🔔 [CLIENT] ADD_FRIEND callback triggered");
+
             try {
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) {
+                        System.err.println("⚠️ [CLIENT] Callback already called, ignoring");
+                        return;
+                    }
+                    callbackCalled[0] = true;
+                }
+
                 removePendingCallback(Protocol.ADD_FRIEND);
 
                 boolean success = json.get("success").getAsBoolean();
                 String message = json.get("message").getAsString();
 
-                if (success) {
-                    System.out.println("✅ Friend request sent successfully: " + message);
-                } else {
-                    System.err.println("❌ Friend request failed: " + message);
-                }
+                System.out.println("📥 [CLIENT] Send friend request result: " + success + ", message: " + message);
 
                 Platform.runLater(() -> {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
@@ -727,26 +1111,40 @@ public class ServerConnection {
                 });
 
                 callback.accept(success);
+
             } catch (Exception e) {
-                System.err.println("❌ Error handling ADD_FRIEND response: " + e.getMessage());
+                System.err.println("❌ [CLIENT] Error handling ADD_FRIEND response: " + e.getMessage());
                 e.printStackTrace();
-                callback.accept(false);
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(false);
+                    }
+                }
             }
         });
 
-        // Gửi request
         Map<String, Object> request = new HashMap<>();
         request.put("type", Protocol.ADD_FRIEND);
         request.put("targetUserId", targetUserId);
         sendJson(request);
 
-        // Timeout
         new Thread(() -> {
             try {
                 Thread.sleep(5000);
-                removePendingCallback(Protocol.ADD_FRIEND);
-                System.err.println("⚠️ Add friend timeout");
-                callback.accept(false);
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.ADD_FRIEND);
+                        System.err.println("⚠️ [CLIENT] Add friend timeout");
+                        callback.accept(false);
+                    } else {
+                        System.out.println("✅ [CLIENT] Timeout thread: Add friend already processed");
+                    }
+                }
+
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -763,17 +1161,18 @@ public class ServerConnection {
             return;
         }
 
-        System.out.println("✅ Accepting friend request from userId: " + friendId);
+        System.out.println("✅ [CLIENT] Accepting friend request from userId: " + friendId);
 
-        // ✅ CỜ BOOLEAN
+        removePendingCallback(Protocol.ACCEPT_FRIEND);
         final boolean[] callbackCalled = new boolean[]{false};
 
         setPendingCallback(Protocol.ACCEPT_FRIEND, (json) -> {
+            System.out.println("🔔 [CLIENT] ACCEPT_FRIEND callback triggered");
+
             try {
-                // ✅ CHECK VÀ SET CỜ
                 synchronized (callbackCalled) {
                     if (callbackCalled[0]) {
-                        System.err.println("⚠️ Callback already called, ignoring");
+                        System.err.println("⚠️ [CLIENT] Callback already called, ignoring");
                         return;
                     }
                     callbackCalled[0] = true;
@@ -782,12 +1181,12 @@ public class ServerConnection {
                 removePendingCallback(Protocol.ACCEPT_FRIEND);
 
                 boolean success = json.get("success").getAsBoolean();
-                System.out.println(success ? "✅ Friend request accepted" : "❌ Failed to accept friend request");
+                System.out.println("📥 [CLIENT] Accept friend result: " + success);
 
                 callback.accept(success);
 
             } catch (Exception e) {
-                System.err.println("❌ Error parsing accept response: " + e.getMessage());
+                System.err.println("❌ [CLIENT] Error parsing accept response: " + e.getMessage());
                 e.printStackTrace();
 
                 synchronized (callbackCalled) {
@@ -804,7 +1203,6 @@ public class ServerConnection {
         request.put("friendId", friendId);
         sendJson(request);
 
-        // ✅ TIMEOUT VỚI CHECK CỜ
         new Thread(() -> {
             try {
                 Thread.sleep(5000);
@@ -813,10 +1211,10 @@ public class ServerConnection {
                     if (!callbackCalled[0]) {
                         callbackCalled[0] = true;
                         removePendingCallback(Protocol.ACCEPT_FRIEND);
-                        System.err.println("⚠️ Accept friend request timeout");
+                        System.err.println("⚠️ [CLIENT] Accept friend request timeout");
                         callback.accept(false);
                     } else {
-                        System.out.println("✅ Timeout thread: Accept already processed");
+                        System.out.println("✅ [CLIENT] Timeout thread: Accept already processed");
                     }
                 }
 
@@ -836,17 +1234,18 @@ public class ServerConnection {
             return;
         }
 
-        System.out.println("❌ Rejecting friend request from userId: " + friendId);
+        System.out.println("❌ [CLIENT] Rejecting friend request from userId: " + friendId);
 
-        // ✅ CỜ BOOLEAN
+        removePendingCallback(Protocol.REJECT_FRIEND);
         final boolean[] callbackCalled = new boolean[]{false};
 
         setPendingCallback(Protocol.REJECT_FRIEND, (json) -> {
+            System.out.println("🔔 [CLIENT] REJECT_FRIEND callback triggered");
+
             try {
-                // ✅ CHECK VÀ SET CỜ
                 synchronized (callbackCalled) {
                     if (callbackCalled[0]) {
-                        System.err.println("⚠️ Callback already called, ignoring");
+                        System.err.println("⚠️ [CLIENT] Callback already called, ignoring");
                         return;
                     }
                     callbackCalled[0] = true;
@@ -855,12 +1254,12 @@ public class ServerConnection {
                 removePendingCallback(Protocol.REJECT_FRIEND);
 
                 boolean success = json.get("success").getAsBoolean();
-                System.out.println(success ? "✅ Friend request rejected" : "❌ Failed to reject friend request");
+                System.out.println("📥 [CLIENT] Reject friend result: " + success);
 
                 callback.accept(success);
 
             } catch (Exception e) {
-                System.err.println("❌ Error parsing reject response: " + e.getMessage());
+                System.err.println("❌ [CLIENT] Error parsing reject response: " + e.getMessage());
                 e.printStackTrace();
 
                 synchronized (callbackCalled) {
@@ -877,7 +1276,6 @@ public class ServerConnection {
         request.put("friendId", friendId);
         sendJson(request);
 
-        // ✅ TIMEOUT VỚI CHECK CỜ
         new Thread(() -> {
             try {
                 Thread.sleep(5000);
@@ -886,10 +1284,10 @@ public class ServerConnection {
                     if (!callbackCalled[0]) {
                         callbackCalled[0] = true;
                         removePendingCallback(Protocol.REJECT_FRIEND);
-                        System.err.println("⚠️ Reject friend request timeout");
+                        System.err.println("⚠️ [CLIENT] Reject friend request timeout");
                         callback.accept(false);
                     } else {
-                        System.out.println("✅ Timeout thread: Reject already processed");
+                        System.out.println("✅ [CLIENT] Timeout thread: Reject already processed");
                     }
                 }
 
@@ -909,21 +1307,29 @@ public class ServerConnection {
             return;
         }
 
-        System.out.println("🗑️ Removing friend userId=" + friendId);
+        System.out.println("🗑️ [CLIENT] Removing friend userId=" + friendId);
 
-        // Đăng ký callback
+        removePendingCallback(Protocol.REMOVE_FRIEND);
+        final boolean[] callbackCalled = new boolean[]{false};
+
         setPendingCallback(Protocol.REMOVE_FRIEND, (json) -> {
+            System.out.println("🔔 [CLIENT] REMOVE_FRIEND callback triggered");
+
             try {
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) {
+                        System.err.println("⚠️ [CLIENT] Callback already called, ignoring");
+                        return;
+                    }
+                    callbackCalled[0] = true;
+                }
+
                 removePendingCallback(Protocol.REMOVE_FRIEND);
 
                 boolean success = json.get("success").getAsBoolean();
                 String message = json.get("message").getAsString();
 
-                if (success) {
-                    System.out.println("✅ Friend removed: " + message);
-                } else {
-                    System.err.println("❌ Remove friend failed: " + message);
-                }
+                System.out.println("📥 [CLIENT] Remove friend result: " + success + ", message: " + message);
 
                 Platform.runLater(() -> {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
@@ -934,26 +1340,40 @@ public class ServerConnection {
                 });
 
                 callback.accept(success);
+
             } catch (Exception e) {
-                System.err.println("❌ Error handling REMOVE_FRIEND response: " + e.getMessage());
+                System.err.println("❌ [CLIENT] Error handling REMOVE_FRIEND response: " + e.getMessage());
                 e.printStackTrace();
-                callback.accept(false);
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(false);
+                    }
+                }
             }
         });
 
-        // Gửi request
         Map<String, Object> request = new HashMap<>();
         request.put("type", Protocol.REMOVE_FRIEND);
         request.put("friendId", friendId);
         sendJson(request);
 
-        // Timeout
         new Thread(() -> {
             try {
                 Thread.sleep(5000);
-                removePendingCallback(Protocol.REMOVE_FRIEND);
-                System.err.println("⚠️ Remove friend timeout");
-                callback.accept(false);
+
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.REMOVE_FRIEND);
+                        System.err.println("⚠️ [CLIENT] Remove friend timeout");
+                        callback.accept(false);
+                    } else {
+                        System.out.println("✅ [CLIENT] Timeout thread: Remove friend already processed");
+                    }
+                }
+
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -970,32 +1390,55 @@ public class ServerConnection {
             return;
         }
 
-        System.out.println("👥 Getting friends list...");
+        if (isLoadingFriends) {
+            System.out.println("⏭️ [CLIENT] Already loading friends, skipping");
+            return;
+        }
+        isLoadingFriends = true;
+        System.out.println("🔒 [CLIENT] isLoadingFriends set to TRUE");
 
-        // ✅ CỜ BOOLEAN
+        System.out.println("👥 [CLIENT] ========== GET FRIENDS LIST START ==========");
+
+        removePendingCallback(Protocol.GET_FRIENDS_LIST);
+        System.out.println("👥 [CLIENT] Removed old callback");
+
         final boolean[] callbackCalled = new boolean[]{false};
+        System.out.println("👥 [CLIENT] Created flag: " + callbackCalled[0]);
 
         setPendingCallback(Protocol.GET_FRIENDS_LIST, (json) -> {
+            System.out.println("🔔🔔🔔 [CLIENT] ===== CALLBACK TRIGGERED ===== 🔔🔔🔔");
+            System.out.println("🔔 [CLIENT] JSON: " + json.toString());
+            System.out.println("🔔 [CLIENT] Flag before sync: " + callbackCalled[0]);
+
             try {
-                // ✅ CHECK VÀ SET CỜ
                 synchronized (callbackCalled) {
+                    System.out.println("🔔 [CLIENT] Inside synchronized block");
+                    System.out.println("🔔 [CLIENT] Flag value: " + callbackCalled[0]);
+
                     if (callbackCalled[0]) {
-                        System.err.println("⚠️ Callback already called, ignoring");
+                        System.err.println("⚠️ [CLIENT] Callback already called, RETURNING");
                         return;
                     }
+
                     callbackCalled[0] = true;
+                    System.out.println("✅ [CLIENT] Flag set to TRUE");
                 }
 
                 removePendingCallback(Protocol.GET_FRIENDS_LIST);
+                System.out.println("✅ [CLIENT] Removed pending callback");
 
                 boolean success = json.get("success").getAsBoolean();
+                System.out.println("📥 [CLIENT] Success: " + success);
+
                 if (!success) {
-                    System.err.println("❌ Get friends list failed");
+                    System.err.println("❌ [CLIENT] Get friends list failed");
                     callback.accept(new ArrayList<>());
                     return;
                 }
 
                 JsonArray arr = json.getAsJsonArray("friends");
+                System.out.println("📥 [CLIENT] Friends array size: " + arr.size());
+
                 List<Map<String, Object>> friends = new ArrayList<>();
 
                 for (int i = 0; i < arr.size(); i++) {
@@ -1014,49 +1457,79 @@ public class ServerConnection {
                     friend.put("isOnline", friendObj.get("isOnline").getAsBoolean());
 
                     friends.add(friend);
+                    System.out.println("  ✅ [CLIENT] Parsed friend #" + (i+1) + ": " + friend.get("fullName"));
                 }
 
-                System.out.println("✅ Found " + friends.size() + " friends");
+                System.out.println("✅ [CLIENT] Total friends parsed: " + friends.size());
+                System.out.println("✅ [CLIENT] Calling callback with " + friends.size() + " friends");
+
                 callback.accept(friends);
 
+                System.out.println("✅ [CLIENT] ===== CALLBACK COMPLETED ===== ✅");
+
             } catch (Exception e) {
-                System.err.println("❌ Error parsing friends list: " + e.getMessage());
+                System.err.println("❌❌❌ [CLIENT] EXCEPTION IN CALLBACK ❌❌❌");
+                System.err.println("❌ [CLIENT] Exception: " + e.getMessage());
                 e.printStackTrace();
 
                 synchronized (callbackCalled) {
+                    System.out.println("❌ [CLIENT] In exception handler, flag: " + callbackCalled[0]);
                     if (!callbackCalled[0]) {
                         callbackCalled[0] = true;
+                        System.out.println("❌ [CLIENT] Set flag to true in exception");
                         callback.accept(new ArrayList<>());
+                    } else {
+                        System.out.println("❌ [CLIENT] Flag already true in exception");
                     }
                 }
+            } finally {
+                isLoadingFriends = false;
+                System.out.println("🔓 [CLIENT] isLoadingFriends reset to FALSE (in callback finally)");
             }
         });
+
+        System.out.println("👥 [CLIENT] Callback registered");
 
         Map<String, Object> request = new HashMap<>();
         request.put("type", Protocol.GET_FRIENDS_LIST);
         sendJson(request);
 
-        // ✅ TIMEOUT VỚI CHECK CỜ
+        System.out.println("👥 [CLIENT] Request sent");
+
         new Thread(() -> {
             try {
+                System.out.println("⏱️ [TIMEOUT] Timeout thread started");
                 Thread.sleep(5000);
 
+                System.out.println("⏱️ [TIMEOUT] 5 seconds passed");
+
                 synchronized (callbackCalled) {
+                    System.out.println("⏱️ [TIMEOUT] In synchronized block");
+                    System.out.println("⏱️ [TIMEOUT] Flag value: " + callbackCalled[0]);
+
                     if (!callbackCalled[0]) {
+                        System.err.println("⚠️⚠️⚠️ [TIMEOUT] FLAG IS FALSE - CALLING TIMEOUT CALLBACK ⚠️⚠️⚠️");
                         callbackCalled[0] = true;
                         removePendingCallback(Protocol.GET_FRIENDS_LIST);
-                        System.err.println("⚠️ Get friends list timeout");
+                        System.err.println("⚠️ [CLIENT] Get friends list timeout");
                         callback.accept(new ArrayList<>());
                     } else {
-                        System.out.println("✅ Timeout thread: Friends list already loaded");
+                        System.out.println("✅ [TIMEOUT] Flag is true, skipping timeout");
                     }
                 }
 
             } catch (InterruptedException e) {
                 e.printStackTrace();
+            } finally {
+                isLoadingFriends = false;
+                System.out.println("🔓 [CLIENT] isLoadingFriends reset to FALSE (in timeout finally)");
             }
         }, "GetFriendsListTimeout").start();
+
+        System.out.println("👥 [CLIENT] Timeout thread started");
+        System.out.println("👥 [CLIENT] ========== GET FRIENDS LIST END ==========");
     }
+
     /**
      * Lấy danh sách lời mời kết bạn đang chờ
      */
@@ -1067,18 +1540,24 @@ public class ServerConnection {
             return;
         }
 
-        System.out.println("📬 Getting pending requests...");
+        if (isLoadingRequests) {
+            System.out.println("⏭️ Already loading requests, skipping");
+            return;
+        }
+        isLoadingRequests = true;
 
-        // ✅ CỜ ĐỂ ĐÁNH DẤU CALLBACK ĐÃ ĐƯỢC GỌI
+        System.out.println("📬 [CLIENT] Getting pending requests...");
+
+        removePendingCallback(Protocol.GET_PENDING_REQUESTS);
         final boolean[] callbackCalled = new boolean[]{false};
 
-        // Đăng ký callback
         setPendingCallback(Protocol.GET_PENDING_REQUESTS, (json) -> {
+            System.out.println("🔔 [CLIENT] GET_PENDING_REQUESTS callback triggered");
+
             try {
-                // ✅ CHECK VÀ SET CỜ NGAY LẬP TỨC
                 synchronized (callbackCalled) {
                     if (callbackCalled[0]) {
-                        System.err.println("⚠️ Callback already called, ignoring duplicate");
+                        System.err.println("⚠️ [CLIENT] Callback already called, ignoring duplicate");
                         return;
                     }
                     callbackCalled[0] = true;
@@ -1088,7 +1567,7 @@ public class ServerConnection {
 
                 boolean success = json.get("success").getAsBoolean();
                 if (!success) {
-                    System.err.println("❌ Get pending requests failed");
+                    System.err.println("❌ [CLIENT] Get pending requests failed");
                     callback.accept(new ArrayList<>());
                     return;
                 }
@@ -1116,53 +1595,159 @@ public class ServerConnection {
                     requests.add(request);
                 }
 
-                System.out.println("✅ Found " + requests.size() + " pending requests");
+                System.out.println("✅ [CLIENT] Found " + requests.size() + " pending requests");
                 callback.accept(requests);
 
             } catch (Exception e) {
-                System.err.println("❌ Error parsing pending requests: " + e.getMessage());
+                System.err.println("❌ [CLIENT] Error parsing pending requests: " + e.getMessage());
                 e.printStackTrace();
 
-                // ✅ CHỈ GỌI CALLBACK NẾU CHƯA ĐƯỢC GỌI
                 synchronized (callbackCalled) {
                     if (!callbackCalled[0]) {
                         callbackCalled[0] = true;
                         callback.accept(new ArrayList<>());
                     }
                 }
+            } finally {
+                isLoadingRequests = false;
             }
         });
 
-        // Gửi request
         Map<String, Object> request = new HashMap<>();
         request.put("type", Protocol.GET_PENDING_REQUESTS);
         sendJson(request);
 
-        // ✅ TIMEOUT VỚI CHECK CỜ
         new Thread(() -> {
             try {
                 Thread.sleep(5000);
 
-                // ✅ CHỈ TIMEOUT NẾU CALLBACK CHƯA ĐƯỢC GỌI
                 synchronized (callbackCalled) {
                     if (!callbackCalled[0]) {
                         callbackCalled[0] = true;
                         removePendingCallback(Protocol.GET_PENDING_REQUESTS);
-                        System.err.println("⚠️ Get pending requests timeout");
+                        System.err.println("⚠️ [CLIENT] Get pending requests timeout");
                         callback.accept(new ArrayList<>());
                     } else {
-                        System.out.println("✅ Timeout thread: Callback already called, skipping timeout");
+                        System.out.println("✅ [CLIENT] Timeout thread: Callback already called, skipping timeout");
                     }
                 }
 
             } catch (InterruptedException e) {
                 e.printStackTrace();
+            } finally {
+                isLoadingRequests = false;
             }
         }, "GetPendingRequestsTimeout").start();
     }
 
+    // ================================================================
+    // DISCONNECT AND CLEANUP
+    // ================================================================
 
-    // Getters
+    /** Disconnect and cleanup */
+    public void disconnect() {
+        try {
+            isListening = false;
+
+            if (socket != null && !socket.isClosed()) {
+                Map<String, Object> req = new HashMap<>();
+                req.put("type", "LOGOUT");
+                req.put("username", currentUsername);
+                sendJson(req);
+
+                Thread.sleep(200);
+
+                socket.close();
+            }
+
+            clearSessionData();
+
+            connected = false;
+            System.out.println("✅ Disconnected from server");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error disconnecting: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Clear all session data
+     */
+    private void clearSessionData() {
+        currentUsername = null;
+        currentUserId = 0;
+        currentFullName = null;
+        currentEmail = null;
+        currentAvatarUrl = null;
+        totalScore = 0;
+        mathScore = 0;
+        englishScore = 0;
+        scienceScore = 0;
+        totalGames = 0;
+        wins = 0;
+        currentLevel = 0;
+        currentUser = null;
+
+        // Clear ALL callbacks
+        profileCallback = null;
+        leaderboardCallback = null;
+        globalChatCallback = null;
+        clearAllPrivateChatListeners();
+//        privateChatCallback = null;
+        roomChatCallback = null;
+        gameChatCallback = null;
+        pendingRequests.clear();
+
+        System.out.println("🧹 Session data cleared");
+    }
+
+    public void logoutAndClearSession() {
+        try {
+            if (isConnected() && currentUsername != null) {
+                Map<String, Object> request = new HashMap<>();
+                request.put("type", "LOGOUT");
+                request.put("username", currentUsername);
+                sendJson(request);
+            }
+
+            isListening = false;
+            if (listenerThread != null && listenerThread.isAlive()) {
+                listenerThread.interrupt();
+                listenerThread = null;
+            }
+
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+
+            connected = false;
+            clearAllPrivateChatListeners();
+
+            // Clear all data
+            currentUserId = 0;
+            currentUsername = null;
+            currentFullName = null;
+            currentEmail = null;
+            currentAvatarUrl = null;
+            totalScore = 0;
+            mathScore = 0;
+            englishScore = 0;
+            scienceScore = 0;
+            totalGames = 0;
+            wins = 0;
+            currentLevel = 0;
+
+            System.out.println("🧹 Client session cleared completely");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error during logout: " + e.getMessage());
+        }
+    }
+
+    // ================================================================
+    // GETTERS
+    // ================================================================
+
     public boolean isConnected() {
         return connected && socket != null && !socket.isClosed();
     }

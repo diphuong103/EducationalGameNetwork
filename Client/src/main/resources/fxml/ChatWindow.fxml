@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Text?>
+<?import javafx.scene.image.ImageView?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.edugame.client.controller.ChatController"
+            prefWidth="500" prefHeight="600">
+
+    <!-- TOP: Header -->
+    <top>
+        <HBox styleClass="chat-header" alignment="CENTER_LEFT" spacing="10">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+
+            <!-- Avatar -->
+            <ImageView fx:id="friendAvatar" fitWidth="40" fitHeight="40" preserveRatio="true">
+                <image>
+                    <javafx.scene.image.Image url="@../images/avatars/avatar4.png"/>
+                </image>
+            </ImageView>
+
+            <!-- Friend Info -->
+            <VBox spacing="2" HBox.hgrow="ALWAYS">
+                <Label fx:id="friendNameLabel" styleClass="chat-friend-name" text="Loading..."/>
+                <Label fx:id="friendStatusLabel" styleClass="chat-friend-status" text="Offline"/>
+            </VBox>
+
+            <!-- Actions -->
+            <HBox spacing="10">
+                <Button fx:id="refreshButton" text="🔄" styleClass="icon-button" onAction="#handleRefresh"/>
+                <Button fx:id="closeButton" text="✖" styleClass="icon-button" onAction="#handleClose"/>
+            </HBox>
+        </HBox>
+    </top>
+
+    <!-- CENTER: Messages Area -->
+    <center>
+        <VBox styleClass="chat-container">
+            <ScrollPane fx:id="messagesScrollPane" fitToWidth="true"
+                        hbarPolicy="NEVER"
+                        styleClass="messages-scroll" VBox.vgrow="ALWAYS">
+                <VBox fx:id="messagesContainer" styleClass="messages-container" spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+                </VBox>
+            </ScrollPane>
+        </VBox>
+    </center>
+
+    <!-- BOTTOM: Input Area with Emoji -->
+    <bottom>
+        <VBox styleClass="chat-input-container" spacing="0">
+            <HBox styleClass="chat-input-area" spacing="8" alignment="CENTER_LEFT">
+                <padding>
+                    <Insets top="10" right="15" bottom="10" left="15"/>
+                </padding>
+
+                <!-- Emoji Button -->
+                <Button fx:id="emojiButton"
+                        text="😊"
+                        onAction="#handleShowEmoji"
+                        styleClass="emoji-button"/>
+
+                <!-- Text Input -->
+                <TextField fx:id="messageInput"
+                           promptText="Nhập tin nhắn..."
+                           styleClass="message-input"
+                           HBox.hgrow="ALWAYS"/>
+
+                <!-- Send Button -->
+                <Button fx:id="sendButton"
+                        text="Gửi"
+                        styleClass="send-button"
+                        defaultButton="true"
+                        onAction="#handleSendMessage"/>
+            </HBox>
+        </VBox>
+    </bottom>
+
+</BorderPane>

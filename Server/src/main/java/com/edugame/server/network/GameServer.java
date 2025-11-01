@@ -2,6 +2,7 @@ package com.edugame.server.network;
 
 import com.edugame.common.Protocol;
 import com.edugame.server.database.DatabaseConnection;
+import com.edugame.server.model.User;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -295,5 +296,41 @@ public class GameServer {
 
         // Start server (blocking call)
         server.start();
+    }
+
+    public boolean sendToUserId(int userId, Map<String, Object> message) {
+        System.out.println("[SERVER] 🔍 Searching for userId=" + userId);
+
+        synchronized (connectedClients) {
+            // Debug: Show total connected clients
+            System.out.println("[SERVER] 📊 Total connected clients: " + connectedClients.size());
+
+            // Loop through all connected clients
+            for (ClientHandler handler : connectedClients) {
+                // Check if handler is valid and has logged-in user
+                if (handler.isRunning() && handler.getCurrentUser() != null) {
+                    User user = handler.getCurrentUser();
+                    int currentHandlerUserId = user.getUserId();
+                    String currentHandlerUsername = user.getUsername();
+
+                    // Debug: Show each handler we're checking
+                    System.out.println("[SERVER] 🔎 Checking handler: userId=" + currentHandlerUserId +
+                            ", username=" + currentHandlerUsername);
+
+                    // Found the matching user!
+                    if (currentHandlerUserId == userId) {
+                        System.out.println("[SERVER] ✅✅✅ FOUND MATCHING USER! Sending message...");
+                        handler.sendMessage(message);
+                        System.out.println("[SERVER] ✅ Message sent to userId=" + userId +
+                                " (username=" + currentHandlerUsername + ")");
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // User not found or offline
+        System.out.println("[SERVER] ⚠️⚠️⚠️ User NOT FOUND or OFFLINE (userId=" + userId + ")");
+        return false;
     }
 }

@@ -5,8 +5,11 @@ import com.edugame.client.util.SceneManager;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -14,6 +17,7 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
+import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.InputStream;
@@ -328,6 +332,20 @@ public class FriendsController {
         Label scoreLabel = new Label("🏆 " + friend.get("totalScore") + " điểm");
         scoreLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #5B86E5; -fx-font-weight: bold;");
 
+        // ✅ Nút nhắn tin
+        Button chatButton = new Button("💬 Nhắn tin");
+        chatButton.setPrefWidth(160);
+        chatButton.setStyle(
+                "-fx-background-color: #5B86E5; -fx-text-fill: white; " +
+                        "-fx-background-radius: 10; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 15;"
+        );
+
+        int friendId = (int) friend.get("userId");
+        String friendName = (String) friend.get("fullName");
+        String friendAvatar = (String) friend.get("avatarUrl");
+
+        chatButton.setOnAction(e -> handleOpenChat(friendId, friendName, friendAvatar, isOnline));
+
         // Nút xóa bạn
         Button removeButton = new Button("🗑️ Xóa bạn");
         removeButton.setPrefWidth(160);
@@ -336,12 +354,66 @@ public class FriendsController {
                         "-fx-background-radius: 10; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 15;"
         );
 
-        int friendId = (int) friend.get("userId");
-        String friendName = (String) friend.get("fullName");
         removeButton.setOnAction(e -> handleRemoveFriend(friendId, friendName));
 
-        card.getChildren().addAll(avatar, nameLabel, usernameLabel, statusBox, scoreLabel, removeButton);
+        card.getChildren().addAll(avatar, nameLabel, usernameLabel, statusBox, scoreLabel, chatButton, removeButton);
         return card;
+    }
+
+    /**
+     * Mở cửa sổ chat với bạn bè
+     */
+    private void handleOpenChat(int friendId, String friendName, String avatarUrl, boolean isOnline) {
+        try {
+            System.out.println("💬 Opening chat with: " + friendName + " (ID=" + friendId + ")");
+
+            // Load FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/ChatWindow.fxml"));
+            Parent root = loader.load();
+
+            // Get controller và init data
+            ChatController chatController = loader.getController();
+            chatController.initData(friendId, friendName, avatarUrl, isOnline);
+
+            // Tạo stage mới
+            Stage chatStage = new Stage();
+            chatStage.setTitle("Chat với " + friendName);
+
+            // ✅ Sửa: Load icon an toàn
+            try {
+                InputStream iconStream = getClass().getResourceAsStream("/images/icon.png");
+                if (iconStream != null) {
+                    chatStage.getIcons().add(new Image(iconStream));
+                } else {
+                    System.out.println("⚠️ Icon not found, using default");
+                }
+            } catch (Exception e) {
+                System.out.println("⚠️ Cannot load icon: " + e.getMessage());
+            }
+
+            chatStage.setScene(new Scene(root));
+
+            // Set kích thước
+            chatStage.setMinWidth(500);
+            chatStage.setMinHeight(600);
+            chatStage.setWidth(550);
+            chatStage.setHeight(700);
+
+            // Show stage
+            chatStage.show();
+
+            System.out.println("✅ Chat window opened successfully");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error opening chat window: " + e.getMessage());
+            e.printStackTrace();
+
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Lỗi");
+            alert.setHeaderText(null);
+            alert.setContentText("Không thể mở cửa sổ chat. Vui lòng thử lại!");
+            alert.showAndWait();
+        }
     }
 
     private VBox createPendingRequestCard(Map<String, Object> request) {

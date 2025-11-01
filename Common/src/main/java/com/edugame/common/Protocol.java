@@ -23,8 +23,28 @@ public class Protocol {
 
     // Chat
     public static final String CHAT_MESSAGE = "CHAT_MESSAGE";
+
     public static final String PRIVATE_MESSAGE = "PRIVATE_MESSAGE";
+
+    public static final String GET_MESSAGES = "GET_MESSAGES";
+    public static final String GET_MESSAGES_RESPONSE = "GET_MESSAGES_RESPONSE";
+
+    public static final String SEND_MESSAGE = "SEND_MESSAGE";
+    public static final String SEND_MESSAGE_RESPONSE = "SEND_MESSAGE_RESPONSE";
+
+    public static final String NEW_MESSAGE = "NEW_MESSAGE";
+
+    public static final String MESSAGE_READ = "MESSAGE_READ";
+    public static final String MESSAGE_READ_STATUS = "MESSAGE_READ_STATUS";
+
+    public static final String GET_UNREAD_COUNT = "GET_UNREAD_COUNT";
+    public static final String GET_UNREAD_COUNT_RESPONSE = "GET_UNREAD_COUNT_RESPONSE";
+
     public static final String GLOBAL_CHAT = "GLOBAL_CHAT";
+    public static final String ROOM_CHAT = "ROOM_CHAT";
+    public static final String GAME_CHAT = "GAME_CHAT";
+
+
 
     // Friends
     public static final String SEARCH_USERS = "SEARCH_USERS";

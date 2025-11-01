@@ -149,21 +149,28 @@ public class HomeController {
      * Setup chat message callback
      */
     private void setupChatCallback() {
-        serverConnection.setChatCallback(json -> {
-            String type = json.get("type").getAsString();
+        serverConnection.setGlobalChatCallback(json -> {
+            Platform.runLater(() -> {
+                try {
+                    String type = json.has("type") ? json.get("type").getAsString() : "GLOBAL_CHAT";
 
-            if ("GLOBAL_CHAT".equals(type)) {
-                String username = json.get("username").getAsString();
-                String message = json.get("message").getAsString();
+                    if ("GLOBAL_CHAT".equals(type) || "GLOBAL_CHAT_MESSAGE".equals(type)) {
+                        String username = json.has("username") ? json.get("username").getAsString() : "Unknown";
+                        String message = json.has("message") ? json.get("message").getAsString() : "";
 
-                // Don't show own messages (already displayed when sent)
-                if (!username.equals(serverConnection.getCurrentUsername())) {
-                    addChatMessage(username, message, false);
+                        // Don't show own messages (already displayed when sent)
+                        if (!username.equals(serverConnection.getCurrentUsername())) {
+                            addChatMessage(username, message, false);
+                        }
+                    } else if ("SYSTEM_MESSAGE".equals(type)) {
+                        String message = json.has("message") ? json.get("message").getAsString() : "";
+                        addSystemMessage(message);
+                    }
+                } catch (Exception e) {
+                    System.err.println("❌ Error handling chat callback: " + e.getMessage());
+                    e.printStackTrace();
                 }
-            } else if ("SYSTEM_MESSAGE".equals(type)) {
-                String message = json.get("message").getAsString();
-                addSystemMessage(message);
-            }
+            });
         });
     }
 
@@ -699,9 +706,9 @@ public class HomeController {
     public void cleanup() {
         System.out.println("🧹 HomeController cleanup...");
 
-        // Clear chat callback
+        // Clear global chat callback only
         if (serverConnection != null) {
-            serverConnection.clearChatCallback();
+            serverConnection.clearGlobalChatCallback();
         }
 
         // Shutdown executor
@@ -710,6 +717,7 @@ public class HomeController {
         }
 
         isInitialized = false;
+        System.out.println("✅ HomeController cleanup complete");
     }
 
     /** ---------------- BUTTON EFFECTS ---------------- */

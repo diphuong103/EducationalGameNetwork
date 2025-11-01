@@ -4,6 +4,8 @@ import com.edugame.common.Protocol;
 import com.edugame.server.database.FriendDAO;
 import com.edugame.server.database.UserDAO;
 import com.edugame.server.database.LeaderboardDAO;
+import com.edugame.server.database.MessageDAO;
+
 import com.edugame.server.model.Friend;
 import com.edugame.server.model.User;
 import com.google.gson.Gson;
@@ -25,6 +27,7 @@ public class ClientHandler implements Runnable {
     private Gson gson;
     private UserDAO userDAO;
     private LeaderboardDAO leaderboardDAO;
+    private MessageDAO messageDAO;
     private User currentUser;
     private boolean running;
     private GameServer server;
@@ -39,6 +42,7 @@ public class ClientHandler implements Runnable {
         this.gson = new Gson();
         this.userDAO = new UserDAO();
         this.leaderboardDAO = new LeaderboardDAO();
+        this.messageDAO = new MessageDAO();
         this.running = true;
 
         try {
@@ -107,14 +111,24 @@ public class ClientHandler implements Runnable {
                     handleGetLeaderboard(jsonMessage);
                     break;
 
-                case Protocol.LOGOUT:
-                    logWithTime("   → Calling handleLogout()");
-                    handleLogout();
-                    break;
-
                 case Protocol.GLOBAL_CHAT:
                     logWithTime("   → Calling handleGlobalChat()");
                     handleGlobalChat(jsonMessage);
+                    break;
+
+                case Protocol.GET_MESSAGES:
+                    logWithTime("   → Calling handleGetMessages()");
+                    handleGetMessages(jsonMessage);
+                    break;
+
+                case Protocol.SEND_MESSAGE:
+                    logWithTime("   → Calling handleSendMessage()");
+                    handleSendMessage(jsonMessage);
+                    break;
+
+                case Protocol.MESSAGE_READ:
+                    logWithTime("   → Calling handleMarkAsRead()");
+                    handleMarkAsRead(jsonMessage);
                     break;
 
                 case Protocol.GET_PROFILE:
@@ -160,6 +174,11 @@ public class ClientHandler implements Runnable {
                     handleGetPendingRequests(jsonMessage);
                     break;
 
+                case Protocol.LOGOUT:
+                    logWithTime("   → Calling handleLogout()");
+                    handleLogout();
+                    break;
+
                 default:
                     logWithTime("   ❓ Unknown type: " + type);
                     sendError("Unknown message type: " + type);
@@ -173,6 +192,7 @@ public class ClientHandler implements Runnable {
             sendError("Invalid message format");
         }
     }
+
 
     private void handleSearchUsers(JsonObject jsonMessage) {
         logWithTime("🔍 SEARCH_USERS request received");
@@ -779,6 +799,7 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    /// ////////////Chat /////////////
     private void handleGlobalChat(JsonObject jsonMessage) {
         if (currentUser == null) {
             sendError("Bạn phải đăng nhập để gửi tin nhắn!");
@@ -834,6 +855,179 @@ public class ClientHandler implements Runnable {
         response.put("type", Protocol.ERROR);
         response.put("success", false);
         response.put("message", errorMessage);
+        sendMessage(response);
+    }
+
+    /**
+     * Handle GET_MESSAGES - Lấy lịch sử chat
+     */
+    private void handleGetMessages(JsonObject jsonMessage) {
+        logWithTime("💬 GET_MESSAGES request received");
+
+        if (currentUser == null) {
+            logWithTime("   ❌ User not logged in");
+            sendError("Bạn chưa đăng nhập!");
+            return;
+        }
+
+        int friendId = jsonMessage.get("friendId").getAsInt();
+        int limit = jsonMessage.get("limit").getAsInt();
+        int currentUserId = currentUser.getUserId();
+
+        logWithTime("   👤 User: " + currentUser.getUsername() + " (ID: " + currentUserId + ")");
+        logWithTime("   👤 Getting messages with: User ID " + friendId);
+        logWithTime("   📊 Limit: " + limit);
+
+        List<com.edugame.server.model.Message> messages = messageDAO.getMessages(currentUserId, friendId, limit);
+
+        logWithTime("   ✅ Found " + messages.size() + " messages");
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("type", Protocol.GET_MESSAGES);
+        response.put("success", true);
+
+        List<Map<String, Object>> messagesData = new ArrayList<>();
+
+        for (com.edugame.server.model.Message msg : messages) {
+            Map<String, Object> msgData = new HashMap<>();
+            msgData.put("messageId", msg.getMessageId());
+            msgData.put("senderId", msg.getSenderId());
+            msgData.put("receiverId", msg.getReceiverId());
+            msgData.put("content", msg.getContent());
+            msgData.put("sentAt", msg.getSentAt().toString());
+            msgData.put("isRead", msg.isRead());
+
+            if (msg.getSenderUsername() != null) {
+                msgData.put("senderName", msg.getSenderName());
+                msgData.put("senderAvatar", msg.getSenderAvatar());
+            }
+
+            messagesData.add(msgData);
+        }
+
+        response.put("messages", messagesData);
+        sendMessage(response);
+
+        logWithTime("   ✅ Messages sent");
+    }
+
+    /**
+     * Handle SEND_MESSAGE - Gửi tin nhắn
+     */
+    private void handleSendMessage(JsonObject jsonMessage) {
+        logWithTime("💬 SEND_MESSAGE request received");
+
+        if (currentUser == null) {
+            logWithTime("   ❌ User not logged in");
+            sendError("Bạn chưa đăng nhập!");
+            return;
+        }
+
+        int receiverId = jsonMessage.get("receiverId").getAsInt();
+        String content = jsonMessage.get("content").getAsString();
+        int senderId = currentUser.getUserId();
+
+        logWithTime("   👤 From: " + currentUser.getUsername() + " (ID: " + senderId + ")");
+        logWithTime("   👤 To: User ID " + receiverId);
+        logWithTime("   💬 Content: " + content.substring(0, Math.min(50, content.length())));
+
+        // Validate
+        if (content.trim().isEmpty()) {
+            logWithTime("   ❌ Empty message");
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.SEND_MESSAGE);
+            response.put("success", false);
+            response.put("message", "Tin nhắn không được để trống!");
+            sendMessage(response);
+            return;
+        }
+
+        if (content.length() > 1000) {
+            logWithTime("   ❌ Message too long");
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.SEND_MESSAGE);
+            response.put("success", false);
+            response.put("message", "Tin nhắn quá dài (tối đa 1000 ký tự)!");
+            sendMessage(response);
+            return;
+        }
+
+        // ✅ 1. Save to database
+        com.edugame.server.model.Message savedMessage = messageDAO.sendMessage(senderId, receiverId, content);
+
+        if (savedMessage != null) {
+            logWithTime("   ✅ Message saved to database (ID=" + savedMessage.getMessageId() + ")");
+
+            // ✅ 2. Send success response to SENDER
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.SEND_MESSAGE);
+            response.put("success", true);
+            response.put("messageId", savedMessage.getMessageId());
+            response.put("sentAt", savedMessage.getSentAt().toString());
+            sendMessage(response);
+            logWithTime("   ✅ SUCCESS response sent to SENDER");
+
+            // ✅ 3. Get sender info
+            User senderUser = userDAO.getUserById(senderId);
+            String senderName = (senderUser != null) ? senderUser.getFullName() : currentUser.getFullName();
+
+            logWithTime("   📝 Sender name: " + senderName);
+
+            // ✅ 4. Create NEW_MESSAGE notification
+            Map<String, Object> newMessageNotification = new HashMap<>();
+            newMessageNotification.put("type", Protocol.NEW_MESSAGE);
+            newMessageNotification.put("messageId", savedMessage.getMessageId());
+            newMessageNotification.put("senderId", senderId);
+            newMessageNotification.put("senderName", senderName);
+            newMessageNotification.put("content", content);
+            newMessageNotification.put("sentAt", savedMessage.getSentAt().toString());
+
+            logWithTime("   📤 Attempting to send NEW_MESSAGE to receiverId=" + receiverId);
+
+            // ✅ 5. Send to receiver by USER_ID (QUAN TRỌNG - KHÔNG dùng String.valueOf)
+            boolean sentToReceiver = server.sendToUserId(receiverId, newMessageNotification);
+
+            if (sentToReceiver) {
+                logWithTime("   ✅✅✅ NEW_MESSAGE sent successfully to receiverId=" + receiverId);
+            } else {
+                logWithTime("   ⚠️⚠️⚠️ RECEIVER OFFLINE or NOT FOUND (userId=" + receiverId + ")");
+            }
+
+        } else {
+            logWithTime("   ❌ Failed to save message");
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.SEND_MESSAGE);
+            response.put("success", false);
+            response.put("message", "Không thể gửi tin nhắn!");
+            sendMessage(response);
+        }
+    }
+
+    /**
+     * Handle MESSAGE_READ - Đánh dấu đã đọc
+     */
+    private void handleMarkAsRead(JsonObject jsonMessage) {
+        logWithTime("✓ MESSAGE_READ request received");
+
+        if (currentUser == null) {
+            logWithTime("   ❌ User not logged in");
+            return;
+        }
+
+        int senderId = jsonMessage.get("senderId").getAsInt();
+        int currentUserId = currentUser.getUserId();
+
+        logWithTime("   👤 User: " + currentUser.getUsername() + " (ID: " + currentUserId + ")");
+        logWithTime("   📨 Marking messages from: User ID " + senderId);
+
+        int updatedCount = messageDAO.markAllAsRead(currentUserId, senderId);
+
+        logWithTime("   ✅ Marked " + updatedCount + " messages as read");
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("type", Protocol.MESSAGE_READ);
+        response.put("success", true);
+        response.put("updatedCount", updatedCount);
         sendMessage(response);
     }
 
