@@ -48,6 +48,8 @@
             <HBox spacing="12" alignment="CENTER_RIGHT">
                 <Button fx:id="settingsButton" text="⚙" styleClass="header-button"
                         onAction="#handleSettings"/>
+                <Button fx:id="chatButton" text="💬" styleClass="header-button"
+                        onAction="#handleChats"/>
                 <Button fx:id="friendsButton" text="👥" styleClass="header-button"
                         onAction="#handleFriends"/>
                 <Button fx:id="logoutButton" text="🚪" styleClass="header-button logout-button"

@@ -136,6 +136,11 @@ public class ClientHandler implements Runnable {
                     handleGetProfile(jsonMessage);
                     break;
 
+                case "GET_PROFILE_BY_ID":
+                    logWithTime("   → Calling handleGetProfileById()");
+                    handleGetProfileById(jsonMessage);
+                    break;
+
                 case Protocol.UPDATE_PROFILE:
                     logWithTime("   → Calling handleUpdateProfile()");
                     handleUpdateProfile(jsonMessage);
@@ -143,6 +148,10 @@ public class ClientHandler implements Runnable {
                 case Protocol.SEARCH_USERS:
                     logWithTime("   → Calling handleSearchUsers()");
                     handleSearchUsers(jsonMessage);
+                    break;
+                case Protocol.CHECK_FRIENDSHIP_STATUS:
+                    logWithTime("   → Calling handleCheckFriendshipStatus()");
+                    handleCheckFriendshipStatus(jsonMessage);
                     break;
                 case Protocol.ADD_FRIEND:
                     logWithTime("   → Calling handleAddFriend()");
@@ -191,6 +200,98 @@ public class ClientHandler implements Runnable {
             e.printStackTrace();
             sendError("Invalid message format");
         }
+    }
+
+
+    private void handleGetProfileById(JsonObject jsonMessage) {
+        logWithTime("👤 GET_PROFILE_BY_ID request received");
+
+        if (currentUser == null) {
+            logWithTime("   ❌ User not logged in");
+            sendError("Bạn chưa đăng nhập!");
+            return;
+        }
+
+        if (!jsonMessage.has("userId")) {
+            logWithTime("   ❌ Missing userId parameter");
+            sendError("Thiếu thông tin userId!");
+            return;
+        }
+
+        int targetUserId = jsonMessage.get("userId").getAsInt();
+        logWithTime("   👤 Requesting user: " + currentUser.getUsername() + " (ID: " + currentUser.getUserId() + ")");
+        logWithTime("   🎯 Target user ID: " + targetUserId);
+
+        User targetUser = userDAO.getUserById(targetUserId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("type", "GET_PROFILE_BY_ID");  // ✅ THAY ĐỔI: Giữ nguyên tên
+
+        if (targetUser == null) {
+            logWithTime("   ❌ Target user not found in database");
+            response.put("success", false);
+            response.put("message", "Không tìm thấy người dùng!");
+            sendMessage(response);
+            return;
+        }
+
+        logWithTime("   ✅ User loaded from DB:");
+        logWithTime("      Name: " + targetUser.getFullName());
+        logWithTime("      Username: " + targetUser.getUsername());
+        logWithTime("      Avatar: " + (targetUser.getAvatarUrl() != null ?
+                targetUser.getAvatarUrl().substring(0, Math.min(50, targetUser.getAvatarUrl().length())) : "null"));
+        logWithTime("      Total Score: " + targetUser.getTotalScore());
+
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("userId", targetUser.getUserId());
+        userData.put("username", targetUser.getUsername());
+        userData.put("fullName", targetUser.getFullName());
+        userData.put("age", targetUser.getAge());
+        userData.put("email", targetUser.getEmail());
+        userData.put("avatarUrl", targetUser.getAvatarUrl());
+        userData.put("totalScore", targetUser.getTotalScore());
+        userData.put("mathScore", targetUser.getMathScore());
+        userData.put("englishScore", targetUser.getEnglishScore());
+        userData.put("literatureScore", targetUser.getLiteratureScore());
+        userData.put("totalGames", targetUser.getTotalGames());
+        userData.put("wins", targetUser.getWins());
+        userData.put("isOnline", targetUser.isOnline());
+
+        response.put("success", true);
+        response.put("user", userData);
+
+        sendMessage(response);
+        logWithTime("   ✅ GET_PROFILE_BY_ID response sent successfully");
+    }
+
+    private void handleCheckFriendshipStatus(JsonObject jsonMessage) {
+        logWithTime("🔍 CHECK_FRIENDSHIP_STATUS request received");
+
+        if (currentUser == null) {
+            logWithTime("   ❌ User not logged in");
+            sendError("Bạn chưa đăng nhập!");
+            return;
+        }
+
+        int targetUserId = jsonMessage.get("targetUserId").getAsInt();
+        int currentUserId = currentUser.getUserId();
+
+        logWithTime("   👤 Current user: " + currentUser.getUsername() + " (ID: " + currentUserId + ")");
+        logWithTime("   🎯 Target user ID: " + targetUserId);
+
+        FriendDAO friendDAO = new FriendDAO();
+        String status = friendDAO.getFriendshipStatus(currentUserId, targetUserId);
+
+        logWithTime("   ✅ Friendship status: " + status);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("type", "CHECK_FRIENDSHIP_STATUS");
+        response.put("success", true);
+        response.put("status", status);
+        response.put("targetUserId", targetUserId);
+
+        sendMessage(response);
+        logWithTime("   ✅ CHECK_FRIENDSHIP_STATUS response sent");
     }
 
 

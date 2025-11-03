@@ -2,6 +2,7 @@ package com.edugame.client.controller;
 
 import com.edugame.client.model.User;
 import com.edugame.client.network.ServerConnection;
+import com.edugame.client.util.ChatPopupHandler;
 import com.edugame.client.util.SceneManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -10,12 +11,14 @@ import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.stage.Stage;
 import javafx.util.Duration;
 import javafx.geometry.Pos;
 
@@ -892,4 +895,23 @@ public class HomeController {
             alert.showAndWait();
         }
     }
+
+    @FXML
+    public void handleChats(ActionEvent event) {
+        try {
+            System.out.println("💬 [MENU] Opening chat window...");
+
+            Stage ownerStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+            ChatPopupHandler.openChatWindow(ownerStage);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Lỗi");
+            alert.setHeaderText("Không thể mở tin nhắn");
+            alert.setContentText("Đã xảy ra lỗi khi mở cửa sổ tin nhắn: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
 }

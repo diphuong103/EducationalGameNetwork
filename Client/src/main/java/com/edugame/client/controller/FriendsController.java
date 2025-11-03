@@ -1,6 +1,8 @@
 package com.edugame.client.controller;
 
+import com.edugame.client.model.User;
 import com.edugame.client.network.ServerConnection;
+import com.edugame.client.util.ProfileUtils;
 import com.edugame.client.util.SceneManager;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
@@ -298,6 +300,8 @@ public class FriendsController {
         avatar.setFitHeight(80);
         avatar.setPreserveRatio(true);
 
+        avatar.setStyle("-fx-cursor: hand;");
+
         String avatarUrl = (String) friend.get("avatarUrl");
         Image safeAvatar;
         try {
@@ -306,6 +310,19 @@ public class FriendsController {
             safeAvatar = new Image(getClass().getResourceAsStream("/images/default-avatar.png"));
         }
         avatar.setImage(safeAvatar);
+
+
+        int userId = (int) friend.get("userId");
+        String username = (String) friend.get("username");
+        String fullName = (String) friend.get("fullName");
+        int totalScore = (int) friend.get("totalScore");
+
+        avatar.setOnMouseClicked(e -> {
+            handleViewProfile(userId, username, fullName, avatarUrl, totalScore);
+        });
+
+        avatar.setOnMouseEntered(e -> avatar.setOpacity(0.8));
+        avatar.setOnMouseExited(e -> avatar.setOpacity(1.0));
 
         // Tên
         Label nameLabel = new Label((String) friend.get("fullName"));
@@ -360,6 +377,32 @@ public class FriendsController {
         return card;
     }
 
+    // phương thức mới: Xử lý click vào avatar
+    private void handleViewProfile(int userId, String username, String fullName,
+                                   String avatarUrl, int totalScore) {
+        System.out.println("👤 Viewing profile of: " + fullName + " (ID=" + userId + ")");
+
+        // Tạo User object từ data
+        User user = new User();
+        user.setUserId(userId);
+        user.setUsername(username);
+        user.setFullName(fullName);
+        user.setAvatarUrl(avatarUrl);
+        user.setTotalScore(totalScore);
+
+        // Gọi server để lấy thông tin chi tiết
+        server.getProfileById(userId, detailedUser -> {
+            Platform.runLater(() -> {
+                if (detailedUser != null) {
+                    ProfileUtils.openProfile(detailedUser);
+                } else {
+                    // Nếu không lấy được từ server, dùng data hiện có
+                    ProfileUtils.openProfile(user);
+                }
+            });
+        });
+    }
+
     /**
      * Mở cửa sổ chat với bạn bè
      */
@@ -396,7 +439,7 @@ public class FriendsController {
             // Set kích thước
             chatStage.setMinWidth(500);
             chatStage.setMinHeight(600);
-            chatStage.setWidth(550);
+            chatStage.setWidth(900);
             chatStage.setHeight(700);
 
             // Show stage
@@ -448,6 +491,8 @@ public class FriendsController {
         avatar.setFitHeight(90);
         avatar.setPreserveRatio(true);
 
+        avatar.setStyle("-fx-cursor: hand;");
+
         String avatarUrl = (String) request.get("avatarUrl");
         Image safeAvatar;
         try {
@@ -456,6 +501,19 @@ public class FriendsController {
             safeAvatar = new Image(getClass().getResourceAsStream("/images/default-avatar.png"));
         }
         avatar.setImage(safeAvatar);
+
+        int userId = (int) request.get("userId");
+        String username = (String) request.get("username");
+        String fullName = (String) request.get("fullName");
+        int totalScore = (int) request.get("totalScore");
+
+        avatar.setOnMouseClicked(e -> {
+            handleViewProfile(userId, username, fullName, avatarUrl, totalScore);
+        });
+
+        // Thêm hover effect
+        avatar.setOnMouseEntered(e -> avatar.setOpacity(0.8));
+        avatar.setOnMouseExited(e -> avatar.setOpacity(1.0));
 
         // Tên
         Label nameLabel = new Label((String) request.get("fullName"));
@@ -504,7 +562,7 @@ public class FriendsController {
                         "-fx-background-radius: 10; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 10;"
         );
 
-        int userId = (int) request.get("userId");
+//        int userId = (int) request.get("userId");
         String userName = (String) request.get("fullName");
 
         acceptButton.setOnAction(e -> handleAcceptFriendRequest(userId, userName));
@@ -533,6 +591,8 @@ public class FriendsController {
         avatar.setFitHeight(80);
         avatar.setPreserveRatio(true);
 
+        avatar.setStyle("-fx-cursor: hand;");
+
         String avatarUrl = (String) user.get("avatarUrl");
         Image safeAvatar;
         try {
@@ -541,6 +601,19 @@ public class FriendsController {
             safeAvatar = new Image(getClass().getResourceAsStream("/images/default-avatar.png"));
         }
         avatar.setImage(safeAvatar);
+
+        int userId = (int) user.get("userId");
+        String username = (String) user.get("username");
+        String fullName = (String) user.get("fullName");
+        int totalScore = (int) user.get("totalScore");
+
+        avatar.setOnMouseClicked(e -> {
+            handleViewProfile(userId, username, fullName, avatarUrl, totalScore);
+        });
+
+        // Thêm hover effect
+        avatar.setOnMouseEntered(e -> avatar.setOpacity(0.8));
+        avatar.setOnMouseExited(e -> avatar.setOpacity(1.0));
 
         // Tên
         Label nameLabel = new Label((String) user.get("fullName"));

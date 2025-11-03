@@ -54,6 +54,8 @@ public class Protocol {
     public static final String REMOVE_FRIEND = "REMOVE_FRIEND";
     public static final String GET_FRIENDS_LIST = "GET_FRIENDS_LIST";
     public static final String GET_PENDING_REQUESTS = "GET_PENDING_REQUESTS";
+    public static final String CHECK_FRIENDSHIP_STATUS = "CHECK_FRIENDSHIP_STATUS";
+
 
 
     // Leaderboard
@@ -62,6 +64,9 @@ public class Protocol {
     // Profile
     public static final String GET_PROFILE = "GET_PROFILE";
     public static final String UPDATE_PROFILE = "UPDATE_PROFILE";
+    public static final String GET_PROFILE_BY_ID = "GET_PROFILE_BY_ID";
+
+    public static final String GET_PROFILE_BY_ID_RESPONSE = "GET_PROFILE_BY_ID_RESPONSE";
 
     public static final String INVITE_FRIEND = "INVITE_FRIEND";
     public static final String ACCEPT_INVITE = "ACCEPT_INVITE";

@@ -14,16 +14,34 @@
         <HBox spacing="10" alignment="CENTER_LEFT" styleClass="profile-header">
             <Button text="← Quay lại" onAction="#handleBack" styleClass="profile-back-btn"/>
             <Label text="Hồ sơ cá nhân" styleClass="profile-title"/>
+
+            <!-- ✅ THÊM: Spacer để đẩy action buttons sang phải -->
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <!-- ✅ THÊM: Action buttons box -->
+            <HBox fx:id="actionButtonsBox" spacing="10" alignment="CENTER_RIGHT">
+                <!-- Nút chat (chỉ hiện khi là bạn bè) -->
+                <Button fx:id="chatButton"
+                        text="💬 Nhắn tin"
+                        onAction="#handleChat"
+                        style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-background-radius: 10; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 10 20;"/>
+
+                <!-- Nút thêm bạn / chấp nhận (chỉ hiện khi chưa là bạn) -->
+                <Button fx:id="addFriendButton"
+                        text="➕ Add"
+                        onAction="#handleAddFriend"
+                        style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 10; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 10 20;"/>
+            </HBox>
         </HBox>
     </top>
 
     <center>
-        <VBox alignment="CENTER" spacing="15" styleClass="profile-content">
+        <VBox alignment="CENTER" spacing="15" styleClass="profile-content" >
             <ImageView fx:id="avatarImage" fitHeight="120" fitWidth="120"/>
-            <Button text="Đổi ảnh đại diện" onAction="#handleChangeAvatar" styleClass="profile-change-avatar-btn"/>
+            <Button fx:id="changeAvatarButton" text="Đổi ảnh đại diện" onAction="#handleChangeAvatar" styleClass="profile-change-avatar-btn"/>
 
             <Label fx:id="nameLabel" text="Tên người dùng" styleClass="profile-name-label"/>
-            <Button text="Chỉnh sửa tên" onAction="#handleEditName" styleClass="profile-edit-name-btn"/>
+            <Button fx:id="editNameButton" text="Chỉnh sửa tên" onAction="#handleEditName" styleClass="profile-edit-name-btn"/>
 
             <GridPane hgap="20" vgap="10" styleClass="profile-info-grid">
                 <columnConstraints>
@@ -51,4 +69,3 @@
         </VBox>
     </center>
 </BorderPane>
-

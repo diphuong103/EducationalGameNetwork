@@ -12,6 +12,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.text.Text;
+import com.edugame.client.util.ProfileUtils;
+import com.edugame.client.model.User;
 
 import java.io.File;
 import java.io.InputStream;
@@ -200,6 +202,19 @@ public class LeaderboardController {
         // Avatar
         ImageView avatar = createAvatar(user.getAvatarUrl());
 
+        avatar.setOnMouseClicked(e -> {
+            handleViewProfile(
+                    user.getUserId(),
+                    user.getUsername(),
+                    user.getFullName(),
+                    user.getAvatarUrl(),
+                    user.getTotalScore()
+            );
+        });
+
+        avatar.setOnMouseEntered(e -> avatar.setOpacity(0.8));
+        avatar.setOnMouseExited(e -> avatar.setOpacity(1.0));
+
         // User info
         VBox userInfo = new VBox(5);
         HBox.setHgrow(userInfo, Priority.ALWAYS);
@@ -288,6 +303,31 @@ public class LeaderboardController {
         return rankItem;
     }
 
+    private void handleViewProfile(int userId, String username, String fullName,
+                                   String avatarUrl, int totalScore) {
+        System.out.println("👤 Viewing profile of: " + fullName + " (ID=" + userId + ")");
+
+        // Tạo User object từ data
+        User user = new User();
+        user.setUserId(userId);
+        user.setUsername(username);
+        user.setFullName(fullName);
+        user.setAvatarUrl(avatarUrl);
+        user.setTotalScore(totalScore);
+
+        // Gọi server để lấy thông tin chi tiết
+        serverConnection.getProfileById(userId, detailedUser -> {
+            Platform.runLater(() -> {
+                if (detailedUser != null) {
+                    ProfileUtils.openProfile(detailedUser);
+                } else {
+                    // Nếu không lấy được từ server, dùng data hiện có
+                    ProfileUtils.openProfile(user);
+                }
+            });
+        });
+    }
+
     /**
      * Create rank badge
      */
@@ -346,6 +386,8 @@ public class LeaderboardController {
         avatar.setFitHeight(50);
         avatar.setPreserveRatio(true);
         avatar.setSmooth(true); // 🔹 Làm mượt ảnh
+
+        avatar.setStyle("-fx-cursor: hand;");
 
         try {
             Image image = loadAvatarImage(avatarUrl);

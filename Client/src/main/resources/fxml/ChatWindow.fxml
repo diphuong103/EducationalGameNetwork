@@ -1,87 +1,189 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Text?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Text?>
 
-<BorderPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.edugame.client.controller.ChatController"
-            prefWidth="500" prefHeight="600">
+<BorderPane prefHeight="600" prefWidth="900" styleClass="chat-root" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.edugame.client.controller.ChatController">
 
-    <!-- TOP: Header -->
+    <!-- HEADER -->
     <top>
-        <HBox styleClass="chat-header" alignment="CENTER_LEFT" spacing="10">
+        <HBox alignment="CENTER_LEFT" styleClass="main-header">
             <padding>
-                <Insets top="15" right="15" bottom="15" left="15"/>
+                <Insets bottom="15" left="20" right="20" top="15" />
             </padding>
 
-            <!-- Avatar -->
-            <ImageView fx:id="friendAvatar" fitWidth="40" fitHeight="40" preserveRatio="true">
-                <image>
-                    <javafx.scene.image.Image url="@../images/avatars/avatar4.png"/>
-                </image>
-            </ImageView>
+            <!-- Back Button -->
+            <Button onAction="#handleBack" styleClass="back-button" text="← Quay lại" />
 
-            <!-- Friend Info -->
-            <VBox spacing="2" HBox.hgrow="ALWAYS">
-                <Label fx:id="friendNameLabel" styleClass="chat-friend-name" text="Loading..."/>
-                <Label fx:id="friendStatusLabel" styleClass="chat-friend-status" text="Offline"/>
-            </VBox>
+            <Region HBox.hgrow="ALWAYS" />
 
-            <!-- Actions -->
-            <HBox spacing="10">
-                <Button fx:id="refreshButton" text="🔄" styleClass="icon-button" onAction="#handleRefresh"/>
-                <Button fx:id="closeButton" text="✖" styleClass="icon-button" onAction="#handleClose"/>
-            </HBox>
+            <!-- Title -->
+            <Text styleClass="header-title" text="💬 Tin Nhắn" />
+
+            <Region HBox.hgrow="ALWAYS" />
+
+            <!-- Spacer for balance -->
+            <HBox prefWidth="80" />
         </HBox>
     </top>
 
-    <!-- CENTER: Messages Area -->
+    <!-- MAIN CONTENT -->
     <center>
-        <VBox styleClass="chat-container">
-            <ScrollPane fx:id="messagesScrollPane" fitToWidth="true"
-                        hbarPolicy="NEVER"
-                        styleClass="messages-scroll" VBox.vgrow="ALWAYS">
-                <VBox fx:id="messagesContainer" styleClass="messages-container" spacing="10">
+        <HBox spacing="0" styleClass="chat-main-container">
+            <!-- LEFT: Friends List -->
+            <VBox maxWidth="280" minWidth="280" prefWidth="280" spacing="0" styleClass="friends-list-container">
+                <!-- Search Box -->
+                <HBox styleClass="search-container">
                     <padding>
-                        <Insets top="10" right="10" bottom="10" left="10"/>
+                        <Insets bottom="10" left="12" right="12" top="10" />
                     </padding>
+                    <TextField fx:id="searchFriendField" promptText="🔍 Tìm kiếm bạn bè..." styleClass="search-field" HBox.hgrow="ALWAYS" />
+                </HBox>
+
+                <!-- Friends List -->
+                <ScrollPane fx:id="friendsScrollPane" fitToWidth="true" hbarPolicy="NEVER" styleClass="friends-scroll" VBox.vgrow="ALWAYS">
+                    <VBox fx:id="friendsListContainer" spacing="0" styleClass="friends-list">
+                        <!-- System User (Default) -->
+                        <HBox fx:id="systemUserItem" alignment="CENTER_LEFT" spacing="12" styleClass="friend-item friend-item-selected">
+                            <padding>
+                                <Insets bottom="12" left="12" right="12" top="12" />
+                            </padding>
+
+                            <!-- Avatar -->
+                            <ImageView fx:id="chatFriendAvatar_List"
+                                       fitWidth="36" fitHeight="36"
+                                       preserveRatio="true"
+                                       pickOnBounds="true"
+                                       style="-fx-background-radius: 50%;" />
+                            <!-- Info -->
+                            <VBox spacing="3" HBox.hgrow="ALWAYS">
+                                <HBox alignment="CENTER_LEFT" spacing="6">
+                                    <Text style="-fx-font-size: 14px; -fx-font-weight: bold;" styleClass="friend-name" text="Hệ Thống" />
+                                    <StackPane styleClass="verified-badge">
+                                        <Text style="-fx-font-size: 10px;" styleClass="verified-icon" text="✓" />
+                                    </StackPane>
+                                </HBox>
+                                <Text style="-fx-fill: #718096; -fx-font-size: 12px;" styleClass="last-message" text="Chào mừng bạn đến với EduGame!" wrappingWidth="180" />
+                            </VBox>
+
+                            <!-- Status & Time -->
+                            <VBox alignment="TOP_RIGHT" spacing="5">
+                                <Text style="-fx-fill: #a0aec0; -fx-font-size: 11px;" styleClass="message-time" text="09:00" />
+                                <StackPane prefHeight="12" prefWidth="12" styleClass="online-indicator">
+                                    <Text style="-fx-fill: #31a24c; -fx-font-size: 16px;" styleClass="online-dot" text="●" />
+                                </StackPane>
+                            </VBox>
+                        </HBox>
+
+                        <!-- Dynamic Friend Items will be added here by controller -->
+                    </VBox>
+                </ScrollPane>
+            </VBox>
+
+            <!-- DIVIDER -->
+            <Separator orientation="VERTICAL" styleClass="chat-divider" />
+
+            <!-- RIGHT: Chat Area -->
+            <VBox spacing="0" styleClass="chat-area-container" HBox.hgrow="ALWAYS">
+                <!-- Chat Header -->
+                <HBox alignment="CENTER_LEFT" spacing="12" styleClass="chat-area-header">
+                    <padding>
+                        <Insets bottom="12" left="15" right="15" top="12" />
+                    </padding>
+
+                    <!-- Selected Friend Info -->
+                    <StackPane prefHeight="40" prefWidth="40" styleClass="chat-friend-avatar">
+                        <ImageView fx:id="chatFriendAvatar" fitHeight="40" fitWidth="40" />
+                    </StackPane>
+
+
+                    <VBox spacing="2">
+                        <HBox alignment="CENTER_LEFT" spacing="6">
+                            <Text fx:id="chatFriendName" style="-fx-font-size: 15px; -fx-font-weight: bold;" styleClass="chat-friend-name" text="Hệ Thống" />
+                            <StackPane styleClass="verified-badge-small">
+                                <Text style="-fx-font-size: 9px;" styleClass="verified-icon-small" text="✓" />
+                            </StackPane>
+                        </HBox>
+                        <HBox alignment="CENTER_LEFT" spacing="5">
+                            <Text style="-fx-fill: #31a24c; -fx-font-size: 12px;" styleClass="online-status-dot" text="●" />
+                            <Text fx:id="chatFriendStatus" style="-fx-fill: #718096; -fx-font-size: 12px;" styleClass="chat-friend-status" text="Đang hoạt động" />
+                        </HBox>
+                    </VBox>
+
+                    <Region HBox.hgrow="ALWAYS" />
+
+                    <!-- Action Buttons -->
+                    <HBox spacing="8">
+                        <Button onAction="#handleRefresh" styleClass="icon-button" text="🔄" />
+                    </HBox>
+                </HBox>
+
+                <Separator styleClass="chat-header-divider" />
+
+                <!-- Chat Messages -->
+                <ScrollPane fx:id="chatMessagesScrollPane" fitToWidth="true" hbarPolicy="NEVER" styleClass="chat-messages-scroll" VBox.vgrow="ALWAYS">
+                    <VBox fx:id="chatMessagesContainer" spacing="12" styleClass="chat-messages-container">
+                        <padding>
+                            <Insets bottom="15" left="15" right="15" top="15" />
+                        </padding>
+
+                        <!-- Welcome Message from System (will be replaced by controller) -->
+                        <VBox spacing="8" styleClass="message-group message-received">
+                            <HBox alignment="CENTER_LEFT" spacing="8">
+                                <StackPane prefHeight="36" prefWidth="36" styleClass="message-avatar">
+                                    <ImageView fx:id="avt_in_main_chat"
+                                               fitWidth="36"
+                                               fitHeight="36"
+                                               preserveRatio="true"
+                                               style="-fx-background-radius: 50%;" />
+                                </StackPane>
+
+                                <VBox spacing="5">
+                                    <Text style="-fx-fill: #667eea; -fx-font-weight: bold; -fx-font-size: 12px;" styleClass="message-sender-name" text="Hệ Thống" />
+                                    <HBox spacing="8">
+                                        <VBox spacing="4" style="-fx-background-color: white; -fx-background-radius: 18; -fx-padding: 10 14 10 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);" styleClass="message-bubble message-bubble-received">
+                                            <Text style="-fx-fill: #2d3748; -fx-font-size: 14px;" styleClass="message-text" text="Chào mừng bạn đến với EduGame! 🎉" wrappingWidth="400" />
+                                        </VBox>
+                                    </HBox>
+                                    <Text style="-fx-fill: #a0aec0; -fx-font-size: 10px;" styleClass="message-timestamp" text="09:00" />
+                                </VBox>
+                            </HBox>
+                        </VBox>
+
+                        <!-- Dynamic messages will be added here -->
+                    </VBox>
+                </ScrollPane>
+
+                <!-- Chat Input Area -->
+                <VBox spacing="0" styleClass="chat-input-area">
+                    <Separator styleClass="chat-input-divider" />
+
+                    <HBox alignment="CENTER" spacing="8">
+                        <padding>
+                            <Insets bottom="12" left="15" right="15" top="12" />
+                        </padding>
+
+                        <!-- Emoji Button -->
+                        <Button fx:id="emojiButton" onAction="#handleShowEmoji" style="-fx-font-size: 18px; -fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 5 10;" styleClass="emoji-button" text="😊" />
+
+                        <!-- Text Input -->
+                        <TextField fx:id="messageInputField" promptText="Nhập tin nhắn..." style="-fx-background-radius: 20; -fx-padding: 10 15; -fx-background-color: #f7fafc; -fx-border-color: transparent;" styleClass="message-input-field" HBox.hgrow="ALWAYS" />
+
+                        <!-- Send Button -->
+                        <Button fx:id="sendMessageButton" defaultButton="true" onAction="#handleSendMessage" style="-fx-background-color: linear-gradient(to right, #667eea, #764ba2); -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 10 20; -fx-font-weight: bold; -fx-cursor: hand;" styleClass="send-message-button" text="Gửi ➤" />
+                    </HBox>
                 </VBox>
-            </ScrollPane>
-        </VBox>
+            </VBox>
+        </HBox>
     </center>
-
-    <!-- BOTTOM: Input Area with Emoji -->
-    <bottom>
-        <VBox styleClass="chat-input-container" spacing="0">
-            <HBox styleClass="chat-input-area" spacing="8" alignment="CENTER_LEFT">
-                <padding>
-                    <Insets top="10" right="15" bottom="10" left="15"/>
-                </padding>
-
-                <!-- Emoji Button -->
-                <Button fx:id="emojiButton"
-                        text="😊"
-                        onAction="#handleShowEmoji"
-                        styleClass="emoji-button"/>
-
-                <!-- Text Input -->
-                <TextField fx:id="messageInput"
-                           promptText="Nhập tin nhắn..."
-                           styleClass="message-input"
-                           HBox.hgrow="ALWAYS"/>
-
-                <!-- Send Button -->
-                <Button fx:id="sendButton"
-                        text="Gửi"
-                        styleClass="send-button"
-                        defaultButton="true"
-                        onAction="#handleSendMessage"/>
-            </HBox>
-        </VBox>
-    </bottom>
-
 </BorderPane>

@@ -3,19 +3,23 @@ package com.edugame.client.controller;
 import com.edugame.client.model.User;
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.SceneManager;
-import com.google.gson.JsonObject;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.InputStream;
@@ -32,22 +36,279 @@ public class ProfileController {
     @FXML private Label winLabel;
     @FXML private Label winRateLabel;
 
+    @FXML private Button editNameButton;
+    @FXML private Button changeAvatarButton;
+
+    // ✅ THÊM: Buttons cho tương tác với người khác
+    @FXML private HBox actionButtonsBox; // Container cho các nút action
+    @FXML private Button chatButton;
+    @FXML private Button addFriendButton;
+
     private boolean isLoading = false;
+    private User viewingUser;
+    private boolean isOwnProfile = true;
+    private boolean dataSetBeforeInit = false;
+    private String friendshipStatus = "none"; // none, pending, friend
+
+    public void initData(User user) {
+        System.out.println("🔍 initData() called with user: " + user.getUsername());
+        this.viewingUser = user;
+
+        ServerConnection server = ServerConnection.getInstance();
+        int currentUserId = server.getCurrentUserId();
+
+        // ✅ Nếu là chính mình → đánh dấu là own profile
+        if (user.getUserId() == currentUserId) {
+            System.out.println("👤 Viewing OWN profile → hide action buttons");
+            isOwnProfile = true;
+            dataSetBeforeInit = false; // để initialize() hiểu là profile cá nhân
+            return;
+        }
+
+        this.isOwnProfile = false;
+        this.dataSetBeforeInit = true;
+    }
 
     @FXML
     public void initialize() {
         System.out.println("🚀 ProfileController.initialize() called");
+        System.out.println("   dataSetBeforeInit: " + dataSetBeforeInit);
+        System.out.println("   viewingUser: " + (viewingUser != null ? viewingUser.getUsername() : "null"));
 
-        // Show loading state
+        // ✅ Ẩn action buttons mặc định
+        if (actionButtonsBox != null) {
+            actionButtonsBox.setVisible(false);
+            actionButtonsBox.setManaged(false);
+        }
+
+        if (dataSetBeforeInit && viewingUser != null) {
+            System.out.println("✅ Viewing OTHER user's profile: " + viewingUser.getUsername());
+            isOwnProfile = false;
+            updateUI(viewingUser);
+            hideEditButtons();
+
+            // ✅ Kiểm tra trạng thái bạn bè và hiển thị nút phù hợp
+            checkFriendshipStatus();
+            return;
+        }
+
+        System.out.println("✅ Viewing OWN profile");
+        isOwnProfile = true;
         setLoadingState();
-
-        // Load profile data
         loadProfileData();
     }
 
     /**
-     * Set UI to loading state
+     * ✅ THÊM: Kiểm tra trạng thái bạn bè
      */
+    private void checkFriendshipStatus() {
+        if (viewingUser == null) return;
+
+        ServerConnection server = ServerConnection.getInstance();
+        int currentUserId = server.getCurrentUserId();
+        int targetUserId = viewingUser.getUserId();
+
+        System.out.println("🔍 Checking friendship status between " + currentUserId + " and " + targetUserId);
+
+        // Gọi server để check status
+        server.checkFriendshipStatus(targetUserId, status -> {
+            Platform.runLater(() -> {
+                this.friendshipStatus = status;
+                System.out.println("✅ Friendship status: " + status);
+                updateActionButtons(status);
+            });
+        });
+    }
+
+    /**
+     * ✅ THÊM: Update action buttons dựa trên trạng thái
+     */
+    private void updateActionButtons(String status) {
+        if (actionButtonsBox == null || chatButton == null || addFriendButton == null) {
+            System.err.println("⚠️ Action buttons not initialized");
+            return;
+        }
+
+        // Reset visibility
+        chatButton.setVisible(false);
+        chatButton.setManaged(false);
+        addFriendButton.setVisible(false);
+        addFriendButton.setManaged(false);
+
+        switch (status) {
+            case "friend" -> {
+                // ✅ Đã là bạn bè → hiện nút chat
+                System.out.println("👥 Is friend → showing chat button");
+                chatButton.setVisible(true);
+                chatButton.setManaged(true);
+                actionButtonsBox.setVisible(true);
+                actionButtonsBox.setManaged(true);
+            }
+            case "pending_sent" -> {
+                // ⏳ Đã gửi lời mời → hiện nút pending
+                System.out.println("⏳ Pending sent → showing pending button");
+                addFriendButton.setText("⏳ Đã gửi lời mời");
+                addFriendButton.setStyle(
+                        "-fx-background-color: #FFC107; " +
+                                "-fx-text-fill: white; " +
+                                "-fx-background-radius: 10; " +
+                                "-fx-font-weight: bold; " +
+                                "-fx-font-size: 14px; " +
+                                "-fx-padding: 10 20;"
+                );
+                addFriendButton.setDisable(true);
+                addFriendButton.setVisible(true);
+                addFriendButton.setManaged(true);
+                actionButtonsBox.setVisible(true);
+                actionButtonsBox.setManaged(true);
+            }
+            case "pending_received" -> {
+                // 📨 Nhận được lời mời → hiện nút chấp nhận
+                System.out.println("📨 Pending received → showing accept button");
+                addFriendButton.setText("✓ Chấp nhận kết bạn");
+                addFriendButton.setStyle(
+                        "-fx-background-color: #4CAF50; " +
+                                "-fx-text-fill: white; " +
+                                "-fx-background-radius: 10; " +
+                                "-fx-font-weight: bold; " +
+                                "-fx-font-size: 14px; " +
+                                "-fx-padding: 10 20;"
+                );
+                addFriendButton.setDisable(false);
+                addFriendButton.setVisible(true);
+                addFriendButton.setManaged(true);
+                actionButtonsBox.setVisible(true);
+                actionButtonsBox.setManaged(true);
+            }
+            default -> {
+                // ➕ Chưa là bạn → hiện nút thêm bạn
+                System.out.println("➕ Not friend → showing add friend button");
+                addFriendButton.setText("➕ Add");
+                addFriendButton.setStyle(
+                        "-fx-background-color: #2196F3; " +
+                                "-fx-text-fill: white; " +
+                                "-fx-background-radius: 10; " +
+                                "-fx-font-weight: bold; " +
+                                "-fx-font-size: 14px; " +
+                                "-fx-padding: 10 20;"
+                );
+                addFriendButton.setDisable(false);
+                addFriendButton.setVisible(true);
+                addFriendButton.setManaged(true);
+                actionButtonsBox.setVisible(true);
+                actionButtonsBox.setManaged(true);
+            }
+        }
+    }
+
+    /**
+     * ✅ THÊM: Xử lý nút chat
+     */
+    @FXML
+    public void handleChat(ActionEvent event) {
+        if (viewingUser == null) {
+            showError("Không có thông tin người dùng!");
+            return;
+        }
+
+        try {
+            System.out.println("💬 Opening chat with: " + viewingUser.getFullName());
+
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/ChatWindow.fxml"));
+            Parent root = loader.load();
+
+            // Get controller và init data
+            com.edugame.client.controller.ChatController chatController = loader.getController();
+            chatController.initData(
+                    viewingUser.getUserId(),
+                    viewingUser.getFullName(),
+                    viewingUser.getAvatarUrl(),
+                    viewingUser.isOnline()
+            );
+
+            // Tạo stage mới
+            Stage chatStage = new Stage();
+            chatStage.setTitle("Chat với " + viewingUser.getFullName());
+
+            // Load icon
+            try {
+                InputStream iconStream = getClass().getResourceAsStream("/images/icon.png");
+                if (iconStream != null) {
+                    chatStage.getIcons().add(new Image(iconStream));
+                }
+            } catch (Exception e) {
+                System.out.println("⚠️ Cannot load icon: " + e.getMessage());
+            }
+
+            chatStage.setScene(new Scene(root));
+            chatStage.setMinWidth(500);
+            chatStage.setMinHeight(600);
+            chatStage.setWidth(550);
+            chatStage.setHeight(700);
+            chatStage.show();
+
+            System.out.println("✅ Chat window opened");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error opening chat: " + e.getMessage());
+            e.printStackTrace();
+            showError("Không thể mở cửa sổ chat!");
+        }
+    }
+
+    /**
+     * ✅ THÊM: Xử lý nút thêm bạn / chấp nhận
+     */
+    @FXML
+    public void handleAddFriend(ActionEvent event) {
+        if (viewingUser == null) {
+            showError("Không có thông tin người dùng!");
+            return;
+        }
+
+        ServerConnection server = ServerConnection.getInstance();
+
+        switch (friendshipStatus) {
+            case "pending_received" -> {
+                // Chấp nhận lời mời
+                System.out.println("✅ Accepting friend request from: " + viewingUser.getFullName());
+                server.acceptFriendRequest(viewingUser.getUserId(), success -> {
+                    Platform.runLater(() -> {
+                        if (success) {
+                            showSuccess("Đã chấp nhận lời mời kết bạn!");
+                            checkFriendshipStatus(); // Refresh status
+                        }
+                    });
+                });
+            }
+            default -> {
+                // Gửi lời mời kết bạn
+                System.out.println("📨 Sending friend request to: " + viewingUser.getFullName());
+                server.sendFriendRequest(viewingUser.getUserId(), success -> {
+                    Platform.runLater(() -> {
+                        if (success) {
+                            showSuccess("Đã gửi lời mời kết bạn!");
+                            checkFriendshipStatus(); // Refresh status
+                        }
+                    });
+                });
+            }
+        }
+    }
+
+    private void hideEditButtons() {
+        System.out.println("🔒 Hiding edit buttons (viewing other user's profile)");
+
+        if (editNameButton != null) {
+            editNameButton.setVisible(false);
+            editNameButton.setManaged(false);
+        }
+        if (changeAvatarButton != null) {
+            changeAvatarButton.setVisible(false);
+            changeAvatarButton.setManaged(false);
+        }
+    }
+
     private void setLoadingState() {
         nameLabel.setText("Đang tải...");
         scoreLabel.setText("--");
@@ -57,9 +318,6 @@ public class ProfileController {
         ageLabel.setText("--");
     }
 
-    /**
-     * Load profile data from server
-     */
     private void loadProfileData() {
         if (isLoading) {
             System.out.println("⚠️ Already loading profile");
@@ -67,7 +325,7 @@ public class ProfileController {
         }
 
         isLoading = true;
-        System.out.println("📝 Loading profile data...");
+        System.out.println("📝 Loading CURRENT USER profile data...");
 
         ServerConnection server = ServerConnection.getInstance();
 
@@ -80,12 +338,11 @@ public class ProfileController {
             return;
         }
 
-        // Call getProfile with callback
         server.getProfile(user -> {
             isLoading = false;
 
             if (user != null) {
-                System.out.println("✅ Profile data received");
+                System.out.println("✅ Current user profile data received");
                 Platform.runLater(() -> updateUI(user));
             } else {
                 System.err.println("❌ Failed to load profile");
@@ -97,9 +354,6 @@ public class ProfileController {
         });
     }
 
-    /**
-     * Update UI with user data
-     */
     private void updateUI(User user) {
         if (user == null) {
             System.err.println("❌ updateUI called with NULL user!");
@@ -113,11 +367,10 @@ public class ProfileController {
         System.out.println("   - Total Games: " + user.getTotalGames());
         System.out.println("   - Wins: " + user.getWins());
         System.out.println("   - Age: " + user.getAge());
+        System.out.println("   - Is Own Profile: " + isOwnProfile);
 
-        // Load avatar
         loadAvatar(user.getAvatarUrl());
 
-        // Process name and age
         String fullName = (user.getFullName() != null && !user.getFullName().isEmpty())
                 ? user.getFullName()
                 : user.getUsername();
@@ -125,7 +378,6 @@ public class ProfileController {
         String nameOnly = fullName;
         String ageText = "—";
 
-        // Extract age from name if in format "Name (Age)"
         if (fullName.contains("(") && fullName.contains(")")) {
             int start = fullName.indexOf('(');
             int end = fullName.indexOf(')');
@@ -144,14 +396,12 @@ public class ProfileController {
             System.out.println("   ✅ Using age from User object: " + ageText);
         }
 
-        // Set UI values
         nameLabel.setText(nameOnly);
         ageLabel.setText(ageText);
         scoreLabel.setText(String.valueOf(user.getTotalScore()));
         totalGamesLabel.setText(String.valueOf(user.getTotalGames()));
         winLabel.setText(String.valueOf(user.getWins()));
 
-        // Calculate and set win rate
         int winRate = user.getTotalGames() > 0
                 ? (user.getWins() * 100 / user.getTotalGames())
                 : 0;
@@ -160,18 +410,13 @@ public class ProfileController {
         System.out.println("✅ UI update completed successfully!");
     }
 
-    /**
-     * Load avatar image
-     */
     private void loadAvatar(String avatarUrl) {
         final String DEFAULT_AVATAR = "/images/avatars/avatar4.png";
 
         try {
             System.out.println("📸 Loading avatar from: " + avatarUrl);
-
             Image avatar = loadAvatarImage(avatarUrl);
             avatarImage.setImage(avatar);
-
             System.out.println("✅ Avatar loaded successfully");
         } catch (Exception e) {
             System.err.println("❌ Error loading avatar: " + e.getMessage());
@@ -179,28 +424,22 @@ public class ProfileController {
         }
     }
 
-    /**
-     * Load avatar image from various sources (URL, file, resource)
-     */
     private Image loadAvatarImage(String avatarUrl) {
         final String DEFAULT_AVATAR = "/images/avatars/avatar4.png";
 
-        // 🔹 Null hoặc empty → dùng default
         if (avatarUrl == null || avatarUrl.isBlank()) {
             return new Image(getClass().getResourceAsStream(DEFAULT_AVATAR));
         }
 
-        // 🔹 URL từ internet
         if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
             try {
-                return new Image(avatarUrl, true); // true = load nền
+                return new Image(avatarUrl, true);
             } catch (Exception e) {
                 System.err.println("⚠️ Failed to load from URL: " + avatarUrl);
                 return new Image(getClass().getResourceAsStream(DEFAULT_AVATAR));
             }
         }
 
-        // 🔹 File từ máy tính
         File file = new File(avatarUrl);
         if (file.exists() && file.isFile()) {
             try {
@@ -211,7 +450,6 @@ public class ProfileController {
             }
         }
 
-        // 🔹 Resource nội bộ (avatar1.png, avatar2.png, ...)
         try {
             String resourcePath = "/images/avatars/" + avatarUrl;
             InputStream inputStream = getClass().getResourceAsStream(resourcePath);
@@ -228,14 +466,14 @@ public class ProfileController {
         }
     }
 
-
-    /** ---------------- EVENT HANDLERS ---------------- */
-
     @FXML
     public void handleBack(ActionEvent event) {
         try {
-            SceneManager.getInstance().switchScene("home.fxml");
-            // ✅ SceneManager tự động gọi onSceneShown() → refresh
+            if (!isOwnProfile) {
+                ((javafx.stage.Stage) nameLabel.getScene().getWindow()).close();
+            } else {
+                SceneManager.getInstance().switchScene("home.fxml");
+            }
         } catch (Exception e) {
             e.printStackTrace();
             showError("Không thể quay về trang chủ");
@@ -244,6 +482,11 @@ public class ProfileController {
 
     @FXML
     public void handleEditName(ActionEvent event) {
+        if (!isOwnProfile) {
+            showError("Bạn không thể chỉnh sửa profile của người khác!");
+            return;
+        }
+
         TextInputDialog dialog = new TextInputDialog(nameLabel.getText());
         dialog.setTitle("Đổi tên hiển thị");
         dialog.setHeaderText("Nhập tên mới của bạn:");
@@ -258,10 +501,14 @@ public class ProfileController {
 
     @FXML
     public void handleChangeAvatar(ActionEvent event) {
+        if (!isOwnProfile) {
+            showError("Bạn không thể chỉnh sửa profile của người khác!");
+            return;
+        }
+
         Dialog<String> dialog = new Dialog<>();
         dialog.setTitle("Chọn ảnh đại diện");
 
-        // Tạo lưới ảnh mặc định
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
@@ -271,8 +518,6 @@ public class ProfileController {
                 "avatar1.png", "avatar2.png", "avatar3.png", "avatar4.png",
                 "avatar5.png", "avatar6.png", "avatar7.png", "avatar8.png"
         };
-
-        final String[] selectedAvatar = {null};
 
         for (int i = 0; i < defaultAvatars.length; i++) {
             String avatarPath = "/images/avatars/" + defaultAvatars[i];
@@ -286,7 +531,6 @@ public class ProfileController {
 
             int finalI = i;
             imgView.setOnMouseClicked(e -> {
-                selectedAvatar[0] = defaultAvatars[finalI];
                 dialog.setResult(defaultAvatars[finalI]);
                 dialog.close();
             });
@@ -294,7 +538,6 @@ public class ProfileController {
             grid.add(imgView, col, row);
         }
 
-        // Nút chọn ảnh từ máy
         Button chooseFromPC = new Button("Chọn ảnh từ máy...");
         chooseFromPC.setOnAction(e -> {
             FileChooser fileChooser = new FileChooser();
@@ -305,7 +548,6 @@ public class ProfileController {
 
             File file = fileChooser.showOpenDialog(avatarImage.getScene().getWindow());
             if (file != null) {
-                // 🔹 Lưu đường dẫn đầy đủ thay vì chỉ tên file
                 dialog.setResult(file.getAbsolutePath());
                 dialog.close();
             }
@@ -314,7 +556,6 @@ public class ProfileController {
         VBox box = new VBox(10, grid, chooseFromPC);
         box.setAlignment(Pos.CENTER);
         dialog.getDialogPane().setContent(box);
-
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
         dialog.showAndWait().ifPresent(result -> {
@@ -339,13 +580,9 @@ public class ProfileController {
                         updateProfile(null, selectedFile.getAbsolutePath());
                     }
                 }
-            } else {
-                System.out.println("⚠️ User clicked CLOSE / CANCEL — skip.");
             }
         });
-
     }
-
 
     private void updateProfile(String newName, String newAvatar) {
         ServerConnection server = ServerConnection.getInstance();
@@ -359,13 +596,11 @@ public class ProfileController {
         if (newName != null) req.put("fullName", newName);
         if (newAvatar != null) {
             req.put("avatarUrl", newAvatar);
-            // 🔹 CẬP NHẬT NGAY VÀO SESSION ĐỂ HomeController LOAD ĐƯỢC
             server.setCurrentAvatarUrl(newAvatar);
         }
 
         server.sendJson(req);
 
-        // 🔹 Hiển thị thông báo thành công
         Platform.runLater(() -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Thành công");
@@ -379,11 +614,12 @@ public class ProfileController {
         });
     }
 
-
-
     @FXML
     public void handleShowDetails(ActionEvent event) {
-        User user = ServerConnection.getInstance().getCurrentUser();
+        User user = isOwnProfile ?
+                ServerConnection.getInstance().getCurrentUser() :
+                viewingUser;
+
         if (user == null) {
             showError("Chưa có thông tin người dùng!");
             return;
@@ -404,13 +640,10 @@ public class ProfileController {
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Chi tiết điểm");
-        alert.setHeaderText("Kết quả học tập của bạn");
+        alert.setHeaderText("Kết quả học tập của " + (isOwnProfile ? "bạn" : user.getFullName()));
         alert.setContentText(detail);
         alert.showAndWait();
     }
-
-
-    /** ---------------- UTILITIES ---------------- */
 
     private void showError(String message) {
         Platform.runLater(() -> {
@@ -422,17 +655,18 @@ public class ProfileController {
         });
     }
 
-    private void showComingSoon(String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Sắp ra mắt");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
+    private void showSuccess(String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Thành công");
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.show();
 
-        javafx.animation.PauseTransition delay =
-                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(2));
-        delay.setOnFinished(e -> alert.close());
-
-        alert.show();
-        delay.play();
+            javafx.animation.PauseTransition delay =
+                    new javafx.animation.PauseTransition(javafx.util.Duration.seconds(2));
+            delay.setOnFinished(e -> alert.close());
+            delay.play();
+        });
     }
 }
