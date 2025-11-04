@@ -10,6 +10,7 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
 import javafx.stage.Popup;
 import javafx.stage.Stage;
@@ -25,11 +26,13 @@ public class ChatController {
     @FXML private ScrollPane friendsScrollPane;
     @FXML private VBox friendsListContainer;
     @FXML private HBox systemUserItem;
+    @FXML private HBox aiChatItem;
 
     // ============ FXML Elements - Chat Area (RIGHT) ============
     @FXML private Text chatFriendName;
     @FXML private ImageView chatFriendAvatar;
     @FXML private ImageView chatFriendAvatar_List;
+    @FXML private ImageView chatFriendAi_List;
     @FXML private ImageView avt_in_main_chat;
     @FXML private Text chatFriendStatus;
     @FXML private ScrollPane chatMessagesScrollPane;
@@ -38,15 +41,18 @@ public class ChatController {
     @FXML private Button sendMessageButton;
     @FXML private Button emojiButton;
 
-
     // ============ Data ============
     private ServerConnection server;
     private int currentUserId;
-    private int selectedFriendId = -1; // System user by default
+    private int selectedFriendId = -1; // -1: System, -2: AI Chat, >0: Real friend
     private String selectedFriendName = "Hệ Thống";
-    private String selectedFriendAvatar = "maychu_avt.png";
+    private String selectedFriendAvatar = "may_chu.png";
     private Map<Integer, HBox> friendItemsMap = new HashMap<>();
     private static final int MESSAGE_LIMIT = 50;
+
+    private static final int AI_CHAT_ID = -2;
+    private static final String AI_CHAT_NAME = "Chat AI";
+    private static final String AI_CHAT_AVATAR = "chat_ai.png"; // Ảnh đại diện cho AI
 
     /**
      * Initialize controller
@@ -70,24 +76,18 @@ public class ChatController {
 
         System.out.println("💬 [CHAT] Chat window opened. Current user ID: " + currentUserId);
         AvatarUtil.loadAvatar(chatFriendAvatar_List, selectedFriendAvatar);
+        AvatarUtil.loadAvatar(chatFriendAi_List, AI_CHAT_AVATAR);
         setupUI();
         loadFriendsList();
-        loadSystemMessages(); // Load system messages by default
+        loadSystemMessages();
     }
 
     /**
-     * Initialize with specific friend (for opening chat from other screens)
-     * @param friendId Friend's user ID
-     * @param friendName Friend's username
-     * @param avatarUrl Friend's avatar URL
-     * @param isOnline Friend's online status
+     * Initialize with specific friend
      */
     public void initData(int friendId, String friendName, String avatarUrl, boolean isOnline) {
         System.out.println("💬 [CHAT] Opening chat with: " + friendName + " (ID=" + friendId + ")");
-
-        // Wait for initialize to complete
         Platform.runLater(() -> {
-            // Select the friend after friends list is loaded
             selectFriend(friendId, friendName, avatarUrl, isOnline);
         });
     }
@@ -101,7 +101,7 @@ public class ChatController {
             filterFriendsList(newVal);
         });
 
-        // Setup message input - Enter to send
+        // Setup message input
         messageInputField.setOnKeyPressed(event -> {
             if (event.getCode().toString().equals("ENTER")) {
                 event.consume();
@@ -117,6 +117,24 @@ public class ChatController {
         // Setup system user item click
         if (systemUserItem != null) {
             systemUserItem.setOnMouseClicked(e -> selectSystemUser());
+        }
+
+        // Setup AI chat item click
+        if (aiChatItem != null) {
+            aiChatItem.setOnMouseClicked(e -> selectAIChat());
+
+            // Hover effect for AI Chat
+            aiChatItem.setOnMouseEntered(e -> {
+                if (selectedFriendId != -2) {
+                    aiChatItem.setStyle("-fx-background-color: #f7fafc; -fx-cursor: hand;");
+                }
+            });
+
+            aiChatItem.setOnMouseExited(e -> {
+                if (selectedFriendId != -2) {
+                    aiChatItem.setStyle("-fx-background-color: transparent;");
+                }
+            });
         }
     }
 
@@ -142,8 +160,9 @@ public class ChatController {
      * Display friends list in UI
      */
     private void displayFriendsList(List<Map<String, Object>> friends) {
-        // Keep system user item, remove others
-        friendsListContainer.getChildren().removeIf(node -> node != systemUserItem);
+        // Keep system user and AI chat items, remove others
+        friendsListContainer.getChildren().removeIf(node ->
+                node != systemUserItem && node != aiChatItem);
         friendItemsMap.clear();
 
         for (Map<String, Object> friend : friends) {
@@ -179,24 +198,22 @@ public class ChatController {
         avatarPane.getStyleClass().add("friend-avatar");
         avatarPane.setPrefSize(45, 45);
 
-          // Ảnh đại diện
         ImageView avatarView = new ImageView();
         avatarView.setFitWidth(45);
         avatarView.setFitHeight(45);
-        avatarView.setClip(new javafx.scene.shape.Circle(22.5, 22.5, 22.5)); // bo tròn
+        avatarView.setClip(new javafx.scene.shape.Circle(22.5, 22.5, 22.5));
 
         if (avatarUrl != null && !avatarUrl.isBlank()) {
-            // Dùng AvatarUtil để load ảnh từ URL, file hoặc resource
             AvatarUtil.loadAvatar(avatarView, avatarUrl);
             avatarPane.getChildren().add(avatarView);
         } else {
-            // Nếu không có ảnh, hiển thị emoji
             String emoji = getEmojiForName(friendName);
             Text avatarText = new Text(emoji);
             avatarText.getStyleClass().add("avatar-icon");
             avatarText.setStyle("-fx-font-size: 24px;");
             avatarPane.getChildren().add(avatarText);
         }
+
         // Info
         VBox infoBox = new VBox(3);
         HBox.setHgrow(infoBox, Priority.ALWAYS);
@@ -220,7 +237,15 @@ public class ChatController {
             nameBox.getChildren().add(nameText);
         }
 
-        Text lastMsgText = new Text(lastMessage.isEmpty() ? "Chưa có tin nhắn" : lastMessage);
+        String displayMessage;
+        if (lastMessage == null || lastMessage.trim().isEmpty()) {
+            displayMessage = "Chưa có tin nhắn";
+        } else {
+            displayMessage = lastMessage.length() > 30 ?
+                    lastMessage.substring(0, 30) + "..." : lastMessage;
+        }
+
+        Text lastMsgText = new Text(displayMessage);
         lastMsgText.getStyleClass().add("last-message");
         lastMsgText.setStyle("-fx-fill: #718096; -fx-font-size: 12px;");
         lastMsgText.setWrappingWidth(180);
@@ -266,24 +291,82 @@ public class ChatController {
     }
 
     /**
+     * Update friend item's last message
+     */
+    private void updateFriendLastMessage(int friendId, String message, String time) {
+        HBox friendItem = friendItemsMap.get(friendId);
+        if (friendItem != null) {
+            Platform.runLater(() -> {
+                VBox infoBox = (VBox) friendItem.getChildren().get(1);
+                Text lastMsgText = (Text) infoBox.getChildren().get(1);
+
+                String displayMessage = message.length() > 30 ?
+                        message.substring(0, 30) + "..." : message;
+                lastMsgText.setText(displayMessage);
+
+                // Update time
+                VBox statusBox = (VBox) friendItem.getChildren().get(2);
+                if (statusBox.getChildren().size() > 0) {
+                    Text timeText = (Text) statusBox.getChildren().get(0);
+                    timeText.setText(formatTime(time));
+                }
+            });
+        }
+    }
+
+    /**
      * Select system user
      */
     private void selectSystemUser() {
-        // Deselect all friends
         deselectAllFriends();
 
-        // Select system user
         systemUserItem.getStyleClass().add("friend-item-selected");
         selectedFriendId = -1;
         selectedFriendName = "Hệ Thống";
+        selectedFriendAvatar = "may_chu.png";
 
-        // Update chat header
-        AvatarUtil.loadAvatar(chatFriendAvatar, "maychu_avt.png");
+        // Restore normal header with ImageView
+        StackPane currentAvatarContainer = (StackPane) chatFriendAvatar.getParent();
+        currentAvatarContainer.getChildren().clear();
+        currentAvatarContainer.getChildren().add(chatFriendAvatar);
+
+        AvatarUtil.loadAvatar(chatFriendAvatar, selectedFriendAvatar);
         chatFriendName.setText("Hệ Thống");
+        chatFriendName.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
         chatFriendStatus.setText("Đang hoạt động");
+        chatFriendStatus.setStyle("-fx-fill: #718096; -fx-font-size: 12px;");
 
-        // Load system messages
         loadSystemMessages();
+    }
+
+    /**
+     * Select AI Chat
+     */
+    private void selectAIChat() {
+        System.out.println("🤖 [CHAT] Selected AI Chat");
+
+        deselectAllFriends();
+
+        aiChatItem.getStyleClass().add("friend-item-selected");
+        aiChatItem.setStyle("-fx-background-color: #eef2ff;");
+
+        selectedFriendId = AI_CHAT_ID;
+        selectedFriendName = AI_CHAT_NAME;
+
+        // Update chat header with AI styling
+        StackPane currentAvatarContainer = (StackPane) chatFriendAvatar.getParent();
+
+        // Cập nhật header
+        AvatarUtil.loadAvatar(chatFriendAvatar, AI_CHAT_AVATAR);
+        chatFriendName.setText(AI_CHAT_NAME);
+        chatFriendStatus.setText("Luôn sẵn sàng 🤖");
+
+        chatFriendName.setText("Chat AI");
+        chatFriendName.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-fill: #667eea;");
+        chatFriendStatus.setText("Trợ lý AI sẵn sàng");
+        chatFriendStatus.setStyle("-fx-fill: #667eea; -fx-font-size: 12px;");
+
+        loadAIIntroMessage();
     }
 
     /**
@@ -292,10 +375,8 @@ public class ChatController {
     private void selectFriend(int friendId, String friendName, String avatarUrl, boolean isOnline) {
         System.out.println("💬 [CHAT] Selected friend: " + friendName + " (ID=" + friendId + ")");
 
-        // Deselect all
         deselectAllFriends();
 
-        // Select this friend
         HBox friendItem = friendItemsMap.get(friendId);
         if (friendItem != null) {
             friendItem.getStyleClass().add("friend-item-selected");
@@ -305,19 +386,22 @@ public class ChatController {
         selectedFriendId = friendId;
         selectedFriendName = friendName;
 
-        // Update chat header
-        String emoji = getEmojiForName(friendName);
+        // Restore normal header with ImageView
+        StackPane currentAvatarContainer = (StackPane) chatFriendAvatar.getParent();
+        currentAvatarContainer.getChildren().clear();
+        currentAvatarContainer.getChildren().add(chatFriendAvatar);
+
         AvatarUtil.loadAvatar(chatFriendAvatar, avatarUrl);
         chatFriendName.setText(friendName);
+        chatFriendName.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
         chatFriendStatus.setText(isOnline ? "Đang hoạt động" : "Offline");
+        chatFriendStatus.setStyle("-fx-fill: #718096; -fx-font-size: 12px;");
 
-        // Load messages
+        // ✅ CLEAR TIN NHẮN CŨ TRƯỚC KHI LOAD MỚI
+        chatMessagesContainer.getChildren().clear();
+
         loadMessages(friendId);
-
-        // Mark as read
         markAsRead(friendId);
-
-        // Setup listener for this friend
         setupMessageListener(friendId);
     }
 
@@ -327,10 +411,68 @@ public class ChatController {
     private void deselectAllFriends() {
         systemUserItem.getStyleClass().remove("friend-item-selected");
 
+        if (aiChatItem != null) {
+            aiChatItem.getStyleClass().remove("friend-item-selected");
+            aiChatItem.setStyle("-fx-background-color: transparent;");
+        }
+
         for (HBox item : friendItemsMap.values()) {
             item.getStyleClass().remove("friend-item-selected");
             item.setStyle("-fx-background-color: transparent;");
         }
+    }
+
+    /**
+     * Load AI intro message
+     */
+    private void loadAIIntroMessage() {
+        chatMessagesContainer.getChildren().clear();
+
+        VBox welcomeMsg = new VBox(8);
+        welcomeMsg.getStyleClass().addAll("message-group", "message-received");
+
+        HBox msgContainer = new HBox(8);
+        msgContainer.setAlignment(Pos.CENTER_LEFT);
+
+        // 🔹 Tạo StackPane chứa avatar AI
+        StackPane avatarPane = new StackPane();
+        avatarPane.setPrefSize(36, 36);
+        avatarPane.getStyleClass().add("message-avatar");
+
+        // 🔹 Tạo ImageView cho avatar AI (sử dụng AvatarUtil để đảm bảo load được file cục bộ hoặc URL)
+        ImageView aiAvatar = new ImageView();
+        AvatarUtil.loadAvatar(aiAvatar, "chat_ai.png"); // hoặc URL ảnh AI
+        aiAvatar.setFitWidth(36);
+        aiAvatar.setFitHeight(36);
+        aiAvatar.setClip(new Circle(18, 18, 18));
+        avatarPane.getChildren().add(aiAvatar);
+
+        // 🔹 Nội dung tin nhắn chào
+        VBox contentBox = new VBox(5);
+        Text senderName = new Text("Chat AI");
+        senderName.setStyle("-fx-fill: #667eea; -fx-font-weight: bold; -fx-font-size: 12px;");
+
+        VBox bubble = new VBox(4);
+        bubble.setStyle("""
+            -fx-background-color: white;
+            -fx-background-radius: 18;
+            -fx-padding: 10 14;
+            -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);
+            """);
+
+        Text msgText = new Text("Xin chào 👋! Tôi là Chat AI — bạn có thể hỏi tôi bất cứ điều gì.");
+        msgText.setStyle("-fx-fill: #2d3748; -fx-font-size: 14px;");
+        msgText.setWrappingWidth(400);
+        bubble.getChildren().add(msgText);
+
+        Text timestamp = new Text("09:00");
+        timestamp.setStyle("-fx-fill: #a0aec0; -fx-font-size: 10px;");
+
+        contentBox.getChildren().addAll(senderName, bubble, timestamp);
+        msgContainer.getChildren().addAll(avatarPane, contentBox);
+        welcomeMsg.getChildren().add(msgContainer);
+
+        chatMessagesContainer.getChildren().add(welcomeMsg);
     }
 
     /**
@@ -345,15 +487,16 @@ public class ChatController {
                     displayMessages(messages);
                     System.out.println("✅ [CHAT] Loaded " + messages.size() + " messages");
                 } else {
+                    // ✅ CHỈ XÓA TIN NHẮN CŨ, KHÔNG HIỂN THỊ EMPTY STATE
+                    chatMessagesContainer.getChildren().clear();
                     System.out.println("📭 [CHAT] No messages yet");
-                    showEmptyState();
                 }
             });
         });
     }
 
     /**
-     * Load system messages (welcome message)
+     * Load system messages
      */
     private void loadSystemMessages() {
         chatMessagesContainer.getChildren().clear();
@@ -364,21 +507,18 @@ public class ChatController {
         HBox msgContainer = new HBox(8);
         msgContainer.setAlignment(Pos.CENTER_LEFT);
 
-        // 🧩 Avatar của hệ thống
         StackPane avatar = new StackPane();
         avatar.getStyleClass().add("message-avatar");
         avatar.setPrefSize(36, 36);
 
-        // ✅ Tạo ImageView và load avatar qua AvatarUtil
         ImageView systemAvatar = new ImageView();
         systemAvatar.setFitWidth(36);
         systemAvatar.setFitHeight(36);
         systemAvatar.setPreserveRatio(true);
-        AvatarUtil.loadAvatar(systemAvatar, "maychu_avt.png");
+        AvatarUtil.loadAvatar(systemAvatar, "may_chu.png");
 
         avatar.getChildren().add(systemAvatar);
 
-        // 🧩 Nội dung tin nhắn
         VBox contentBox = new VBox(5);
 
         Text senderName = new Text("Hệ Thống");
@@ -386,11 +526,11 @@ public class ChatController {
 
         VBox bubble = new VBox(4);
         bubble.setStyle("""
-        -fx-background-color: white;
-        -fx-background-radius: 18;
-        -fx-padding: 10 14;
-        -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);
-    """);
+            -fx-background-color: white;
+            -fx-background-radius: 18;
+            -fx-padding: 10 14;
+            -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);
+        """);
 
         Text msgText = new Text("Chào mừng bạn đến với EduGame! 🎉");
         msgText.setStyle("-fx-fill: #2d3748; -fx-font-size: 14px;");
@@ -457,7 +597,6 @@ public class ChatController {
                             "-fx-background-radius: 18; -fx-padding: 10 14; " +
                             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);");
 
-            // Header
             HBox headerBox = new HBox(6);
             headerBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -479,7 +618,6 @@ public class ChatController {
                 headerBox.getChildren().add(readStatus);
             }
 
-            // Message content
             FlowPane messageContent = parseMessageWithEmojiImages(message, isSelf);
             messageContent.setMaxWidth(290);
 
@@ -488,7 +626,6 @@ public class ChatController {
 
             chatMessagesContainer.getChildren().add(messageContainer);
 
-            // Auto scroll
             chatMessagesScrollPane.layout();
             chatMessagesScrollPane.setVvalue(1.0);
         });
@@ -547,9 +684,6 @@ public class ChatController {
         return flowPane;
     }
 
-    /**
-     * Check if codepoint is emoji
-     */
     private boolean isEmojiCodePoint(int codePoint) {
         return (codePoint >= 0x1F600 && codePoint <= 0x1F64F) ||
                 (codePoint >= 0x1F300 && codePoint <= 0x1F5FF) ||
@@ -561,9 +695,6 @@ public class ChatController {
                 (codePoint >= 0x1FA70 && codePoint <= 0x1FAFF);
     }
 
-    /**
-     * Create emoji ImageView
-     */
     private ImageView createEmojiImageView(String emoji, double size) {
         try {
             String imageUrl = getEmojiImageUrl(emoji);
@@ -577,9 +708,6 @@ public class ChatController {
         }
     }
 
-    /**
-     * Get emoji image URL
-     */
     private String getEmojiImageUrl(String emoji) {
         int codePoint = emoji.codePointAt(0);
         String hex = Integer.toHexString(codePoint);
@@ -591,14 +719,22 @@ public class ChatController {
      */
     @FXML
     public void handleSendMessage() {
+        String content = messageInputField.getText().trim();
+        if (content.isEmpty()) return;
+
+        // Handle AI Chat
+        if (selectedFriendId == -2) {
+            handleAIMessage(content);
+            return;
+        }
+
+        // Handle System (cannot send)
         if (selectedFriendId == -1) {
             showError("Không thể gửi tin nhắn cho Hệ Thống!");
             return;
         }
 
-        String content = messageInputField.getText().trim();
-        if (content.isEmpty()) return;
-
+        // Handle normal friend message
         System.out.println("💬 [CHAT] Sending message to friendId=" + selectedFriendId);
 
         sendMessageButton.setDisable(true);
@@ -608,9 +744,11 @@ public class ChatController {
             Platform.runLater(() -> {
                 if (success) {
                     String timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+                    String fullTime = LocalDateTime.now().toString();
                     addChatMessage(server.getCurrentUsername(), content, true, timeStr, false);
                     messageInputField.clear();
                     Platform.runLater(() -> chatMessagesScrollPane.setVvalue(1.0));
+                    updateFriendLastMessage(selectedFriendId, content, fullTime);
                 } else {
                     showError("Không thể gửi tin nhắn!");
                 }
@@ -619,6 +757,185 @@ public class ChatController {
                 messageInputField.setDisable(false);
                 messageInputField.requestFocus();
             });
+        });
+    }
+
+    /**
+     * Handle AI message (simulate AI response)
+     */
+    private void handleAIMessage(String userMessage) {
+        String timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+
+        // Display user message
+        addAIChatMessage(server.getCurrentUsername(), userMessage, true, timeStr);
+        messageInputField.clear();
+
+        // Simulate AI thinking
+        sendMessageButton.setDisable(true);
+        messageInputField.setDisable(true);
+
+        // Simulate AI response after 1 second
+        new Thread(() -> {
+            try {
+                Thread.sleep(1000);
+                Platform.runLater(() -> {
+                    String aiResponse = generateAIResponse(userMessage);
+                    String aiTimeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+                    addAIChatMessage("Chat AI", aiResponse, false, aiTimeStr);
+
+                    sendMessageButton.setDisable(false);
+                    messageInputField.setDisable(false);
+                    messageInputField.requestFocus();
+                });
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    /**
+     * Generate AI response based on user message
+     */
+    private String generateAIResponse(String userMessage) {
+        String msg = userMessage.toLowerCase();
+
+        // Simple keyword-based responses
+        if (msg.contains("chào") || msg.contains("hello") || msg.contains("hi")) {
+            return "👋 Chào bạn! Tôi có thể giúp gì cho bạn hôm nay?";
+        } else if (msg.contains("cách chơi") || msg.contains("hướng dẫn")) {
+            return "📚 Để chơi game trong EduGame:\n\n" +
+                    "1️⃣ Chọn game từ menu chính\n" +
+                    "2️⃣ Đọc kỹ hướng dẫn trước khi bắt đầu\n" +
+                    "3️⃣ Hoàn thành thử thách để nhận điểm\n" +
+                    "4️⃣ Cạnh tranh với bạn bè trên bảng xếp hạng!\n\n" +
+                    "Bạn cần hướng dẫn chi tiết về game nào không? 🎮";
+        } else if (msg.contains("điểm") || msg.contains("xếp hạng")) {
+            return "🏆 Về hệ thống điểm:\n\n" +
+                    "• Mỗi game hoàn thành sẽ được cộng điểm\n" +
+                    "• Điểm cao hơn = xếp hạng cao hơn\n" +
+                    "• Kiểm tra bảng xếp hạng để xem vị trí của bạn\n" +
+                    "• Chơi nhiều để lên top! 💪";
+        } else if (msg.contains("bạn bè") || msg.contains("kết bạn")) {
+            return "👥 Để thêm bạn bè:\n\n" +
+                    "1️⃣ Vào mục 'Bạn bè'\n" +
+                    "2️⃣ Tìm kiếm tên người dùng\n" +
+                    "3️⃣ Gửi lời mời kết bạn\n" +
+                    "4️⃣ Chờ họ chấp nhận!\n\n" +
+                    "Sau đó bạn có thể chat và thi đấu cùng nhau nhé! 😊";
+        } else if (msg.contains("help") || msg.contains("trợ giúp") || msg.contains("giúp")) {
+            return "💡 Tôi có thể giúp bạn về:\n\n" +
+                    "🎮 Cách chơi game\n" +
+                    "🏆 Hệ thống điểm và xếp hạng\n" +
+                    "👥 Kết bạn và chat\n" +
+                    "📚 Mẹo học tập\n" +
+                    "⚙️ Cài đặt tài khoản\n\n" +
+                    "Hãy hỏi tôi bất cứ điều gì bạn muốn biết! 😊";
+        } else if (msg.contains("học") || msg.contains("học tập")) {
+            return "📖 Mẹo học tập hiệu quả:\n\n" +
+                    "✨ Chơi game đều đặn mỗi ngày\n" +
+                    "✨ Tập trung vào những nội dung khó\n" +
+                    "✨ Thi đấu với bạn bè để tạo động lực\n" +
+                    "✨ Ôn tập thường xuyên\n\n" +
+                    "Học qua chơi là cách tốt nhất! 🚀";
+        } else if (msg.contains("cảm ơn") || msg.contains("thanks")) {
+            return "😊 Không có gì! Tôi luôn sẵn sàng giúp đỡ bạn.\n\n" +
+                    "Nếu có thắc mắc gì khác, cứ hỏi tôi nhé!";
+        } else if (msg.contains("tạm biệt") || msg.contains("bye")) {
+            return "👋 Tạm biệt! Chúc bạn học tập vui vẻ!\n\n" +
+                    "Hẹn gặp lại bạn sớm! 😊";
+        } else {
+            return "🤔 Xin lỗi, tôi chưa hiểu câu hỏi của bạn lắm.\n\n" +
+                    "Bạn có thể hỏi tôi về:\n" +
+                    "• Cách chơi game 🎮\n" +
+                    "• Hệ thống điểm 🏆\n" +
+                    "• Kết bạn 👥\n" +
+                    "• Mẹo học tập 📚\n\n" +
+                    "Hoặc gõ 'trợ giúp' để xem đầy đủ! 💡";
+        }
+    }
+
+    /**
+     * Add AI chat message with special styling
+     */
+    private void addAIChatMessage(String username, String message, boolean isSelf, String timeStr) {
+        if (chatMessagesContainer == null) return;
+
+        Platform.runLater(() -> {
+            HBox messageContainer = new HBox(8);
+            messageContainer.setAlignment(isSelf ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+            messageContainer.setPadding(new Insets(4, 0, 4, 0));
+
+            if (!isSelf) {
+                // 🔹 Tạo StackPane chứa avatar
+                StackPane avatarPane = new StackPane();
+                avatarPane.setPrefSize(36, 36);
+                avatarPane.getStyleClass().add("message-avatar");
+
+                // 🔹 Avatar AI (dùng AvatarUtil để tự nhận file cục bộ hoặc URL)
+                ImageView aiAvatar = new ImageView();
+                AvatarUtil.loadAvatar(aiAvatar, "chat_ai.png"); // ảnh Chat AI
+                aiAvatar.setFitWidth(36);
+                aiAvatar.setFitHeight(36);
+                aiAvatar.setClip(new Circle(18, 18, 18));
+                avatarPane.getChildren().add(aiAvatar);
+
+                // 🔹 Nội dung tin nhắn
+                VBox contentBox = new VBox(5);
+
+                Text senderName = new Text("Chat AI");
+                senderName.setStyle("-fx-fill: #667eea; -fx-font-weight: bold; -fx-font-size: 12px;");
+
+                VBox bubble = new VBox(4);
+                bubble.setMaxWidth(320);
+                bubble.setStyle("""
+                -fx-background-color: rgba(230,235,255,0.8);
+                -fx-background-radius: 18;
+                -fx-padding: 12 16;
+                -fx-effect: dropshadow(gaussian, rgba(102,126,234,0.15), 4, 0, 0, 1);
+            """);
+
+                Text msgText = new Text(message);
+                msgText.setStyle("-fx-fill: #2d3748; -fx-font-size: 14px; -fx-line-spacing: 3px;");
+                msgText.setWrappingWidth(280);
+                bubble.getChildren().add(msgText);
+
+                Text timestamp = new Text(timeStr);
+                timestamp.setStyle("-fx-fill: #a0aec0; -fx-font-size: 10px;");
+
+                contentBox.getChildren().addAll(senderName, bubble, timestamp);
+
+                // 🔹 Thêm avatar + nội dung vào container
+                messageContainer.getChildren().addAll(avatarPane, contentBox);
+
+            } else {
+                // 🔹 Tin nhắn của người dùng
+                VBox messageBox = new VBox(4);
+                messageBox.setMaxWidth(320);
+                messageBox.setStyle("""
+                -fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2);
+                -fx-background-radius: 18;
+                -fx-padding: 10 14;
+            """);
+
+                HBox headerBox = new HBox(6);
+                headerBox.setAlignment(Pos.CENTER_LEFT);
+
+                Text timeText = new Text(timeStr);
+                timeText.setStyle("-fx-fill: rgba(255,255,255,0.7); -fx-font-size: 10px;");
+                headerBox.getChildren().add(timeText);
+
+                Text msgText = new Text(message);
+                msgText.setStyle("-fx-fill: white; -fx-font-size: 14px;");
+                msgText.setWrappingWidth(280);
+
+                messageBox.getChildren().addAll(headerBox, msgText);
+                messageContainer.getChildren().add(messageBox);
+            }
+
+            // 🔹 Cuộn xuống cuối
+            chatMessagesContainer.getChildren().add(messageContainer);
+            chatMessagesScrollPane.layout();
+            chatMessagesScrollPane.setVvalue(1.0);
         });
     }
 
@@ -703,6 +1020,7 @@ public class ChatController {
                     String sentAt = (String) message.get("sentAt");
                     addChatMessage(selectedFriendName, content, false, formatTime(sentAt), false);
                     markAsRead(friendId);
+                    updateFriendLastMessage(friendId, content, sentAt);
                 });
             }
         });
@@ -760,10 +1078,19 @@ public class ChatController {
     @FXML
     public void handleRefresh() {
         System.out.println("🔄 [CHAT] Refreshing...");
-        loadFriendsList();
-        if (selectedFriendId > 0) {
+
+        if (selectedFriendId == -2) {
+            // Refresh AI chat
+            loadAIIntroMessage();
+        } else if (selectedFriendId == -1) {
+            // Refresh system messages
+            loadSystemMessages();
+        } else if (selectedFriendId > 0) {
+            // Refresh friend messages
             loadMessages(selectedFriendId);
         }
+
+        loadFriendsList();
     }
 
     /**
@@ -859,18 +1186,15 @@ public class ChatController {
 
     /**
      * Cleanup when closing chat window
-     * Remove all listeners and clean up resources
      */
     public void cleanup() {
         System.out.println("🧹 [CHAT] Cleaning up chat controller...");
 
-        // Remove listener if a friend was selected
         if (selectedFriendId > 0) {
             server.removePrivateChatListener(selectedFriendId);
             System.out.println("✅ [CHAT] Removed listener for friendId=" + selectedFriendId);
         }
 
-        // Clear data
         friendItemsMap.clear();
         selectedFriendId = -1;
         selectedFriendName = null;

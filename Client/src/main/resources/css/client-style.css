@@ -1900,7 +1900,7 @@
 }
 
 /* ============================================
-   CHAT WINDOW STYLES WITH EMOJI SUPPORT
+   CHAT WINDOW STYLES WITH EMOJI SUPPORT (FIXED)
    ============================================ */
 
 /* Chat Header */
@@ -1909,6 +1909,13 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 2);
 }
 
+.ai-avatar {
+    -fx-background-radius: 50%;
+    -fx-background-insets: 0;
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #667eea, #764ba2);
+}
+
+/* Friend name in header */
 .chat-friend-name {
     -fx-font-size: 16px;
     -fx-font-weight: bold;
@@ -1948,7 +1955,7 @@
 
 /* Sent Message (Right side - Purple Gradient) */
 .message-sent {
-    -fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2);
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #667eea, #764ba2);
     -fx-alignment: center-right;
 }
 
@@ -2018,7 +2025,6 @@
     -fx-background-radius: 8;
     -fx-cursor: hand;
     -fx-border-color: transparent;
-    -fx-border-width: 0;
 }
 
 .emoji-button:hover {
@@ -2047,7 +2053,7 @@
 
 /* Send Button */
 .send-button {
-    -fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2);
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #667eea, #764ba2);
     -fx-text-fill: white;
     -fx-font-size: 14px;
     -fx-font-weight: bold;
@@ -2058,7 +2064,7 @@
 }
 
 .send-button:hover {
-    -fx-background-color: linear-gradient(to bottom right, #5a67d8, #6b46c1);
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #5a67d8, #6b46c1);
     -fx-effect: dropshadow(gaussian, rgba(102, 126, 234, 0.3), 8, 0, 0, 2);
 }
 
@@ -2100,7 +2106,7 @@
     -fx-font-size: 12px;
 }
 
-/* Emoji Picker Popup Styles (applied via code) */
+/* Emoji Picker Popup */
 .emoji-container {
     -fx-background-color: white;
     -fx-border-color: #ddd;

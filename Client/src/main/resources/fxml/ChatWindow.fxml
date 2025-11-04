@@ -41,7 +41,7 @@
     <center>
         <HBox spacing="0" styleClass="chat-main-container">
             <!-- LEFT: Friends List -->
-            <VBox maxWidth="280" minWidth="280" prefWidth="280" spacing="0" styleClass="friends-list-container">
+            <VBox maxWidth="300" minWidth="280" prefWidth="280" spacing="0" styleClass="friends-list-container">
                 <!-- Search Box -->
                 <HBox styleClass="search-container">
                     <padding>
@@ -60,11 +60,7 @@
                             </padding>
 
                             <!-- Avatar -->
-                            <ImageView fx:id="chatFriendAvatar_List"
-                                       fitWidth="36" fitHeight="36"
-                                       preserveRatio="true"
-                                       pickOnBounds="true"
-                                       style="-fx-background-radius: 50%;" />
+                            <ImageView fx:id="chatFriendAvatar_List" fitHeight="36" fitWidth="36" pickOnBounds="true" preserveRatio="true" style="-fx-background-radius: 50%;" />
                             <!-- Info -->
                             <VBox spacing="3" HBox.hgrow="ALWAYS">
                                 <HBox alignment="CENTER_LEFT" spacing="6">
@@ -81,6 +77,35 @@
                                 <Text style="-fx-fill: #a0aec0; -fx-font-size: 11px;" styleClass="message-time" text="09:00" />
                                 <StackPane prefHeight="12" prefWidth="12" styleClass="online-indicator">
                                     <Text style="-fx-fill: #31a24c; -fx-font-size: 16px;" styleClass="online-dot" text="●" />
+                                </StackPane>
+                            </VBox>
+                        </HBox>
+
+                        <!-- AI Chat Item -->
+                        <HBox fx:id="aiChatItem" alignment="CENTER_LEFT" spacing="12" styleClass="friend-item">
+                            <padding>
+                                <Insets bottom="12" left="12" right="12" top="12" />
+                            </padding>
+
+                            <!-- AI Avatar -->
+                            <ImageView fx:id="chatFriendAi_List" fitHeight="36" fitWidth="36" pickOnBounds="true" preserveRatio="true" style="-fx-background-radius: 50%;" />
+
+                            <!-- Info -->
+                            <VBox spacing="3" HBox.hgrow="ALWAYS">
+                                <HBox alignment="CENTER_LEFT" spacing="6">
+                                    <Text style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-fill: #667eea;" styleClass="friend-name" text="Chat AI" />
+                                    <StackPane style="-fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2);; -fx-background-radius: 8; -fx-padding: 2 6;">
+                                        <Text style="-fx-fill: white; -fx-font-size: 9px; -fx-font-weight: bold;" text="AI" />
+                                    </StackPane>
+                                </HBox>
+                                <Text style="-fx-fill: #718096; -fx-font-size: 12px;" styleClass="last-message" text="Trợ lý AI thông minh của bạn" wrappingWidth="180" />
+                            </VBox>
+
+                            <!-- Status -->
+                            <VBox alignment="TOP_RIGHT" spacing="5">
+                                <Text style="-fx-fill: #a0aec0; -fx-font-size: 11px;" styleClass="message-time" text="24/7" />
+                                <StackPane prefHeight="12" prefWidth="12" styleClass="online-indicator">
+                                    <Text style="-fx-fill: #667eea; -fx-font-size: 16px;" styleClass="online-dot" text="●" />
                                 </StackPane>
                             </VBox>
                         </HBox>
@@ -105,7 +130,6 @@
                     <StackPane prefHeight="40" prefWidth="40" styleClass="chat-friend-avatar">
                         <ImageView fx:id="chatFriendAvatar" fitHeight="40" fitWidth="40" />
                     </StackPane>
-
 
                     <VBox spacing="2">
                         <HBox alignment="CENTER_LEFT" spacing="6">
@@ -141,17 +165,13 @@
                         <VBox spacing="8" styleClass="message-group message-received">
                             <HBox alignment="CENTER_LEFT" spacing="8">
                                 <StackPane prefHeight="36" prefWidth="36" styleClass="message-avatar">
-                                    <ImageView fx:id="avt_in_main_chat"
-                                               fitWidth="36"
-                                               fitHeight="36"
-                                               preserveRatio="true"
-                                               style="-fx-background-radius: 50%;" />
+                                    <ImageView fx:id="avt_in_main_chat" fitHeight="36" fitWidth="36" preserveRatio="true" style="-fx-background-radius: 50%;" />
                                 </StackPane>
 
                                 <VBox spacing="5">
                                     <Text style="-fx-fill: #667eea; -fx-font-weight: bold; -fx-font-size: 12px;" styleClass="message-sender-name" text="Hệ Thống" />
                                     <HBox spacing="8">
-                                        <VBox spacing="4" style="-fx-background-color: white; -fx-background-radius: 18; -fx-padding: 10 14 10 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);" styleClass="message-bubble message-bubble-received">
+                                        <VBox spacing="4" style="-fx-background-color: white; -fx-background-radius: 18; -fx-padding: 10 14 10 14;                              -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);" styleClass="message-bubble message-bubble-received">
                                             <Text style="-fx-fill: #2d3748; -fx-font-size: 14px;" styleClass="message-text" text="Chào mừng bạn đến với EduGame! 🎉" wrappingWidth="400" />
                                         </VBox>
                                     </HBox>
