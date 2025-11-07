@@ -554,3 +554,66 @@
     -fx-font-size: 14;
     -fx-text-alignment: center;
 }
+.friend-cards-container {
+    -fx-padding: 5;
+}
+
+.friend-card {
+    -fx-background-color: rgba(255,255,255,0.08);
+    -fx-background-radius: 10;
+    -fx-padding: 8 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 4, 0, 0, 2);
+    -fx-cursor: hand;
+}
+
+.friend-card:hover {
+    -fx-background-color: rgba(255,255,255,0.15);
+}
+
+.friend-name {
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.friend-score {
+    -fx-text-fill: #bbbbbb;
+    -fx-font-size: 12px;
+}
+
+.invite-icon-button {
+    -fx-background-color: #4caf50;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-background-radius: 50%;
+    -fx-min-width: 30px;
+    -fx-min-height: 30px;
+    -fx-cursor: hand;
+}
+
+.invite-icon-button:hover {
+    -fx-background-color: #66bb6a;
+}
+
+/* === Buttons under friend list === */
+.ready-button, .start-button {
+    -fx-font-size: 14px;
+    -fx-background-radius: 10;
+    -fx-pref-height: 40px;
+}
+
+.ready-button {
+    -fx-background-color: linear-gradient(to right, #4caf50, #388e3c);
+}
+
+.ready-button:hover {
+    -fx-background-color: linear-gradient(to right, #388e3c, #2e7d32);
+}
+
+.start-button {
+    -fx-background-color: linear-gradient(to right, #ff7043, #f4511e);
+}
+
+.start-button:hover {
+    -fx-background-color: linear-gradient(to right, #f4511e, #e64a19);
+}

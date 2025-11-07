@@ -17,13 +17,21 @@ public class GameRoomManager {
     private static final DateTimeFormatter LOG_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
+    private static GameRoomManager instance;
     private final Map<String, GameRoom> rooms;
     private final AtomicInteger roomIdCounter;
 
-    public GameRoomManager() {
+    private GameRoomManager() {
         this.rooms = new ConcurrentHashMap<>();
         this.roomIdCounter = new AtomicInteger(1);
         logWithTime("✅ GameRoomManager initialized");
+    }
+
+    public static synchronized GameRoomManager getInstance() {
+        if (instance == null) {
+            instance = new GameRoomManager();
+        }
+        return instance;
     }
 
     /**
@@ -55,7 +63,7 @@ public class GameRoomManager {
     }
 
     /**
-     * Tạo phòng mới với ID tùy chỉnh (ví dụ lấy từ database)
+     * Tạo phòng mới với ID tùy chỉnh
      */
     public GameRoom createRoomWithId(String roomId, ClientHandler host,
                                      String roomName, String subject,
@@ -66,7 +74,6 @@ public class GameRoomManager {
             return null;
         }
 
-        // Nếu phòng đã tồn tại, không tạo lại
         if (rooms.containsKey(roomId)) {
             logWithTime("⚠️ Room ID already exists: " + roomId);
             return rooms.get(roomId);
@@ -79,13 +86,9 @@ public class GameRoomManager {
 
         logWithTime("✅ Room created with custom ID: " + roomId);
         logWithTime("   Host: " + hostUser.getUsername());
-        logWithTime("   Name: " + roomName);
-        logWithTime("   Subject: " + subject + " | Difficulty: " + difficulty);
-        logWithTime("   Max players: " + maxPlayers);
 
         return room;
     }
-
 
     /**
      * Join phòng
@@ -177,12 +180,13 @@ public class GameRoomManager {
      */
     public static class GameRoom {
         private final String roomId;
-        private final User host;
+        private User host;
         private final String roomName;
         private final String subject;
         private final String difficulty;
         private final int maxPlayers;
         private final List<ClientHandler> players;
+        private final Map<Integer, Boolean> playerReadyStatus; // userId -> isReady
         private final LocalDateTime createdAt;
 
         public GameRoom(String roomId, User host, String roomName,
@@ -194,6 +198,7 @@ public class GameRoomManager {
             this.difficulty = difficulty;
             this.maxPlayers = maxPlayers;
             this.players = Collections.synchronizedList(new ArrayList<>());
+            this.playerReadyStatus = new ConcurrentHashMap<>();
             this.createdAt = LocalDateTime.now();
         }
 
@@ -202,13 +207,32 @@ public class GameRoomManager {
                 if (players.size() >= maxPlayers) {
                     return false;
                 }
-                return players.add(player);
+
+                boolean added = players.add(player);
+                if (added && player.getCurrentUser() != null) {
+                    // Initialize ready status as false
+                    playerReadyStatus.put(player.getCurrentUser().getUserId(), false);
+                }
+                return added;
             }
         }
 
         public boolean removePlayer(ClientHandler player) {
             synchronized (players) {
-                return players.remove(player);
+                boolean removed = players.remove(player);
+
+                if (removed && player.getCurrentUser() != null) {
+                    int userId = player.getCurrentUser().getUserId();
+                    playerReadyStatus.remove(userId);
+
+                    // If host left, assign new host
+                    if (host.getUserId() == userId && !players.isEmpty()) {
+                        host = players.get(0).getCurrentUser();
+                        System.out.println("👑 New host assigned: " + host.getUsername());
+                    }
+                }
+
+                return removed;
             }
         }
 
@@ -217,6 +241,34 @@ public class GameRoomManager {
                 return players.stream()
                         .anyMatch(p -> p.getCurrentUser() != null &&
                                 p.getCurrentUser().getUserId() == userId);
+            }
+        }
+
+        public void setPlayerReady(int userId, boolean isReady) {
+            playerReadyStatus.put(userId, isReady);
+        }
+
+        public boolean isPlayerReady(int userId) {
+            return playerReadyStatus.getOrDefault(userId, false);
+        }
+
+        public boolean areAllPlayersReady() {
+            synchronized (players) {
+                for (ClientHandler player : players) {
+                    User user = player.getCurrentUser();
+                    if (user == null) continue;
+
+                    // Skip host - host doesn't need to ready
+                    if (user.getUserId() == host.getUserId()) {
+                        continue;
+                    }
+
+                    // Check if player is ready
+                    if (!isPlayerReady(user.getUserId())) {
+                        return false;
+                    }
+                }
+                return true;
             }
         }
 

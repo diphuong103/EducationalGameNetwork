@@ -7,13 +7,13 @@
 <?import javafx.scene.text.*?>
 <?import javafx.scene.shape.*?>
 
-<AnchorPane xmlns="http://javafx.com/javafx/17"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.edugame.client.controller.RoomController"
-            prefHeight="700.0" prefWidth="1200.0"
-            styleClass="root"
-            stylesheets="@../css/room.css, @../css/common.css"
-            >
+    <AnchorPane xmlns="http://javafx.com/javafx/17"
+                xmlns:fx="http://javafx.com/fxml/1"
+                fx:controller="com.edugame.client.controller.RoomController"
+                prefHeight="700.0" prefWidth="1200.0"
+                styleClass="root"
+                stylesheets="@../css/room.css, @../css/common.css"
+                >
 
     <!-- ============================================ -->
     <!-- HEADER: Back Button & Room ID -->
@@ -196,6 +196,9 @@
     <!-- ============================================ -->
     <!-- RIGHT PANEL: Friends List & Actions -->
     <!-- ============================================ -->
+    <!-- ============================================ -->
+    <!-- RIGHT PANEL: Friends List & Actions -->
+    <!-- ============================================ -->
     <VBox spacing="12" styleClass="friends-panel"
           AnchorPane.topAnchor="80" AnchorPane.rightAnchor="20" AnchorPane.bottomAnchor="20"
           prefWidth="280">
@@ -215,25 +218,50 @@
             <Button fx:id="btnFilterInGame" text="🎮 Trong trận" styleClass="filter-button"/>
         </HBox>
 
-        <!-- Friends ListView -->
-        <ListView fx:id="friendList" styleClass="friend-list" VBox.vgrow="ALWAYS"/>
+        <!-- Friends Card List -->
+        <ScrollPane fx:id="friendsScrollPane" VBox.vgrow="ALWAYS"
+                    fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                    styleClass="friend-scroll-pane">
+            <content>
+                <VBox fx:id="friendCardsContainer" spacing="10" styleClass="friend-cards-container">
+                    <!-- Sample Friend Card -->
+                    <HBox spacing="10" alignment="CENTER_LEFT" styleClass="friend-card">
+                        <ImageView fx:id="avatarSample" fitHeight="50" fitWidth="50" preserveRatio="true">
+                            <clip>
+                                <Circle radius="25" centerX="25" centerY="25"/>
+                            </clip>
+                        </ImageView>
 
-        <!-- Action Buttons -->
-        <VBox spacing="10">
-            <Button fx:id="btnInvite" text="📨 Mời bạn vào phòng" styleClass="action-button, invite-button"/>
+                        <VBox alignment="CENTER_LEFT" spacing="3" HBox.hgrow="ALWAYS">
+                            <Label text="Nguyễn Văn A" styleClass="friend-name"/>
+                            <Label text="⭐ 1250 điểm" styleClass="friend-score"/>
+                        </VBox>
 
-            <Separator style="-fx-background-color: #3a3a3a;"/>
+                        <Button fx:id="btnInviteFriendSample"
+                                styleClass="invite-icon-button"
+                                text="➕">
+                            <tooltip>
+                                <Tooltip text="Mời vào phòng"/>
+                            </tooltip>
+                        </Button>
 
-            <!-- Ready/Start Button (changes based on host status) -->
-            <StackPane>
-                <!-- Ready Button (for players) -->
-                <Button fx:id="btnReady" text="✓ Sẵn sàng" styleClass="action-button, ready-button"/>
+                    </HBox>
 
-                <!-- Start Button (for host, only visible when all ready) -->
-                <Button fx:id="btnStart" text="▶ Bắt đầu trò chơi"
-                        styleClass="action-button, start-button" visible="false" managed="false"/>
-            </StackPane>
-        </VBox>
+                    <!-- Có thể thêm động các friend-card khác trong Controller -->
+                </VBox>
+            </content>
+        </ScrollPane>
+
+        <!-- Ready/Start Button -->
+        <StackPane>
+            <!-- Ready Button (for players) -->
+            <Button fx:id="btnReady" text="✓ Sẵn sàng" styleClass="action-button, ready-button"/>
+
+            <!-- Start Button (for host, only visible when all ready) -->
+            <Button fx:id="btnStart" text="▶ Bắt đầu trò chơi"
+                    styleClass="action-button, start-button" visible="false" managed="false"/>
+        </StackPane>
     </VBox>
+
 
 </AnchorPane>

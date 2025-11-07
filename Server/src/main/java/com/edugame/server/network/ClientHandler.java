@@ -33,6 +33,8 @@ public class ClientHandler implements Runnable {
     private GameServer server;
     private MatchmakingManager matchmakingManager;
     private QuestionDAO questionDAO;
+    private static final GameRoomManager gameRoomManager = GameRoomManager.getInstance();
+
 
     public void setMatchmakingManager(MatchmakingManager matchmakingManager) {
         this.matchmakingManager = matchmakingManager;
@@ -221,6 +223,11 @@ public class ClientHandler implements Runnable {
                     break;
 
                 case Protocol.JOIN_ROOM:
+                    logWithTime("   → Calling handleJoinRoom()");
+                    handleJoinRoom(jsonMessage);
+                    break;
+
+                case Protocol.JOIN_ROOM_RESPONSE:
                     logWithTime("   → Calling handleJoinRoom()");
                     handleJoinRoom(jsonMessage);
                     break;
@@ -1546,6 +1553,9 @@ public class ClientHandler implements Runnable {
         return random.nextInt((max - min) + 1) + min;
     }
 
+    /**
+     * Handler: CREATE_ROOM - Tạo phòng game
+     */
     private void handleCreateRoom(JsonObject request) {
         try {
             String subject = request.get("subject").getAsString();
@@ -1565,8 +1575,9 @@ public class ClientHandler implements Runnable {
 
             // 2️⃣ Tạo phòng trong memory
             String roomId = String.valueOf(newRoom.getRoomId());
-            GameRoomManager.GameRoom gameRoom = server.getGameRoomManager()
-                    .createRoomWithId(roomId, this, newRoom.getRoomName(), subject, difficulty, newRoom.getMaxPlayers());
+            GameRoomManager.GameRoom gameRoom = gameRoomManager
+                    .createRoomWithId(roomId, this, newRoom.getRoomName(),
+                            subject, difficulty, newRoom.getMaxPlayers());
 
             if (gameRoom == null) {
                 sendError("Không thể tạo phòng trong memory!");
@@ -1584,7 +1595,7 @@ public class ClientHandler implements Runnable {
             response.put("maxPlayers", newRoom.getMaxPlayers());
             response.put("currentPlayers", 1);
 
-            // 👑 Thông tin host
+            // 🔑 Thông tin host
             Map<String, Object> hostInfo = new HashMap<>();
             hostInfo.put("userId", currentUser.getUserId());
             hostInfo.put("username", currentUser.getUsername());
@@ -1596,11 +1607,10 @@ public class ClientHandler implements Runnable {
 
             List<Map<String, Object>> players = new ArrayList<>();
             players.add(hostInfo);
-            response.put("players", players);
+            response.put("playersList", players);
 
             // 4️⃣ Gửi kết quả về client
             sendMessage(response);
-
             logWithTime("✅ Room created successfully! ID=" + roomId);
 
         } catch (Exception e) {
@@ -1614,41 +1624,179 @@ public class ClientHandler implements Runnable {
     }
 
 
+
+//    /**
+//     * Handler: JOIN_ROOM - Vào phòng game
+//     */
+//    private void handleJoinRoom(JsonObject request) {
+//        try {
+//            logWithTime("🚪 [JOIN_ROOM] Processing request...");
+//
+//            if (currentUser == null) {
+//                sendError("Bạn chưa đăng nhập!");
+//                logWithTime("❌ [JOIN_ROOM] User not logged in");
+//                return;
+//            }
+//
+//            String roomId = request.get("roomId").getAsString();
+//            logWithTime("🚪 [JOIN_ROOM] User: " + currentUser.getUsername() + " | RoomId: " + roomId);
+//
+//            // 🔎 Thử vào phòng thông qua GameRoomManager
+//            boolean success = gameRoomManager.joinRoom(this, roomId);
+//
+//            Map<String, Object> response = new HashMap<>();
+//            response.put("type", "JOIN_ROOM_RESPONSE");
+//            response.put("roomId", roomId);
+//
+//            if (success) {
+//                GameRoomManager.GameRoom room = gameRoomManager.getRoom(roomId);
+//                response.put("success", true);
+//                response.put("message", "Đã tham gia phòng thành công!");
+//                response.put("roomName", room.getRoomName());
+//                response.put("subject", room.getSubject());
+//                response.put("difficulty", room.getDifficulty());
+//                response.put("players", room.getPlayerCount());
+//
+//                // ✅ Gửi thông báo tới các thành viên khác trong phòng
+//                for (ClientHandler other : room.getPlayers()) {
+//                    if (other != this) {
+//                        other.sendMessage(Map.of(
+//                                "type", "PLAYER_JOINED",
+//                                "username", currentUser.getUsername()
+//                        ));
+//                    }
+//                }
+//
+//                logWithTime("✅ [JOIN_ROOM] " + currentUser.getUsername() + " joined " + roomId);
+//
+//            } else {
+//                response.put("success", false);
+//                response.put("message", "Không thể tham gia phòng. Phòng không tồn tại hoặc đã đầy!");
+//                logWithTime("❌ [JOIN_ROOM] Join failed: " + roomId);
+//            }
+//
+//            sendMessage(response);
+//
+//        } catch (Exception e) {
+//            logWithTime("❌ [JOIN_ROOM] Error: " + e.getMessage());
+//            e.printStackTrace();
+//            sendError("Lỗi khi vào phòng!");
+//        }
+//    }
+
     /**
      * Handler: JOIN_ROOM - Vào phòng game
      */
     private void handleJoinRoom(JsonObject request) {
         try {
-            logWithTime("🚪 [JOIN_ROOM] Processing request...");
+            logWithTime("🚪 [JOIN_ROOM] ========== START ==========");
 
             if (currentUser == null) {
-                logWithTime("❌ [JOIN_ROOM] User not logged in");
                 sendError("Bạn chưa đăng nhập!");
                 return;
             }
 
-            String roomId = request.get("roomId").getAsString();
-
+            String roomId = request.get("roomId").getAsString().trim();
             logWithTime("🚪 [JOIN_ROOM] User: " + currentUser.getUsername() +
-                    " | RoomId: " + roomId);
+                    " joining room: " + roomId);
 
-            // TODO: Implement game room logic
-            // boolean success = gameRoomManager.joinRoom(this, roomId);
+            GameRoomManager.GameRoom room = gameRoomManager.getRoom(roomId);
 
+            if (room == null) {
+                logWithTime("❌ [JOIN_ROOM] Room not found: " + roomId);
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", Protocol.JOIN_ROOM_RESPONSE);
+                response.put("success", false);
+                response.put("message", "Phòng không tồn tại!");
+                response.put("roomId", roomId);
+                sendMessage(response);
+                return;
+            }
+
+            if (room.isFull()) {
+                logWithTime("❌ [JOIN_ROOM] Room is full");
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", Protocol.JOIN_ROOM_RESPONSE);
+                response.put("success", false);
+                response.put("message", "Phòng đã đầy!");
+                response.put("roomId", roomId);
+                sendMessage(response);
+                return;
+            }
+
+            // Join room
+            boolean success = gameRoomManager.joinRoom(this, roomId);
+
+            if (!success) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", Protocol.JOIN_ROOM_RESPONSE);
+                response.put("success", false);
+                response.put("message", "Không thể tham gia phòng!");
+                response.put("roomId", roomId);
+                sendMessage(response);
+                return;
+            }
+
+            // ✅ Prepare response with full room data
             Map<String, Object> response = new HashMap<>();
-            response.put("type", "JOIN_ROOM");
+            response.put("type", Protocol.JOIN_ROOM_RESPONSE);
             response.put("success", true);
-            response.put("message", "Đã vào phòng: " + roomId);
+            response.put("message", "Đã tham gia phòng thành công!");
+            response.put("roomId", roomId);
+            response.put("roomName", room.getRoomName());
+            response.put("subject", room.getSubject());
+            response.put("difficulty", room.getDifficulty());
+            response.put("maxPlayers", room.getMaxPlayers());
 
+            // ✅ Build players list
+            List<Map<String, Object>> playersList = new ArrayList<>();
+            for (ClientHandler client : room.getPlayers()) {
+                User user = client.getCurrentUser();
+                Map<String, Object> playerData = new HashMap<>();
+                playerData.put("userId", user.getUserId());
+                playerData.put("username", user.getUsername());
+                playerData.put("fullName", user.getFullName());
+                playerData.put("avatarUrl", user.getAvatarUrl());
+                playerData.put("totalScore", user.getTotalScore());
+                playerData.put("isHost", user.getUserId() == room.getHost().getUserId());
+                playerData.put("isReady", room.isPlayerReady(user.getUserId()));
+                playersList.add(playerData);
+            }
+            response.put("playersList", playersList);
+
+            // Send response to joining player
             sendMessage(response);
-            logWithTime("✅ [JOIN_ROOM] User joined room successfully");
+
+            // ✅ Broadcast PLAYER_JOINED to existing players
+            Map<String, Object> joinNotification = new HashMap<>();
+            joinNotification.put("type", Protocol.PLAYER_JOINED);
+            joinNotification.put("userId", currentUser.getUserId());
+            joinNotification.put("username", currentUser.getUsername());
+            joinNotification.put("fullName", currentUser.getFullName());
+            joinNotification.put("avatarUrl", currentUser.getAvatarUrl());
+            joinNotification.put("totalScore", currentUser.getTotalScore());
+
+            for (ClientHandler other : room.getPlayers()) {
+                if (other != this) {
+                    try {
+                        other.sendMessage(joinNotification);
+                        logWithTime("   📤 Notified: " + other.getCurrentUser().getUsername());
+                    } catch (Exception e) {
+                        logWithTime("   ⚠️ Failed to notify: " + e.getMessage());
+                    }
+                }
+            }
+
+            logWithTime("✅ [JOIN_ROOM] Player joined successfully");
+            logWithTime("🚪 [JOIN_ROOM] ========== END ==========");
 
         } catch (Exception e) {
-            logWithTime("❌ [JOIN_ROOM] Error: " + e.getMessage());
+            logWithTime("❌ [JOIN_ROOM] Exception: " + e.getMessage());
             e.printStackTrace();
-            sendError("Lỗi khi vào phòng!");
+            sendError("Lỗi khi vào phòng: " + e.getMessage());
         }
     }
+
 
     /**
      * Handler: LEAVE_ROOM - Rời phòng game
@@ -1658,23 +1806,79 @@ public class ClientHandler implements Runnable {
             logWithTime("🚪 [LEAVE_ROOM] Processing request...");
 
             if (currentUser == null) {
-                logWithTime("❌ [LEAVE_ROOM] User not logged in");
                 sendError("Bạn chưa đăng nhập!");
                 return;
             }
 
-            logWithTime("🚪 [LEAVE_ROOM] User: " + currentUser.getUsername());
+            String roomId = request.get("roomId").getAsString().trim();
+            GameRoomManager.GameRoom room = gameRoomManager.getRoom(roomId);
 
-            // TODO: Implement game room logic
-            // boolean success = gameRoomManager.leaveRoom(this);
+            if (room == null) {
+                logWithTime("⚠️ [LEAVE_ROOM] Room not found");
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", Protocol.LEAVE_ROOM);
+                response.put("success", true);
+                response.put("message", "Đã rời phòng");
+                sendMessage(response);
+                return;
+            }
 
+            boolean wasHost = (room.getHost().getUserId() == currentUser.getUserId());
+            int leavingUserId = currentUser.getUserId();
+            String leavingUsername = currentUser.getUsername();
+
+            // Get remaining players before removing
+            List<ClientHandler> remainingPlayers = new ArrayList<>(room.getPlayers());
+            remainingPlayers.remove(this);
+
+            // Remove player from room
+            boolean success = gameRoomManager.leaveRoom(this, roomId);
+
+            if (!success) {
+                logWithTime("❌ [LEAVE_ROOM] Failed to leave room");
+                sendError("Không thể rời phòng!");
+                return;
+            }
+
+            // Send confirmation to leaving player
             Map<String, Object> response = new HashMap<>();
-            response.put("type", "LEAVE_ROOM");
+            response.put("type", Protocol.LEAVE_ROOM);
             response.put("success", true);
             response.put("message", "Đã rời phòng");
-
             sendMessage(response);
-            logWithTime("✅ [LEAVE_ROOM] User left room successfully");
+
+            // ✅ Broadcast PLAYER_LEFT to remaining players
+            if (!remainingPlayers.isEmpty()) {
+                Map<String, Object> leftNotification = new HashMap<>();
+                leftNotification.put("type", Protocol.PLAYER_LEFT);
+                leftNotification.put("userId", leavingUserId);
+                leftNotification.put("username", leavingUsername);
+
+                // If host left, assign new host
+                if (wasHost) {
+                    ClientHandler newHost = remainingPlayers.get(0);
+                    User newHostUser = newHost.getCurrentUser();
+
+                    leftNotification.put("isNewHost", true);
+                    leftNotification.put("newHostId", newHostUser.getUserId());
+
+                    logWithTime("👑 [LEAVE_ROOM] New host: " + newHostUser.getUsername());
+                } else {
+                    leftNotification.put("isNewHost", false);
+                }
+
+                // Broadcast to all remaining players
+                for (ClientHandler player : remainingPlayers) {
+                    try {
+                        player.sendMessage(leftNotification);
+                        logWithTime("   📤 Notified: " + player.getCurrentUser().getUsername());
+                    } catch (Exception e) {
+                        logWithTime("   ⚠️ Failed to notify: " + e.getMessage());
+                    }
+                }
+            }
+
+            logWithTime("✅ [LEAVE_ROOM] Player left successfully");
 
         } catch (Exception e) {
             logWithTime("❌ [LEAVE_ROOM] Error: " + e.getMessage());
@@ -1691,28 +1895,169 @@ public class ClientHandler implements Runnable {
             logWithTime("✅ [PLAYER_READY] Processing request...");
 
             if (currentUser == null) {
-                logWithTime("❌ [PLAYER_READY] User not logged in");
                 sendError("Bạn chưa đăng nhập!");
                 return;
             }
 
-            logWithTime("✅ [PLAYER_READY] User: " + currentUser.getUsername());
+            boolean isReady = request.get("isReady").getAsBoolean();
 
-            // TODO: Implement game ready logic
-            // gameRoomManager.setPlayerReady(this);
+            // Find player's room
+            GameRoomManager.GameRoom room = gameRoomManager.getRoomByUser(currentUser.getUserId());
 
+            if (room == null) {
+                logWithTime("❌ [PLAYER_READY] Player not in any room");
+                sendError("Bạn không ở trong phòng nào!");
+                return;
+            }
+
+            // Update ready status
+            room.setPlayerReady(currentUser.getUserId(), isReady);
+
+            logWithTime("✅ [PLAYER_READY] User: " + currentUser.getUsername() +
+                    " ready=" + isReady);
+
+            // Send confirmation to player
             Map<String, Object> response = new HashMap<>();
-            response.put("type", "PLAYER_READY");
+            response.put("type", Protocol.READY);
             response.put("success", true);
-            response.put("message", "Đã sẵn sàng!");
-
+            response.put("isReady", isReady);
+            response.put("message", isReady ? "Đã sẵn sàng!" : "Đã hủy sẵn sàng!");
             sendMessage(response);
-            logWithTime("✅ [PLAYER_READY] Ready status sent");
+
+            // ✅ Broadcast to all players in room
+            Map<String, Object> readyNotification = new HashMap<>();
+            readyNotification.put("type", Protocol.PLAYER_READY);
+            readyNotification.put("userId", currentUser.getUserId());
+            readyNotification.put("username", currentUser.getUsername());
+            readyNotification.put("isReady", isReady);
+
+            for (ClientHandler player : room.getPlayers()) {
+                if (player != this) {
+                    try {
+                        player.sendMessage(readyNotification);
+                        logWithTime("   📤 Notified: " + player.getCurrentUser().getUsername());
+                    } catch (Exception e) {
+                        logWithTime("   ⚠️ Failed to notify: " + e.getMessage());
+                    }
+                }
+            }
+
+            logWithTime("✅ [PLAYER_READY] Ready status broadcasted");
 
         } catch (Exception e) {
             logWithTime("❌ [PLAYER_READY] Error: " + e.getMessage());
             e.printStackTrace();
             sendError("Lỗi khi gửi trạng thái sẵn sàng!");
+        }
+    }
+
+    /**
+     * Handler: START_GAME - Bắt đầu game (chỉ host)
+     */
+    private void handleStartGame(JsonObject request) {
+        try {
+            logWithTime("🎮 [START_GAME] Processing request...");
+
+            if (currentUser == null) {
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            String roomId = request.get("roomId").getAsString().trim();
+            GameRoomManager.GameRoom room = gameRoomManager.getRoom(roomId);
+
+            if (room == null) {
+                sendError("Phòng không tồn tại!");
+                return;
+            }
+
+            // Check if requester is host
+            if (room.getHost().getUserId() != currentUser.getUserId()) {
+                sendError("Chỉ chủ phòng mới có thể bắt đầu game!");
+                return;
+            }
+
+            // Check minimum players
+            if (room.getPlayerCount() < 2) {
+                sendError("Cần ít nhất 2 người chơi!");
+                return;
+            }
+
+            // Check all players ready (except host)
+            if (!room.areAllPlayersReady()) {
+                sendError("Chưa tất cả người chơi sẵn sàng!");
+                return;
+            }
+
+            // TODO: Load questions and prepare game
+            // List<Question> questions = questionDAO.getRandomQuestions(
+            //     room.getSubject(), room.getDifficulty(), 10
+            // );
+
+            // ✅ Broadcast START_GAME to all players
+            Map<String, Object> startNotification = new HashMap<>();
+            startNotification.put("type", Protocol.START_GAME);
+            startNotification.put("success", true);
+            startNotification.put("roomId", roomId);
+            startNotification.put("message", "Game bắt đầu!");
+            // startNotification.put("questions", questions);
+
+            for (ClientHandler player : room.getPlayers()) {
+                try {
+                    player.sendMessage(startNotification);
+                    logWithTime("   📤 Notified: " + player.getCurrentUser().getUsername());
+                } catch (Exception e) {
+                    logWithTime("   ⚠️ Failed to notify: " + e.getMessage());
+                }
+            }
+
+            logWithTime("✅ [START_GAME] Game started successfully");
+
+        } catch (Exception e) {
+            logWithTime("❌ [START_GAME] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi bắt đầu game!");
+        }
+    }
+    /**
+     * Handler: ROOM_CHAT - Chat trong phòng
+     */
+    private void handleRoomChat(JsonObject request) {
+        try {
+            if (currentUser == null) {
+                return;
+            }
+
+            String roomId = request.get("roomId").getAsString().trim();
+            String message = request.get("message").getAsString();
+
+            GameRoomManager.GameRoom room = gameRoomManager.getRoom(roomId);
+
+            if (room == null) {
+                return;
+            }
+
+            // Broadcast chat to all players in room
+            Map<String, Object> chatMessage = new HashMap<>();
+            chatMessage.put("type", Protocol.ROOM_CHAT);
+            chatMessage.put("senderId", currentUser.getUserId());
+            chatMessage.put("sender", currentUser.getFullName());
+            chatMessage.put("message", message);
+            chatMessage.put("timestamp", System.currentTimeMillis());
+
+            for (ClientHandler player : room.getPlayers()) {
+                try {
+                    player.sendMessage(chatMessage);
+                } catch (Exception e) {
+                    logWithTime("⚠️ Failed to send chat to: " +
+                            player.getCurrentUser().getUsername());
+                }
+            }
+
+            logWithTime("💬 [ROOM_CHAT] " + currentUser.getUsername() + ": " + message);
+
+        } catch (Exception e) {
+            logWithTime("❌ [ROOM_CHAT] Error: " + e.getMessage());
         }
     }
 

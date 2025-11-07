@@ -45,6 +45,7 @@ import static javafx.scene.input.KeyCode.ENTER;
 
 public class HomeController {
 
+    @FXML private Button joinRoomButton;
     // User info
     @FXML private ImageView userAvatar;
     @FXML private Text userNameText;
@@ -1125,26 +1126,21 @@ public class HomeController {
             VBox layout = new VBox(15, progressIndicator, lblMessage);
             layout.setAlignment(Pos.CENTER);
             layout.setPadding(new Insets(20));
-            layout.setStyle("-fx-background-color: white; -fx-border-radius: 10; -fx-background-radius: 10;");
+            layout.setStyle("-fx-background-color: rgba(255,255,255,0.9); -fx-background-radius: 10;");
 
             Scene scene = new Scene(layout);
+            scene.setFill(Color.TRANSPARENT);
+
             loadingStage = new Stage();
+            loadingStage.initStyle(StageStyle.TRANSPARENT);
+            loadingStage.initModality(Modality.NONE); // ✅ modeless, không block
             loadingStage.setScene(scene);
             loadingStage.setResizable(false);
-            loadingStage.initModality(Modality.APPLICATION_MODAL);
-            loadingStage.initStyle(StageStyle.TRANSPARENT);
-
-            // Làm nền mờ
-            scene.setFill(Color.TRANSPARENT);
-            layout.setStyle("-fx-background-color: rgba(255,255,255,0.9); -fx-background-radius: 10;");
 
             loadingStage.show();
         });
     }
 
-    /**
-     * Ẩn dialog loading (nếu đang hiển thị)
-     */
     private void hideLoadingDialog() {
         Platform.runLater(() -> {
             if (loadingStage != null) {
@@ -1155,5 +1151,248 @@ public class HomeController {
     }
 
 
+    /**
+     * Xử lý sự kiện click vào button Join Room - Custom Popup
+     */
+    @FXML
+    private void handleJoinRoom() {
+        // Tạo Stage mới cho popup
+        Stage popupStage = new Stage();
+        popupStage.initModality(Modality.APPLICATION_MODAL);
+        popupStage.initOwner(joinRoomButton.getScene().getWindow());
+        popupStage.setTitle("Tham Gia Phòng");
+
+        // Tạo layout cho popup
+        VBox popupLayout = new VBox(20);
+        popupLayout.setPadding(new Insets(30));
+        popupLayout.setAlignment(Pos.CENTER);
+        popupLayout.setStyle("-fx-background-color: #2a2d3a;");
+
+        // Icon
+        Text iconText = new Text("🏠");
+        iconText.setStyle("-fx-font-size: 48px;");
+
+        // Title
+        Text titleText = new Text("Nhập Mã Phòng");
+        titleText.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-fill: white;");
+
+        // Description
+        Text descText = new Text("Nhập mã phòng 6 ký tự để tham gia");
+        descText.setStyle("-fx-font-size: 14px; -fx-fill: #a0a0a0;");
+
+        // TextField cho mã phòng
+        TextField roomCodeField = new TextField();
+        roomCodeField.setPromptText("VD: ABC123");
+        roomCodeField.setPrefWidth(300);
+        roomCodeField.setStyle(
+                "-fx-background-color: #1e1e2e; " +
+                        "-fx-text-fill: white; " +
+                        "-fx-font-size: 18px; " +
+                        "-fx-padding: 12px; " +
+                        "-fx-background-radius: 8px; " +
+                        "-fx-border-color: #4a4a6a; " +
+                        "-fx-border-radius: 8px; " +
+                        "-fx-border-width: 2px;"
+        );
+
+        // Giới hạn nhập tối đa 6 ký tự và tự động chuyển thành chữ hoa
+        roomCodeField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                String upperCase = newVal.toUpperCase();
+                if (upperCase.length() > 6) {
+                    roomCodeField.setText(oldVal);
+                } else if (!upperCase.equals(newVal)) {
+                    roomCodeField.setText(upperCase);
+                }
+            }
+        });
+
+        // Buttons
+        HBox buttonBox = new HBox(15);
+        buttonBox.setAlignment(Pos.CENTER);
+
+        Button cancelButton = new Button("Hủy");
+        cancelButton.setStyle(
+                "-fx-background-color: #4a4a6a; " +
+                        "-fx-text-fill: white; " +
+                        "-fx-font-size: 14px; " +
+                        "-fx-padding: 10px 30px; " +
+                        "-fx-background-radius: 8px; " +
+                        "-fx-cursor: hand;"
+        );
+        cancelButton.setOnAction(e -> popupStage.close());
+
+        Button joinButton = new Button("Tham Gia");
+        joinButton.setStyle(
+                "-fx-background-color: #5865f2; " +
+                        "-fx-text-fill: white; " +
+                        "-fx-font-size: 14px; " +
+                        "-fx-padding: 10px 30px; " +
+                        "-fx-background-radius: 8px; " +
+                        "-fx-cursor: hand;"
+        );
+        joinButton.setDefaultButton(true);
+        joinButton.setOnAction(e -> {
+            String roomCode = roomCodeField.getText().trim();
+            if (roomCode.isEmpty()) {
+                showError(roomCodeField, "Vui lòng nhập mã phòng!");
+                return;
+            }
+            if (roomCode.length() < 6) {
+                showError(roomCodeField, "Mã phòng phải có 6 ký tự!");
+                return;
+            }
+
+            popupStage.close();
+            joinRoomWithCode(roomCode);
+        });
+
+        // Hover effects
+        cancelButton.setOnMouseEntered(e ->
+                cancelButton.setStyle(cancelButton.getStyle() + "-fx-background-color: #5a5a7a;")
+        );
+        cancelButton.setOnMouseExited(e ->
+                cancelButton.setStyle(cancelButton.getStyle().replace("-fx-background-color: #5a5a7a;", "-fx-background-color: #4a4a6a;"))
+        );
+
+        joinButton.setOnMouseEntered(e ->
+                joinButton.setStyle(joinButton.getStyle() + "-fx-background-color: #4752c4;")
+        );
+        joinButton.setOnMouseExited(e ->
+                joinButton.setStyle(joinButton.getStyle().replace("-fx-background-color: #4752c4;", "-fx-background-color: #5865f2;"))
+        );
+
+        buttonBox.getChildren().addAll(cancelButton, joinButton);
+
+        // Thêm tất cả vào layout
+        popupLayout.getChildren().addAll(iconText, titleText, descText, roomCodeField, buttonBox);
+
+        // Tạo scene và hiển thị
+        Scene scene = new Scene(popupLayout);
+        scene.setFill(javafx.scene.paint.Color.TRANSPARENT);
+        popupStage.setScene(scene);
+        popupStage.setResizable(false);
+
+        // Focus vào textfield khi mở
+        Platform.runLater(() -> roomCodeField.requestFocus());
+
+        popupStage.showAndWait();
+    }
+
+    /**
+     * Hiển thị lỗi validation
+     */
+    private void showError(TextField field, String message) {
+        field.setStyle(field.getStyle() + "-fx-border-color: #ff4444;");
+
+        // Tạo tooltip hiển thị lỗi
+        Tooltip errorTooltip = new Tooltip(message);
+        errorTooltip.setStyle("-fx-background-color: #ff4444; -fx-text-fill: white;");
+        field.setTooltip(errorTooltip);
+        errorTooltip.show(field,
+                field.localToScreen(field.getBoundsInLocal()).getMinX(),
+                field.localToScreen(field.getBoundsInLocal()).getMaxY() + 5
+        );
+
+        // Ẩn tooltip sau 2 giây
+        PauseTransition pause = new PauseTransition(Duration.seconds(2));
+        pause.setOnFinished(e -> {
+            errorTooltip.hide();
+            field.setStyle(field.getStyle().replace("-fx-border-color: #ff4444;", "-fx-border-color: #4a4a6a;"));
+            field.setTooltip(null);
+        });
+        pause.play();
+    }
+
+    /**
+     * Tham gia phòng với mã phòng đã nhập
+     */
+    private void joinRoomWithCode(String roomCode) {
+        try {
+            if (roomCode == null || roomCode.isEmpty()) {
+                showAlert("Thông báo", "Vui lòng nhập mã phòng!", Alert.AlertType.WARNING);
+                return;
+            }
+
+            System.out.println("🚪 Đang tham gia phòng: " + roomCode);
+
+            // Hiển thị loading (Stage modeless)
+            showLoadingDialog("🔄 Đang tham gia phòng...");
+
+            // ✅ Timeout tự động đóng sau 10 giây
+            Thread timeoutThread = new Thread(() -> {
+                try {
+                    Thread.sleep(10000); // 10 giây
+                    Platform.runLater(() -> {
+                        if (loadingStage != null && loadingStage.isShowing()) {
+                            hideLoadingDialog();
+                            showAlert("Timeout", "Không nhận được phản hồi từ server!", Alert.AlertType.WARNING);
+                        }
+                    });
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }, "JoinRoomTimeout");
+            timeoutThread.setDaemon(true);
+            timeoutThread.start();
+
+            // ✅ Đăng ký callback xử lý response từ server
+            serverConnection.setJoinRoomCallback((success, message, roomData) -> {
+                Platform.runLater(() -> {
+                    // Đóng loading ngay khi có phản hồi
+                    hideLoadingDialog();
+
+                    if (success && roomData != null) {
+                        System.out.println("✅ Join room thành công!");
+                        try {
+                            // Chuyển sang RoomController
+                            Platform.runLater(() -> {
+                                try {
+                                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/Room.fxml"));
+                                    Parent root = loader.load();
+                                    RoomController controller = loader.getController();
+                                    controller.initializeRoom(roomData);
+
+                                    Scene scene = new Scene(root);
+                                    Stage stage = SceneManager.getInstance().getPrimaryStage();
+                                    stage.setScene(scene);
+                                    stage.show();
+                                } catch (Exception e) {
+                                    showAlert("Lỗi", "Không thể chuyển màn hình: " + e.getMessage(), Alert.AlertType.ERROR);
+                                    e.printStackTrace();
+                                }
+                            });
+
+                        } catch (Exception e) {
+                            showAlert("Lỗi", "Không thể chuyển màn hình: " + e.getMessage(), Alert.AlertType.ERROR);
+                            e.printStackTrace();
+                        }
+                    } else {
+                        showAlert("Lỗi", message != null ? message : "Không thể tham gia phòng!", Alert.AlertType.ERROR);
+                    }
+                });
+            });
+
+            // Gửi request tham gia phòng
+            serverConnection.joinGameRoom(roomCode);
+
+        } catch (Exception e) {
+            hideLoadingDialog(); // chắc chắn đóng nếu có lỗi
+            showAlert("Lỗi", "Không thể tham gia phòng: " + e.getMessage(), Alert.AlertType.ERROR);
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * Hiển thị alert thông báo
+     */
+    private void showAlert(String title, String content, Alert.AlertType type) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
 
 }

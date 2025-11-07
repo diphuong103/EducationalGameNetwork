@@ -47,6 +47,8 @@
 
             <!-- RIGHT: Settings + Logout -->
             <HBox spacing="12" alignment="CENTER_RIGHT">
+                <Button fx:id="joinRoomButton" text="🏠 Tìm phòng" styleClass="header-button"
+                        onAction="#handleJoinRoom"/>
                 <Button fx:id="settingsButton" text="⚙" styleClass="header-button"
                         onAction="#handleSettings"/>
                 <Button fx:id="chatButton" text="💬" styleClass="header-button"

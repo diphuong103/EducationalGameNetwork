@@ -28,7 +28,7 @@ public class GameServer {
         this.port = port;
         this.connectedClients = new CopyOnWriteArrayList<>(); // Thread-safe
         this.running = false;
-        this.roomManager = new GameRoomManager();
+        this.roomManager = GameRoomManager.getInstance();
         this.matchmakingManager = new MatchmakingManager(roomManager);
         instance = this;
 

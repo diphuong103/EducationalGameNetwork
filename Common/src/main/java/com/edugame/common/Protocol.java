@@ -11,17 +11,6 @@ public class Protocol {
     public static final String LOGOUT = "LOGOUT";
 
     // Game
-    public static final String CREATE_ROOM = "CREATE_ROOM";
-    public static final String JOIN_ROOM = "JOIN_ROOM";
-    public static final String LEAVE_ROOM = "LEAVE_ROOM";
-    public static final String START_GAME = "START_GAME";
-    public static final String READY = "READY";
-    public static final String ROOM_UPDATE = "ROOM_UPDATE";
-    public static final String PLAYER_JOINED = "PLAYER_JOINED";
-    public static final String PLAYER_LEFT = "PLAYER_LEFT";
-    public static final String KEY_ROOM_ID = "room_id";
-
-
     public static final String ANSWER_QUESTION = "ANSWER_QUESTION";
     public static final String GAME_RESULT = "GAME_RESULT";
     public static final String NEXT_QUESTION = "NEXT_QUESTION";
@@ -33,6 +22,22 @@ public class Protocol {
 
     public static final String TRAINING_MODE = "TRAINING_MODE";
     public static final String MATCH_FAILED = "MATCH_FAILED";
+
+
+    // Room -protocol
+    public static final String CREATE_ROOM = "CREATE_ROOM";
+    public static final String JOIN_ROOM = "JOIN_ROOM";
+    public static final String JOIN_ROOM_RESPONSE = "JOIN_ROOM_RESPONSE";
+    public static final String LEAVE_ROOM = "LEAVE_ROOM";
+    public static final String START_GAME = "START_GAME";
+    public static final String READY = "READY";
+    public static final String ROOM_UPDATE = "ROOM_UPDATE";
+    public static final String PLAYER_JOINED = "PLAYER_JOINED";
+    public static final String PLAYER_LEFT = "PLAYER_LEFT";
+    public static final String PLAYER_READY = "PLAYER_READY";
+    public static final String KEY_ROOM_ID = "room_id";
+    public static final String ROOM_CHAT = "ROOM_CHAT";
+    public static final String INVITE_TO_ROOM = "INVITE_TO_ROOM";
 
 
 
@@ -56,7 +61,6 @@ public class Protocol {
     public static final String GET_UNREAD_COUNT_RESPONSE = "GET_UNREAD_COUNT_RESPONSE";
 
     public static final String GLOBAL_CHAT = "GLOBAL_CHAT";
-    public static final String ROOM_CHAT = "ROOM_CHAT";
     public static final String GAME_CHAT = "GAME_CHAT";
 
 

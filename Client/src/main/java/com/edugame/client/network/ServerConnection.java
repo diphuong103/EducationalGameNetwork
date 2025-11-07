@@ -1,14 +1,18 @@
 package com.edugame.client.network;
 
+import com.edugame.client.controller.RoomController;
 import com.edugame.client.model.User;
+import com.edugame.client.util.SceneManager;
 import com.edugame.common.Protocol;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 
 import java.io.*;
+import java.lang.reflect.Type;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,11 +70,53 @@ public class ServerConnection {
     private Consumer<JsonObject> gameChatCallback;             // Chat trong game
     private Map<String, Consumer<JsonObject>> messageHandlers = new ConcurrentHashMap<>();
     private String selectedSubject;
+    private Consumer<Map<String, Object>> playerJoinedCallback;
+    private JoinRoomCallback joinRoomCallback;
+
+    private Consumer<Map<String, Object>> playerLeftCallback;
+    private Consumer<Map<String, Object>> playerReadyCallback;
+
+
+    @FunctionalInterface
+    public interface JoinRoomCallback {
+        void onResult(boolean success, String message, Map<String, Object> roomData);
+    }
+
+    public void setJoinRoomCallback(JoinRoomCallback callback) {
+        this.joinRoomCallback = callback;
+    }
+
+    public void setPlayerJoinedCallback(Consumer<Map<String, Object>> callback) {
+        this.playerJoinedCallback = callback;
+    }
+
+    public void setPlayerLeftCallback(Consumer<Map<String, Object>> callback) {
+        this.playerLeftCallback = callback;
+    }
+
+    public void setPlayerReadyCallback(Consumer<Map<String, Object>> callback) {
+        this.playerReadyCallback = callback;
+    }
+
+    public void clearPlayerJoinedCallback() {
+        this.playerJoinedCallback = null;
+    }
+
+    public void clearPlayerLeftCallback() {
+        this.playerLeftCallback = null;
+    }
+
+    public void clearPlayerReadyCallback() {
+        this.playerReadyCallback = null;
+    }
+
 
 
     private Map<String, Consumer<User>> profileByIdCallbacks = new HashMap<>();
 
     private Map<String, Consumer<JsonObject>> pendingRequests = new ConcurrentHashMap<>();
+
+
 
     // Loading states
     private boolean isLoadingFriends = false;
@@ -88,6 +134,7 @@ public class ServerConnection {
         }
         return instance;
     }
+
 
     /** Connect to server */
     public boolean connect(String host, int port) {
@@ -259,6 +306,37 @@ public class ServerConnection {
             System.out.println("📤 Sent: " + message);
         }
     }
+
+    /**
+     * Gửi request đến server (JsonObject hoặc Map<String, Object>)
+     */
+    private void sendRequest(Object request) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot send request - not connected");
+            return;
+        }
+
+        try {
+            String jsonString;
+
+            if (request instanceof JsonObject json) {
+                jsonString = json.toString();
+            } else if (request instanceof Map<?, ?> map) {
+                // Chuyển Map sang JSON string
+                jsonString = new Gson().toJson(map);
+            } else {
+                throw new IllegalArgumentException("Unsupported request type: " + request.getClass());
+            }
+
+            // Gửi trực tiếp bằng sendMessage
+            sendMessage(jsonString);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send request: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
 
     // ============== TRAINING MODE METHODS ==============/
 
@@ -460,118 +538,46 @@ public class ServerConnection {
      * @param difficulty Độ khó
      * @param callback Callback nhận Map<String, Object> chứa toàn bộ room data
      */
-    public void createRoom(String subject, String difficulty, Consumer<Map<String, Object>> callback) {
-        if (!isConnected()) {
-            System.err.println("❌ Cannot create room - not connected");
-            callback.accept(null);
-            return;
+    /**
+     * Gửi yêu cầu tạo phòng
+     */
+    public void createRoom(String subject, String difficulty,
+                           Consumer<Map<String, Object>> callback) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.CREATE_ROOM);
+            request.addProperty("subject", subject);
+            request.addProperty("difficulty", difficulty);
+
+            sendRequest(request);
+
+            // Register one-time callback
+            pendingRequests.put(Protocol.CREATE_ROOM, json -> {
+                Gson gson = new Gson();
+                Type type = new TypeToken<Map<String, Object>>() {}.getType();
+                Map<String, Object> data = gson.fromJson(json, type);
+                callback.accept(data);
+            });
+
+            System.out.println("📤 CREATE_ROOM request sent");
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send CREATE_ROOM: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        System.out.println("🏠 Creating room: " + subject + " (" + difficulty + ")");
-
-        removePendingCallback(Protocol.CREATE_ROOM);
-        final boolean[] callbackCalled = new boolean[]{false};
-
-        setPendingCallback(Protocol.CREATE_ROOM, (json) -> {
-            try {
-                synchronized (callbackCalled) {
-                    if (callbackCalled[0]) return;
-                    callbackCalled[0] = true;
-                }
-
-                removePendingCallback(Protocol.CREATE_ROOM);
-
-                boolean success = json.get("success").getAsBoolean();
-                if (!success) {
-                    String message = json.has("message") ?
-                            json.get("message").getAsString() : "Không thể tạo phòng";
-                    System.err.println("❌ Create room failed: " + message);
-                    callback.accept(null);
-                    return;
-                }
-
-                // ✅ Convert JsonObject to Map<String, Object>
-                Map<String, Object> roomData = new HashMap<>();
-
-                // Basic info
-                roomData.put("roomId", json.get("roomId").getAsString());
-                roomData.put("roomName", json.has("roomName") ? json.get("roomName").getAsString() : "");
-                roomData.put("subject", json.has("subject") ? json.get("subject").getAsString() : "");
-                roomData.put("difficulty", json.has("difficulty") ? json.get("difficulty").getAsString() : "");
-                roomData.put("maxPlayers", json.has("maxPlayers") ? json.get("maxPlayers").getAsInt() : 4);
-                roomData.put("currentPlayers", json.has("currentPlayers") ? json.get("currentPlayers").getAsInt() : 0);
-
-                // ✅ Parse players list
-                if (json.has("players") && json.get("players").isJsonArray()) {
-                    JsonArray playersArray = json.getAsJsonArray("players");
-                    List<Map<String, Object>> playersList = new ArrayList<>();
-
-                    for (int i = 0; i < playersArray.size(); i++) {
-                        JsonObject playerJson = playersArray.get(i).getAsJsonObject();
-                        Map<String, Object> player = new HashMap<>();
-
-                        player.put("userId", playerJson.has("userId") ? playerJson.get("userId").getAsInt() : 0);
-                        player.put("username", playerJson.has("username") ? playerJson.get("username").getAsString() : "");
-                        player.put("fullName", playerJson.has("fullName") ? playerJson.get("fullName").getAsString() : "");
-                        player.put("avatarUrl", playerJson.has("avatarUrl") ? playerJson.get("avatarUrl").getAsString() : "");
-                        player.put("totalScore", playerJson.has("totalScore") ? playerJson.get("totalScore").getAsInt() : 0);
-                        player.put("isHost", playerJson.has("isHost") ? playerJson.get("isHost").getAsBoolean() : false);
-                        player.put("isReady", playerJson.has("isReady") ? playerJson.get("isReady").getAsBoolean() : false);
-
-                        playersList.add(player);
-                    }
-
-                    roomData.put("players", playersList);
-                }
-
-                System.out.println("✅ Room created successfully!");
-                System.out.println("   Room ID: " + roomData.get("roomId"));
-                System.out.println("   Players: " + ((List<?>) roomData.get("players")).size());
-
-                callback.accept(roomData);
-
-            } catch (Exception e) {
-                System.err.println("❌ Error handling create room response: " + e.getMessage());
-                e.printStackTrace();
-                synchronized (callbackCalled) {
-                    if (!callbackCalled[0]) {
-                        callbackCalled[0] = true;
-                        callback.accept(null);
-                    }
-                }
-            }
-        });
-
-        Map<String, Object> request = new HashMap<>();
-        request.put("type", Protocol.CREATE_ROOM);
-        request.put("subject", subject);
-        request.put("difficulty", difficulty);
-        sendJson(request);
-
-        // Timeout
-        new Thread(() -> {
-            try {
-                Thread.sleep(5000);
-                synchronized (callbackCalled) {
-                    if (!callbackCalled[0]) {
-                        callbackCalled[0] = true;
-                        removePendingCallback(Protocol.CREATE_ROOM);
-                        System.err.println("⚠️ Create room timeout");
-                        callback.accept(null);
-                    }
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }, "CreateRoomTimeout").start();
     }
+
+
+
     /**
      * Join game room
-     * @param roomId ID phòng game
      */
     public void joinGameRoom(String roomId) {
         if (!isConnected()) {
             System.err.println("❌ Cannot join game room - not connected");
+            if (joinRoomCallback != null) {
+                joinRoomCallback.onResult(false, "Không kết nối với server", null);
+            }
             return;
         }
 
@@ -584,35 +590,115 @@ public class ServerConnection {
     }
 
     /**
+     * Gửi yêu cầu tham gia phòng
+     */
+    public void joinRoom(String roomId) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.JOIN_ROOM);
+            request.addProperty("roomId", roomId);
+
+            sendRequest(request);
+            System.out.println("📤 JOIN_ROOM request sent: " + roomId);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send JOIN_ROOM: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
      * Leave game room
      */
-    public void leaveGameRoom() {
-        if (!isConnected()) {
-            System.err.println("❌ Cannot leave game room - not connected");
-            return;
+    public void leaveGameRoom(String roomId) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.LEAVE_ROOM);
+            request.addProperty("roomId", roomId);
+
+            sendRequest(request);
+            System.out.println("📤 LEAVE_ROOM request sent");
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send LEAVE_ROOM: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        System.out.println("🚪 Leaving game room...");
-
-        Map<String, Object> request = new HashMap<>();
-        request.put("type", "LEAVE_ROOM");
-        sendJson(request);
     }
 
     /**
-     * Send ready status in game room
+     * Gửi trạng thái sẵn sàng
      */
-    public void sendReady() {
-        if (!isConnected()) {
-            System.err.println("❌ Cannot send ready - not connected");
-            return;
+    public void sendReady(boolean isReady) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.READY);
+            request.addProperty("isReady", isReady);
+
+            sendRequest(request);
+            System.out.println("📤 READY request sent: " + isReady);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send READY: " + e.getMessage());
+            e.printStackTrace();
         }
+    }
 
-        System.out.println("✅ Sending ready status...");
+    /**
+     * Bắt đầu game (chỉ host)
+     */
+    public void sendStartGame(String roomId) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.START_GAME);
+            request.addProperty("roomId", roomId);
 
-        Map<String, Object> request = new HashMap<>();
-        request.put("type", "PLAYER_READY");
-        sendJson(request);
+            sendRequest(request);
+            System.out.println("📤 START_GAME request sent");
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send START_GAME: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * Gửi tin nhắn chat trong phòng
+     */
+    public void sendRoomChat(String roomId, String message) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.ROOM_CHAT);
+            request.addProperty("roomId", roomId);
+            request.addProperty("message", message);
+
+//            sendRequest(request);
+            System.out.println("📤 ROOM_CHAT sent");
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send ROOM_CHAT: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Mời bạn vào phòng
+     */
+    public void inviteToRoom(int friendUserId, String roomId) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.INVITE_TO_ROOM);
+            request.addProperty("friendUserId", friendUserId);
+            request.addProperty("roomId", roomId);
+
+            sendRequest(request);
+            System.out.println("📤 INVITE_TO_ROOM sent to user: " + friendUserId);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send INVITE_TO_ROOM: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -721,28 +807,31 @@ public class ServerConnection {
      * Route incoming messages to appropriate callbacks
      */
     private void handleIncomingMessage(String type, JsonObject json) {
+        // ✅ Convert JsonObject sang Map một lần
+        Gson gson = new Gson();
+        Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
+        Map<String, Object> data = gson.fromJson(json, mapType);
+
         switch (type) {
             case "ERROR":
                 handleErrorMessage(json);
                 break;
 
-            // Profile
             case Protocol.GET_PROFILE:
                 if (profileCallback != null) {
                     profileCallback.accept(json);
                     profileCallback = null;
                 }
                 break;
+
             case Protocol.GET_PROFILE_BY_ID:
                 handleProfileByIdResponse(json);
                 break;
-
 
             case Protocol.UPDATE_PROFILE:
                 handleUpdateProfileResponse(json);
                 break;
 
-            // Leaderboard
             case Protocol.GET_LEADERBOARD:
                 if (leaderboardCallback != null) {
                     leaderboardCallback.accept(json);
@@ -750,9 +839,45 @@ public class ServerConnection {
                 }
                 break;
 
-            // ============================================================
-            // CHAT TYPE 1: GLOBAL CHAT - Chat toàn cầu
-            // ============================================================
+            case Protocol.JOIN_ROOM_RESPONSE:
+                System.out.println("🚪 [CLIENT] Received JOIN_ROOM_RESPONSE");
+                handleJoinRoomResponse(json);
+                break;
+
+            case Protocol.PLAYER_JOINED:
+                System.out.println("🆕 [CLIENT] Received PLAYER_JOINED");
+                if (playerJoinedCallback != null) {
+                    playerJoinedCallback.accept(data);
+                }
+                break;
+
+            case Protocol.PLAYER_LEFT:
+                System.out.println("👋 [CLIENT] Received PLAYER_LEFT");
+                if (playerLeftCallback != null) {
+                    playerLeftCallback.accept(data);
+                }
+                break;
+
+            case Protocol.PLAYER_READY:
+                System.out.println("✅ [CLIENT] Received PLAYER_READY");
+                if (playerReadyCallback != null) {
+                    playerReadyCallback.accept(data);
+                }
+                break;
+
+//            case Protocol.ROOM_CHAT:
+//                if (roomChatCallback != null) {
+//                    roomChatCallback.accept(data);
+//                }
+//                break;
+
+            case Protocol.START_GAME:
+                // TODO: Handle game start
+                System.out.println("🎮 [CLIENT] Game starting!");
+                break;
+
+
+            // GLOBAL CHAT
             case Protocol.GLOBAL_CHAT:
             case "GLOBAL_CHAT_MESSAGE":
                 if (globalChatCallback != null) {
@@ -761,9 +886,7 @@ public class ServerConnection {
                 }
                 break;
 
-            // ============================================================
-            // CHAT TYPE 2: PRIVATE CHAT - Chat riêng 1-1
-            // ============================================================
+            // PRIVATE CHAT
             case Protocol.NEW_MESSAGE:
                 handleNewPrivateMessage(json);
                 break;
@@ -771,16 +894,13 @@ public class ServerConnection {
             case Protocol.GET_MESSAGES:
             case Protocol.SEND_MESSAGE:
             case Protocol.MESSAGE_READ:
-                // Handle via pendingRequests
                 Consumer<JsonObject> callback = pendingRequests.remove(type);
                 if (callback != null) {
                     callback.accept(json);
                 }
                 break;
 
-            // ============================================================
-            // CHAT TYPE 3: ROOM CHAT - Chat trong phòng chờ
-            // ============================================================
+            // ROOM CHAT
             case Protocol.ROOM_CHAT:
             case "ROOM_CHAT_MESSAGE":
                 if (roomChatCallback != null) {
@@ -789,9 +909,7 @@ public class ServerConnection {
                 }
                 break;
 
-            // ============================================================
-            // CHAT TYPE 4: GAME CHAT - Chat trong game (đang phát triển)
-            // ============================================================
+            // GAME CHAT
             case Protocol.GAME_CHAT:
             case "GAME_CHAT_MESSAGE":
                 if (gameChatCallback != null) {
@@ -803,7 +921,6 @@ public class ServerConnection {
                 break;
 
             default:
-                // Check pending requests for other types
                 Consumer<JsonObject> cb = pendingRequests.remove(type);
                 if (cb != null) {
                     cb.accept(json);
@@ -812,14 +929,45 @@ public class ServerConnection {
                 }
                 break;
         }
+
         // Check dynamic handlers
         Consumer<JsonObject> dynamicHandler = messageHandlers.get(type);
         if (dynamicHandler != null) {
             System.out.println("🎯 Found dynamic handler for: " + type);
             dynamicHandler.accept(json);
-            return;
         }
+    }
 
+    /**
+     * Xử lý phản hồi khi tham gia phòng
+     */
+    private void handleJoinRoomResponse(JsonObject data) {
+        boolean success = data.has("success") && data.get("success").getAsBoolean();
+        String message = data.has("message") ? data.get("message").getAsString() : "Không có phản hồi";
+        String roomId = data.has("roomId") ? data.get("roomId").getAsString() : "unknown";
+
+        System.out.println("📨 [CLIENT] JOIN_ROOM_RESPONSE: success=" + success + ", roomId=" + roomId);
+
+        if (success) {
+            Gson gson = new Gson();
+            Type type = new TypeToken<Map<String, Object>>() {}.getType();
+            Map<String, Object> roomData = gson.fromJson(data, type);
+
+            System.out.println("✅ Join room thành công: " + roomId);
+
+            if (joinRoomCallback != null) {
+                joinRoomCallback.onResult(true, message, roomData);
+                joinRoomCallback = null;
+            }
+
+        } else {
+            System.err.println("❌ Join room thất bại: " + message);
+
+            if (joinRoomCallback != null) {
+                joinRoomCallback.onResult(false, message, null);
+                joinRoomCallback = null;
+            }
+        }
     }
 
 

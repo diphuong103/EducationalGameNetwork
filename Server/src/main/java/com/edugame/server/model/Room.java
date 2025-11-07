@@ -1,7 +1,7 @@
 package com.edugame.server.model;
 
 public class Room {
-    private int roomId;
+    private String roomId;
     private String roomName;
     private int hostId;
     private String subject;
@@ -11,7 +11,7 @@ public class Room {
     private String status;
     private boolean isPrivate;
 
-    public Room(int roomId, String roomName, int hostId, String subject,
+    public Room(String roomId, String roomName, int hostId, String subject,
                 String difficulty, int maxPlayers, int currentPlayers,
                 String status, boolean isPrivate) {
         this.roomId = roomId;
@@ -26,7 +26,7 @@ public class Room {
     }
 
     // getters
-    public int getRoomId() { return roomId; }
+    public String getRoomId() { return roomId; }
     public String getRoomName() { return roomName; }
     public int getHostId() { return hostId; }
     public String getSubject() { return subject; }

@@ -1,6 +1,7 @@
 package com.edugame.client.controller;
 
 import com.edugame.client.network.ServerConnection;
+import com.edugame.client.util.AvatarUtil;
 import com.edugame.client.util.SceneManager;
 import com.edugame.common.Protocol;
 import com.google.gson.JsonObject;
@@ -22,7 +23,7 @@ import java.util.*;
 /**
  * Controller cho màn hình phòng chờ game
  * - Hiển thị 4 slot người chơi
- * - Chat phòng với emoji support (giống Global Chat)
+ * - Chat phòng với emoji support
  * - Danh sách bạn bè với filter (Online/In Game/Offline)
  * - Mời bạn vào phòng
  * - Ready/Start game
@@ -30,71 +31,53 @@ import java.util.*;
 public class RoomController {
 
     // ==================== FXML Components ====================
-
-    // Header
     @FXML private Button btnBack;
     @FXML private Label lblRoomId;
-
-
-    // Player Slots (4 players)
     @FXML private ImageView avatar1, avatar2, avatar3, avatar4;
     @FXML private Label name1, name2, name3, name4;
     @FXML private Label score1, score2, score3, score4;
     @FXML private Label emptyIcon2, emptyIcon3, emptyIcon4;
     @FXML private Circle readyIndicator1, readyIndicator2, readyIndicator3, readyIndicator4;
-    @FXML private VBox playerSlot1, playerSlot2, playerSlot3, playerSlot4;
-
-    // Chat
     @FXML private VBox chatMessagesContainer;
     @FXML private ScrollPane chatScrollPane;
     @FXML private TextField chatInputField;
     @FXML private Button btnSendChat;
     @FXML private Button emojiButton;
     @FXML private Label onlineCount;
-
-    // Friends Panel
-    @FXML private ListView<FriendItem> friendList;
+    @FXML private VBox friendCardsContainer;
+    @FXML private ScrollPane friendsScrollPane;
     @FXML private Button btnFilterAll, btnFilterOnline, btnFilterInGame;
-    @FXML private Button btnInvite;
     @FXML private Button btnReady;
     @FXML private Button btnStart;
 
     // ==================== Data ====================
 
     private ServerConnection connection;
-    private Map<String, Object> currentRoomData; // Lưu toàn bộ thông tin phòng
-    private String roomId;        // ID phòng
-    private String subject;       // Môn học (math, science, etc.)
-    private String difficulty;    // Độ khó (easy, medium, hard)
+    private Map<String, Object> currentRoomData;
+    private String roomId;
+    private String subject;
+    private String difficulty;
     private boolean isHost = false;
     private boolean isReady = false;
-
-    // Player data
     private Map<Integer, PlayerInfo> players = new HashMap<>();
     private List<FriendItem> allFriends = new ArrayList<>();
     private String currentFilter = "ALL";
-
-    private static final DateTimeFormatter TIME_FORMAT =
-            DateTimeFormatter.ofPattern("HH:mm");
-
-
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
 
     @FXML
     private void initialize() {
         connection = ServerConnection.getInstance();
-
-        // Setup UI
         setupPlayerSlots();
         setupChatSystem();
         setupFriendsList();
         setupEventHandlers();
-
-        // Load initial data
-        loadRoomData();
         loadFriendsList();
 
-        // Register room chat callback
+        // Register callbacks
+        connection.setPlayerJoinedCallback(this::handlePlayerJoined);
+        connection.setPlayerLeftCallback(this::handlePlayerLeft);
+        connection.setPlayerReadyCallback(this::handlePlayerReady);
         connection.setRoomChatCallback(this::handleRoomChatMessage);
 
         System.out.println("✅ RoomController initialized");
@@ -102,30 +85,41 @@ public class RoomController {
 
     public void initializeRoom(Map<String, Object> roomData) {
         this.currentRoomData = roomData;
-
-        // Extract basic room info - safe casting
         this.roomId = getStringValue(roomData.get("roomId"));
         this.subject = getStringValue(roomData.get("subject"));
         this.difficulty = getStringValue(roomData.get("difficulty"));
+        lblRoomId.setText("Phòng #" + roomId);
 
-        lblRoomId.setText(roomId);
-
-        System.out.println("🏠 Initializing room:");
-        System.out.println("   Room ID: " + roomId);
-        System.out.println("   Subject: " + subject);
-        System.out.println("   Difficulty: " + difficulty);
-
-        // Load players
-        Object playersObj = roomData.get("players");
+        Object playersObj = roomData.get("playersList");
         if (playersObj instanceof List) {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> playersList = (List<Map<String, Object>>) playersObj;
 
-            System.out.println("   Players: " + playersList.size());
+            // Sort: Host first
+            List<Map<String, Object>> sortedPlayers = new ArrayList<>();
+            Map<String, Object> hostPlayer = null;
 
-            for (int i = 0; i < playersList.size(); i++) {
-                Map<String, Object> player = playersList.get(i);
+            for (Map<String, Object> p : playersList) {
+                if (getBooleanValue(p.get("isHost"))) {
+                    hostPlayer = p;
+                    break;
+                }
+            }
 
+            if (hostPlayer != null) {
+                sortedPlayers.add(hostPlayer);
+            }
+
+            for (Map<String, Object> p : playersList) {
+                if (hostPlayer == null ||
+                        getIntValue(p.get("userId")) != getIntValue(hostPlayer.get("userId"))) {
+                    sortedPlayers.add(p);
+                }
+            }
+
+            // Render players
+            for (int i = 0; i < sortedPlayers.size(); i++) {
+                Map<String, Object> player = sortedPlayers.get(i);
                 int userId = getIntValue(player.get("userId"));
                 String name = getStringValue(player.get("fullName"));
                 String avatarUrl = getStringValue(player.get("avatarUrl"));
@@ -133,42 +127,189 @@ public class RoomController {
                 boolean playerIsHost = getBooleanValue(player.get("isHost"));
                 boolean playerIsReady = getBooleanValue(player.get("isReady"));
 
-                System.out.println("   Player " + (i+1) + ": " + name +
-                        " (ID: " + userId + ")" +
-                        (playerIsHost ? " [HOST]" : "") +
-                        (playerIsReady ? " [READY]" : ""));
-
-                // Check if this is current user
                 if (userId == connection.getCurrentUserId()) {
                     isHost = playerIsHost;
+                    isReady = playerIsReady;
                 }
 
-                // Update player slot
                 updatePlayer(i + 1, userId, name, avatarUrl, score, playerIsReady);
             }
         }
 
-        // Configure buttons
+        // Update UI based on role
         if (isHost) {
             btnReady.setVisible(false);
-            btnReady.setManaged(false);
             btnStart.setVisible(true);
-            btnStart.setManaged(true);
             btnStart.setDisable(true);
-            System.out.println("   → You are the HOST");
         } else {
             btnStart.setVisible(false);
-            btnStart.setManaged(false);
-            System.out.println("   → You are a PLAYER");
+            btnReady.setVisible(true);
+            updateReadyButton();
         }
 
         updateOnlineCount();
+        checkStartButtonState();
         System.out.println("✅ Room initialized successfully");
     }
 
-    /**
-     * Safely get int from Object (handles Integer, Long, Double, etc.)
-     */
+    private void handlePlayerJoined(Map<String, Object> data) {
+        Platform.runLater(() -> {
+            int userId = getIntValue(data.get("userId"));
+            String username = getStringValue(data.get("username"));
+            String fullName = getStringValue(data.get("fullName"));
+            String avatarUrl = getStringValue(data.get("avatarUrl"));
+            int score = getIntValue(data.get("totalScore"));
+
+            System.out.println("🆕 Player joined: " + username);
+
+            int emptySlot = findEmptySlot();
+            if (emptySlot > 0) {
+                updatePlayer(emptySlot, userId, fullName, avatarUrl, score, false);
+                addSystemMessage(username + " đã tham gia phòng");
+            }
+        });
+    }
+
+    private void handlePlayerLeft(Map<String, Object> data) {
+        Platform.runLater(() -> {
+            int userId = getIntValue(data.get("userId"));
+            String username = getStringValue(data.get("username"));
+            boolean newHostId = getBooleanValue(data.get("isNewHost"));
+
+            System.out.println("👋 Player left: " + username);
+
+            // Find and remove player
+            Integer slotToRemove = null;
+            for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
+                if (entry.getValue().userId == userId) {
+                    slotToRemove = entry.getKey();
+                    break;
+                }
+            }
+
+            if (slotToRemove != null) {
+                removePlayer(slotToRemove);
+                addSystemMessage(username + " đã rời phòng");
+            }
+
+            // Handle host transfer
+            if (newHostId && userId != connection.getCurrentUserId()) {
+                int newHostUserId = getIntValue(data.get("newHostId"));
+                if (newHostUserId == connection.getCurrentUserId()) {
+                    isHost = true;
+                    btnReady.setVisible(false);
+                    btnStart.setVisible(true);
+                    checkStartButtonState();
+                    addSystemMessage("Bạn đã trở thành chủ phòng");
+                }
+            }
+        });
+    }
+
+    private void updatePlayer(int slot, int userId, String name, String avatarUrl, int score, boolean isReady) {
+        Platform.runLater(() -> {
+            ImageView avatar = getAvatarBySlot(slot);
+            Label nameLabel = getNameLabelBySlot(slot);
+            Label scoreLabel = getScoreLabelBySlot(slot);
+            Circle readyIndicator = getReadyIndicatorBySlot(slot);
+            Label emptyIcon = getEmptyIconBySlot(slot);
+
+            if (avatar != null && nameLabel != null) {
+                loadAvatar(avatar, avatarUrl);
+                nameLabel.setText(name);
+                nameLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 16; -fx-font-weight: bold;");
+
+                if (scoreLabel != null) {
+                    scoreLabel.setText("⭐ " + score);
+                }
+
+                if (emptyIcon != null) {
+                    emptyIcon.setVisible(false);
+                }
+
+                if (readyIndicator != null) {
+                    readyIndicator.setVisible(isReady);
+                }
+
+                PlayerInfo player = new PlayerInfo();
+                player.userId = userId;
+                player.name = name;
+                player.score = score;
+                player.isReady = isReady;
+                players.put(slot, player);
+            }
+
+            updateOnlineCount();
+            checkStartButtonState();
+        });
+    }
+
+    private void removePlayer(int slot) {
+        Platform.runLater(() -> {
+            ImageView avatar = getAvatarBySlot(slot);
+            Label nameLabel = getNameLabelBySlot(slot);
+            Label scoreLabel = getScoreLabelBySlot(slot);
+            Circle readyIndicator = getReadyIndicatorBySlot(slot);
+            Label emptyIcon = getEmptyIconBySlot(slot);
+
+            if (avatar != null && nameLabel != null) {
+                setDefaultAvatar(avatar);
+                nameLabel.setText("Đang chờ...");
+                nameLabel.setStyle("-fx-text-fill: #666666; -fx-font-size: 14; -fx-font-style: italic;");
+
+                if (scoreLabel != null) {
+                    scoreLabel.setText("");
+                }
+
+                if (emptyIcon != null) {
+                    emptyIcon.setVisible(true);
+                }
+
+                if (readyIndicator != null) {
+                    readyIndicator.setVisible(false);
+                }
+
+                players.remove(slot);
+            }
+
+            updateOnlineCount();
+            checkStartButtonState();
+        });
+    }
+
+
+    private void handlePlayerReady(Map<String, Object> data) {
+        Platform.runLater(() -> {
+            int userId = getIntValue(data.get("userId"));
+            boolean ready = getBooleanValue(data.get("isReady"));
+
+            System.out.println("✅ Player ready status: " + userId + " = " + ready);
+
+            // Update player ready status
+            for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
+                if (entry.getValue().userId == userId) {
+                    entry.getValue().isReady = ready;
+                    Circle indicator = getReadyIndicatorBySlot(entry.getKey());
+                    if (indicator != null) {
+                        indicator.setVisible(ready);
+                    }
+                    break;
+                }
+            }
+
+            checkStartButtonState();
+        });
+    }
+
+
+    private int findEmptySlot() {
+        for (int i = 1; i <= 4; i++) {
+            if (!players.containsKey(i)) {
+                return i;
+            }
+        }
+        return -1;
+    }
     private int getIntValue(Object obj) {
         if (obj == null) return 0;
         if (obj instanceof Number) {
@@ -181,42 +322,28 @@ public class RoomController {
         }
     }
 
-    /**
-     * Safely get String from Object
-     */
     private String getStringValue(Object obj) {
         return obj != null ? obj.toString() : "";
     }
 
-    /**
-     * Safely get boolean from Object
-     */
     private boolean getBooleanValue(Object obj) {
         if (obj == null) return false;
         if (obj instanceof Boolean) return (Boolean) obj;
         return Boolean.parseBoolean(obj.toString());
     }
 
-    /**
-     * Setup player slots
-     */
     private void setupPlayerSlots() {
-        // Set default avatars
         setDefaultAvatar(avatar1);
         setDefaultAvatar(avatar2);
         setDefaultAvatar(avatar3);
         setDefaultAvatar(avatar4);
 
-        // Hide ready indicators initially
         readyIndicator1.setVisible(false);
         readyIndicator2.setVisible(false);
         readyIndicator3.setVisible(false);
         readyIndicator4.setVisible(false);
     }
 
-    /**
-     * Set default avatar
-     */
     private void setDefaultAvatar(ImageView imageView) {
         try {
             String defaultPath = "/images/avatars/avatar4.png";
@@ -227,11 +354,8 @@ public class RoomController {
         }
     }
 
-    // ==================== CHAT SYSTEM (Like your previous implementation) ====================
+    // ==================== CHAT SYSTEM ====================
 
-    /**
-     * Setup chat system với emoji support
-     */
     private void setupChatSystem() {
         if (chatMessagesContainer == null) {
             chatMessagesContainer = new VBox(8);
@@ -246,13 +370,9 @@ public class RoomController {
             chatScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         }
 
-        // Add welcome message
         addSystemMessage("Chào mừng đến phòng chờ! 🎮");
     }
 
-    /**
-     * Handle send chat message
-     */
     @FXML
     private void handleSendChat() {
         if (chatInputField == null || chatMessagesContainer == null) return;
@@ -265,12 +385,10 @@ public class RoomController {
             return;
         }
 
-        // Send message to server (Room Chat)
         try {
             int roomIdInt = Integer.parseInt(roomId);
             connection.sendRoomChatMessage(roomIdInt, message);
 
-            // Display own message
             addChatMessage(connection.getCurrentFullName(), message, true);
             chatInputField.clear();
 
@@ -280,9 +398,6 @@ public class RoomController {
         }
     }
 
-    /**
-     * Handle room chat message from server
-     */
     private void handleRoomChatMessage(com.google.gson.JsonObject json) {
         try {
             boolean success = json.get("success").getAsBoolean();
@@ -291,7 +406,6 @@ public class RoomController {
             String username = json.get("username").getAsString();
             String message = json.get("message").getAsString();
 
-            // Don't display if it's our own message (already displayed)
             if (!username.equals(connection.getCurrentUsername())) {
                 addChatMessage(username, message, false);
             }
@@ -302,9 +416,6 @@ public class RoomController {
         }
     }
 
-    /**
-     * Show emoji popup (same as your implementation)
-     */
     @FXML
     private void handleShowEmoji() {
         if (emojiButton == null || chatInputField == null) return;
@@ -391,9 +502,6 @@ public class RoomController {
         emojiPopup.show(emojiButton, point.getX(), point.getY() - 230);
     }
 
-    /**
-     * Add chat message với emoji support
-     */
     private void addChatMessage(String username, String message, boolean isSelf) {
         if (chatMessagesContainer == null) return;
 
@@ -408,7 +516,6 @@ public class RoomController {
                     "-fx-background-color: #0084ff; -fx-background-radius: 18; -fx-padding: 10 14 10 14;" :
                     "-fx-background-color: #e4e6eb; -fx-background-radius: 18; -fx-padding: 10 14 10 14;");
 
-            // Header with username and time
             HBox headerBox = new HBox(6);
             headerBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -431,7 +538,6 @@ public class RoomController {
                 headerBox.getChildren().add(onlineDot);
             }
 
-            // Message content with emoji support
             FlowPane messageContent = parseMessageWithEmojiImages(message, isSelf);
             messageContent.setMaxWidth(250);
             messageContent.setHgap(2);
@@ -442,20 +548,15 @@ public class RoomController {
 
             chatMessagesContainer.getChildren().add(messageContainer);
 
-            // Limit messages
             if (chatMessagesContainer.getChildren().size() > 50) {
                 chatMessagesContainer.getChildren().remove(0);
             }
 
-            // Auto scroll
             chatScrollPane.layout();
             chatScrollPane.setVvalue(1.0);
         });
     }
 
-    /**
-     * Parse message với emoji images
-     */
     private FlowPane parseMessageWithEmojiImages(String message, boolean isSelf) {
         FlowPane flowPane = new FlowPane();
         flowPane.setStyle("-fx-background-color: transparent;");
@@ -505,9 +606,6 @@ public class RoomController {
         return flowPane;
     }
 
-    /**
-     * Check if code point is emoji
-     */
     private boolean isEmojiCodePoint(int codePoint) {
         return (codePoint >= 0x1F600 && codePoint <= 0x1F64F) ||
                 (codePoint >= 0x1F300 && codePoint <= 0x1F5FF) ||
@@ -521,9 +619,6 @@ public class RoomController {
                 (codePoint >= 0x1F90D && codePoint <= 0x1F90F);
     }
 
-    /**
-     * Add system message
-     */
     private void addSystemMessage(String message) {
         if (chatMessagesContainer == null) return;
 
@@ -565,18 +660,12 @@ public class RoomController {
         });
     }
 
-    /**
-     * Get emoji image URL from CDN
-     */
     private String getEmojiImageUrl(String emoji) {
         int codePoint = emoji.codePointAt(0);
         String hex = Integer.toHexString(codePoint);
         return "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/" + hex + ".png";
     }
 
-    /**
-     * Create emoji ImageView
-     */
     private ImageView createEmojiImageView(String emoji, double size) {
         try {
             String imageUrl = getEmojiImageUrl(emoji);
@@ -591,121 +680,18 @@ public class RoomController {
         }
     }
 
-    // ==================== FRIENDS LIST ====================
+    // ==================== FRIENDS LIST - FIXED ====================
+    // ==================== Friends List ====================
 
-    /**
-     * Setup friends list
-     */
     private void setupFriendsList() {
-        friendList.setCellFactory(listView -> new ListCell<FriendItem>() {
-            @Override
-            protected void updateItem(FriendItem friend, boolean empty) {
-                super.updateItem(friend, empty);
-
-                if (empty || friend == null) {
-                    setText(null);
-                    setGraphic(null);
-                } else {
-                    String statusIcon = getStatusIcon(friend.status);
-                    String statusColor = getStatusColor(friend.status);
-
-                    setText(String.format("%s %s\n⭐ %d",
-                            statusIcon, friend.name, friend.score));
-
-                    setStyle(String.format(
-                            "-fx-text-fill: %s; -fx-font-size: 13; -fx-font-weight: bold;",
-                            statusColor
-                    ));
-                }
-            }
-        });
-    }
-
-    /**
-     * Get status icon
-     */
-    private String getStatusIcon(String status) {
-        switch (status) {
-            case "ONLINE": return "🟢";
-            case "IN_GAME": return "🎮";
-            case "OFFLINE": return "⚫";
-            default: return "⚪";
+        if (friendCardsContainer == null) {
+            System.err.println("⚠️ friendCardsContainer is null!");
+            return;
         }
+        friendCardsContainer.getChildren().clear();
+        System.out.println("✅ Friends list container setup complete");
     }
 
-    /**
-     * Get status color
-     */
-    private String getStatusColor(String status) {
-        switch (status) {
-            case "ONLINE": return "#4caf50";
-            case "IN_GAME": return "#ff9800";
-            case "OFFLINE": return "#757575";
-            default: return "#aaaaaa";
-        }
-    }
-
-    /**
-     * Setup event handlers
-     */
-    private void setupEventHandlers() {
-        // Back button
-        btnBack.setOnAction(e -> handleBack());
-
-        // Chat
-        btnSendChat.setOnAction(e -> handleSendChat());
-        chatInputField.setOnAction(e -> handleSendChat());
-
-        // Friends filter
-        btnFilterAll.setOnAction(e -> handleFilter("ALL"));
-        btnFilterOnline.setOnAction(e -> handleFilter("ONLINE"));
-        btnFilterInGame.setOnAction(e -> handleFilter("IN_GAME"));
-
-        // Actions
-        btnInvite.setOnAction(e -> handleInviteFriend());
-        btnReady.setOnAction(e -> handleReady());
-        btnStart.setOnAction(e -> handleStartGame());
-    }
-
-    // ==================== Data Loading ====================
-
-    /**
-     * Load room data
-     */
-    private void loadRoomData() {
-        // TODO: Get room data from server
-        // For now, use mock data
-        roomId = "579494"; // Get from connection or server
-        lblRoomId.setText(roomId);
-
-        // Set current user as player 1 (host)
-        isHost = true; // TODO: Get from server
-        updatePlayer(1,
-                connection.getCurrentUserId(),
-                connection.getCurrentFullName(),
-                connection.getCurrentAvatarUrl(),
-                connection.getTotalScore(),
-                false
-        );
-
-        updateOnlineCount();
-
-        // Show/hide start button based on host status
-        if (isHost) {
-            btnReady.setVisible(false);
-            btnReady.setManaged(false);
-            btnStart.setVisible(true);
-            btnStart.setManaged(true);
-            btnStart.setDisable(true); // Enable when all ready
-        } else {
-            btnStart.setVisible(false);
-            btnStart.setManaged(false);
-        }
-    }
-
-    /**
-     * Load friends list
-     */
     private void loadFriendsList() {
         connection.getFriendsList(friends -> {
             Platform.runLater(() -> {
@@ -715,39 +701,166 @@ public class RoomController {
                     FriendItem item = new FriendItem();
                     item.userId = (int) friend.get("userId");
                     item.name = (String) friend.get("fullName");
+                    item.avatarUrl = (String) friend.getOrDefault("avatarUrl", "");
                     item.score = (int) friend.get("totalScore");
                     item.isOnline = (boolean) friend.get("isOnline");
-
-                    // TODO: Get actual in-game status from server
-                    if (item.isOnline) {
-                        item.status = "ONLINE"; // or "IN_GAME"
-                    } else {
-                        item.status = "OFFLINE";
-                    }
-
+                    item.status = item.isOnline ? "ONLINE" : "OFFLINE";
                     allFriends.add(item);
                 }
 
-                // Sort: Online > In Game > Offline
                 allFriends.sort((a, b) -> {
                     int priorityA = getStatusPriority(a.status);
                     int priorityB = getStatusPriority(b.status);
                     if (priorityA != priorityB) {
                         return priorityA - priorityB;
                     }
-                    return b.score - a.score; // Sort by score if same status
+                    return b.score - a.score;
                 });
 
                 applyFilter();
-
                 System.out.println("✅ Loaded " + allFriends.size() + " friends");
             });
         });
     }
 
-    /**
-     * Get status priority for sorting
-     */
+    private HBox createFriendCard(FriendItem friend) {
+        HBox card = new HBox(10);
+        card.setAlignment(Pos.CENTER_LEFT);
+        card.getStyleClass().add("friend-card");
+        card.setPadding(new Insets(10));
+        card.setStyle("""
+            -fx-background-color: #2a2a2a;
+            -fx-background-radius: 12;
+            -fx-border-color: #3a3a3a;
+            -fx-border-width: 1;
+            -fx-border-radius: 12;
+            -fx-cursor: hand;
+            """);
+
+        ImageView avatar = new ImageView();
+        avatar.setFitWidth(50);
+        avatar.setFitHeight(50);
+        avatar.setPreserveRatio(true);
+        Circle clip = new Circle(25, 25, 25);
+        avatar.setClip(clip);
+        loadAvatar(avatar, friend.avatarUrl);
+
+        VBox infoBox = new VBox(3);
+        infoBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(infoBox, Priority.ALWAYS);
+
+        HBox nameBox = new HBox(6);
+        nameBox.setAlignment(Pos.CENTER_LEFT);
+
+        Label nameLabel = new Label(friend.name);
+        nameLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        Label statusLabel = new Label(getStatusIcon(friend.status));
+        statusLabel.setStyle("-fx-font-size: 10px;");
+
+        nameBox.getChildren().addAll(nameLabel, statusLabel);
+
+        Label scoreLabel = new Label("⭐ " + friend.score + " điểm");
+        scoreLabel.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
+
+        infoBox.getChildren().addAll(nameBox, scoreLabel);
+
+        Button inviteBtn = new Button("➕");
+        inviteBtn.setStyle("""
+            -fx-background-color: #4caf50;
+            -fx-text-fill: white;
+            -fx-font-size: 18px;
+            -fx-font-weight: bold;
+            -fx-background-radius: 8;
+            -fx-cursor: hand;
+            -fx-min-width: 36px;
+            -fx-min-height: 36px;
+            -fx-max-width: 36px;
+            -fx-max-height: 36px;
+            """);
+
+        Tooltip tooltip = new Tooltip("Mời vào phòng");
+        inviteBtn.setTooltip(tooltip);
+
+        if (!"ONLINE".equals(friend.status)) {
+            inviteBtn.setDisable(true);
+            inviteBtn.setStyle(inviteBtn.getStyle() + "-fx-opacity: 0.5;");
+        }
+
+        inviteBtn.setOnAction(e -> handleInviteFriend(friend));
+
+        card.setOnMouseEntered(e ->
+                card.setStyle(card.getStyle() + "-fx-background-color: #353535;"));
+        card.setOnMouseExited(e ->
+                card.setStyle(card.getStyle() + "-fx-background-color: #2a2a2a;"));
+
+        card.getChildren().addAll(avatar, infoBox, inviteBtn);
+        return card;
+    }
+
+    private void applyFilter() {
+        if (friendCardsContainer == null) return;
+
+        Platform.runLater(() -> {
+            friendCardsContainer.getChildren().clear();
+            List<FriendItem> filtered = new ArrayList<>();
+
+            for (FriendItem friend : allFriends) {
+                switch (currentFilter) {
+                    case "ALL":
+                        filtered.add(friend);
+                        break;
+                    case "ONLINE":
+                        if ("ONLINE".equals(friend.status)) {
+                            filtered.add(friend);
+                        }
+                        break;
+                    case "IN_GAME":
+                        if ("IN_GAME".equals(friend.status)) {
+                            filtered.add(friend);
+                        }
+                        break;
+                }
+            }
+
+            for (FriendItem friend : filtered) {
+                HBox card = createFriendCard(friend);
+                friendCardsContainer.getChildren().add(card);
+            }
+
+            if (filtered.isEmpty()) {
+                Label emptyLabel = new Label(getEmptyMessage());
+                emptyLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 13px; -fx-font-style: italic;");
+                emptyLabel.setWrapText(true);
+                emptyLabel.setMaxWidth(240);
+                emptyLabel.setAlignment(Pos.CENTER);
+
+                VBox emptyBox = new VBox(emptyLabel);
+                emptyBox.setAlignment(Pos.CENTER);
+                emptyBox.setPadding(new Insets(20));
+
+                friendCardsContainer.getChildren().add(emptyBox);
+            }
+        });
+    }
+
+    private String getEmptyMessage() {
+        switch (currentFilter) {
+            case "ONLINE": return "Không có bạn bè nào đang online";
+            case "IN_GAME": return "Không có bạn bè nào đang trong trận";
+            default: return "Danh sách bạn bè trống";
+        }
+    }
+
+    private String getStatusIcon(String status) {
+        switch (status) {
+            case "ONLINE": return "🟢";
+            case "IN_GAME": return "🎮";
+            case "OFFLINE": return "⚫";
+            default: return "⚪";
+        }
+    }
+
     private int getStatusPriority(String status) {
         switch (status) {
             case "ONLINE": return 1;
@@ -758,6 +871,21 @@ public class RoomController {
     }
 
     // ==================== Event Handlers ====================
+
+    /**
+     * Setup event handlers
+     */
+    private void setupEventHandlers() {
+        btnBack.setOnAction(e -> handleBack());
+        btnSendChat.setOnAction(e -> handleSendChat());
+        chatInputField.setOnAction(e -> handleSendChat());
+        emojiButton.setOnAction(e -> handleShowEmoji());
+        btnFilterAll.setOnAction(e -> handleFilter("ALL"));
+        btnFilterOnline.setOnAction(e -> handleFilter("ONLINE"));
+        btnFilterInGame.setOnAction(e -> handleFilter("IN_GAME"));
+        btnReady.setOnAction(e -> handleReady());
+        btnStart.setOnAction(e -> handleStartGame());
+    }
 
     /**
      * Handle back button
@@ -780,8 +908,7 @@ public class RoomController {
      */
     private void leaveRoom() {
         try {
-            // TODO: Send LEAVE_ROOM to server
-            connection.leaveGameRoom();
+            connection.leaveGameRoom(roomId);
 
             cleanup();
             SceneManager.getInstance().switchScene("Home.fxml");
@@ -793,7 +920,7 @@ public class RoomController {
     }
 
     /**
-     * Handle filter
+     * Handle filter button click
      */
     private void handleFilter(String filter) {
         currentFilter = filter;
@@ -819,52 +946,17 @@ public class RoomController {
     }
 
     /**
-     * Apply current filter
-     */
-    private void applyFilter() {
-        List<FriendItem> filtered = new ArrayList<>();
-
-        for (FriendItem friend : allFriends) {
-            switch (currentFilter) {
-                case "ALL":
-                    filtered.add(friend);
-                    break;
-                case "ONLINE":
-                    if ("ONLINE".equals(friend.status)) {
-                        filtered.add(friend);
-                    }
-                    break;
-                case "IN_GAME":
-                    if ("IN_GAME".equals(friend.status)) {
-                        filtered.add(friend);
-                    }
-                    break;
-            }
-        }
-
-        friendList.getItems().setAll(filtered);
-    }
-
-    /**
      * Handle invite friend
      */
-    private void handleInviteFriend() {
-        FriendItem selected = friendList.getSelectionModel().getSelectedItem();
-
-        if (selected == null) {
-            showWarning("Vui lòng chọn bạn bè để mời!");
-            return;
-        }
-
-        if (!"ONLINE".equals(selected.status)) {
+    private void handleInviteFriend(FriendItem friend) {
+        if (!"ONLINE".equals(friend.status)) {
             showWarning("Chỉ có thể mời bạn bè đang online!");
             return;
         }
 
-        // TODO: Send invite to server
-        // connection.inviteToRoom(selected.userId, roomId);
-
-        showInfo("Đã gửi lời mời đến " + selected.name);
+        connection.inviteToRoom(friend.userId, roomId);
+        showInfo("Đã gửi lời mời đến " + friend.name);
+        System.out.println("📧 Invited friend: " + friend.name);
     }
 
     /**
@@ -872,8 +964,18 @@ public class RoomController {
      */
     private void handleReady() {
         isReady = !isReady;
+        updateReadyButton();
 
-        // Update button
+        // Update own ready indicator
+        readyIndicator1.setVisible(isReady);
+
+        // Send to server
+        connection.sendReady(isReady);
+
+        System.out.println("✅ Ready status: " + isReady);
+    }
+
+    private void updateReadyButton() {
         if (isReady) {
             btnReady.setText("❌ Hủy sẵn sàng");
             btnReady.getStyleClass().remove("ready-button");
@@ -883,15 +985,9 @@ public class RoomController {
             btnReady.getStyleClass().remove("ready-button-active");
             btnReady.getStyleClass().add("ready-button");
         }
-
-        // Update ready indicator for current player
-        readyIndicator1.setVisible(isReady);
-
-        // TODO: Send to server
-        connection.sendReady();
-
-        System.out.println("✅ Ready status: " + isReady);
     }
+
+
 
     /**
      * Handle start game (host only)
@@ -901,134 +997,62 @@ public class RoomController {
             return;
         }
 
-        // TODO: Check if all players are ready
-        boolean allReady = checkAllPlayersReady();
-
-        if (!allReady) {
+        if (!checkAllPlayersReady()) {
             showWarning("Chưa đủ người chơi hoặc chưa tất cả sẵn sàng!");
             return;
         }
 
-        // TODO: Send START_GAME to server
-        System.out.println("🎮 Starting game...");
+        // Send start game to server
+        connection.sendStartGame(roomId);
 
-        // Navigate to game screen
-        try {
-            SceneManager.getInstance().switchScene("Game.fxml");
-        } catch (Exception e) {
-            showError("Không thể bắt đầu game!");
-            e.printStackTrace();
-        }
+        System.out.println("🎮 Starting game...");
     }
 
     /**
      * Check if all players are ready
      */
     private boolean checkAllPlayersReady() {
-        // TODO: Implement actual check
-        // For now, return false if less than 2 players
-        return players.size() >= 2;
+        if (players.size() < 2) {
+            return false;
+        }
+
+        for (PlayerInfo player : players.values()) {
+            // Skip host (doesn't need to ready)
+            if (player.userId == connection.getCurrentUserId() && isHost) {
+                continue;
+            }
+
+            if (!player.isReady) {
+                return false;
+            }
+        }
+
+        return true;
     }
+
+    // ==================== Data Loading ====================
+
+
 
     // ==================== Player Management ====================
 
-    /**
-     * Update player slot
-     */
-    private void updatePlayer(int slot, int userId, String name,
-                              String avatarUrl, int score, boolean isReady) {
-        Platform.runLater(() -> {
-            ImageView avatar = getAvatarBySlot(slot);
-            Label nameLabel = getNameLabelBySlot(slot);
-            Label scoreLabel = getScoreLabelBySlot(slot);
-            Circle readyIndicator = getReadyIndicatorBySlot(slot);
-            Label emptyIcon = getEmptyIconBySlot(slot);
-
-            if (avatar != null && nameLabel != null) {
-                // Load avatar
-                loadAvatar(avatar, avatarUrl);
-
-                // Update labels
-                nameLabel.setText(name);
-                nameLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 16; -fx-font-weight: bold;");
-
-                if (scoreLabel != null) {
-                    scoreLabel.setText("⭐ " + score);
-                }
-
-                // Hide empty icon
-                if (emptyIcon != null) {
-                    emptyIcon.setVisible(false);
-                }
-
-                // Update ready status
-                if (readyIndicator != null) {
-                    readyIndicator.setVisible(isReady);
-                }
-
-                // Store player data
-                PlayerInfo player = new PlayerInfo();
-                player.userId = userId;
-                player.name = name;
-                player.score = score;
-                player.isReady = isReady;
-                players.put(slot, player);
-            }
-
-            updateOnlineCount();
-            checkStartButtonState();
-        });
-    }
-
-    /**
-     * Remove player from slot
-     */
-    private void removePlayer(int slot) {
-        Platform.runLater(() -> {
-            ImageView avatar = getAvatarBySlot(slot);
-            Label nameLabel = getNameLabelBySlot(slot);
-            Label scoreLabel = getScoreLabelBySlot(slot);
-            Circle readyIndicator = getReadyIndicatorBySlot(slot);
-            Label emptyIcon = getEmptyIconBySlot(slot);
-
-            if (avatar != null && nameLabel != null) {
-                setDefaultAvatar(avatar);
-                nameLabel.setText("Đang chờ...");
-                nameLabel.setStyle("-fx-text-fill: #666666; -fx-font-size: 14; -fx-font-style: italic;");
-
-                if (scoreLabel != null) {
-                    scoreLabel.setText("");
-                }
-
-                if (emptyIcon != null) {
-                    emptyIcon.setVisible(true);
-                }
-
-                if (readyIndicator != null) {
-                    readyIndicator.setVisible(false);
-                }
-
-                players.remove(slot);
-            }
-
-            updateOnlineCount();
-            checkStartButtonState();
-        });
-    }
 
     /**
      * Load avatar from URL
      */
     private void loadAvatar(ImageView imageView, String url) {
         try {
-            if (url != null && !url.isEmpty()) {
-                Image image = new Image(url, true);
-                imageView.setImage(image);
-            } else {
-                setDefaultAvatar(imageView);
-            }
+            if (imageView == null) return;
+            AvatarUtil.loadAvatar(imageView, url);
+            imageView.setPreserveRatio(true);
+            imageView.setSmooth(true);
         } catch (Exception e) {
-            setDefaultAvatar(imageView);
+            System.err.println("❌ Error loading avatar: " + e.getMessage());
+            try {
+                AvatarUtil.loadAvatar(imageView, null);
+            } catch (Exception ex) {
+                System.err.println("❌ Failed to load default avatar");
+            }
         }
     }
 
@@ -1139,29 +1163,27 @@ public class RoomController {
      * Cleanup when leaving room
      */
     private void cleanup() {
-        // Clear room chat callback
         connection.clearRoomChatCallback();
-
-        // TODO: Unregister other server handlers
-        // connection.unregisterHandler("ROOM_UPDATE");
-        // connection.unregisterHandler("PLAYER_JOINED");
-        // connection.unregisterHandler("PLAYER_LEFT");
-
+        connection.clearPlayerJoinedCallback();
+        connection.clearPlayerLeftCallback();
+        connection.clearPlayerReadyCallback();
         System.out.println("🧹 RoomController cleaned up");
     }
 
     // ==================== Inner Classes ====================
 
     /**
-     * Friend item for ListView
+     * Friend item
      */
     private static class FriendItem {
         int userId;
         String name;
+        String avatarUrl;
         int score;
         boolean isOnline;
-        String status; // "ONLINE", "IN_GAME", "OFFLINE"
+        String status;
     }
+
 
     /**
      * Player info
