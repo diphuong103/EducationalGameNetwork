@@ -1,0 +1,709 @@
+/* ============================================
+   COMMON STYLES - Shared across all screens
+   ============================================ */
+
+/* ========================================
+   ROOT & GLOBAL SETTINGS
+   ======================================== */
+
+.root {
+    -fx-font-family: "Segoe UI", "Arial", "Helvetica", sans-serif;
+    -fx-font-smoothing-type: lcd;
+}
+
+/* ========================================
+   COLOR PALETTE (CSS Variables)
+   ======================================== */
+
+* {
+    /* Primary Colors */
+    -primary-color: #6366F1;
+    -primary-dark: #4F46E5;
+    -primary-light: #818CF8;
+    -primary-lighter: #A5B4FC;
+
+    /* Secondary Colors */
+    -secondary-color: #8B5CF6;
+    -secondary-dark: #7C3AED;
+    -secondary-light: #A78BFA;
+
+    /* Accent Colors */
+    -accent-blue: #3B82F6;
+    -accent-green: #10B981;
+    -accent-yellow: #F59E0B;
+    -accent-red: #EF4444;
+    -accent-orange: #F97316;
+
+    /* Neutral Colors */
+    -bg-primary: #FFFFFF;
+    -bg-secondary: #F9FAFB;
+    -bg-tertiary: #F3F4F6;
+    -bg-dark: #1F2937;
+    -bg-darker: #111827;
+
+    /* Text Colors */
+    -text-primary: #1F2937;
+    -text-secondary: #6B7280;
+    -text-tertiary: #9CA3AF;
+    -text-light: #D1D5DB;
+    -text-white: #FFFFFF;
+
+    /* Border Colors */
+    -border-light: #E5E7EB;
+    -border-medium: #D1D5DB;
+    -border-dark: #9CA3AF;
+
+    /* Status Colors */
+    -status-success: #10B981;
+    -status-warning: #F59E0B;
+    -status-error: #EF4444;
+    -status-info: #3B82F6;
+    -status-online: #22C55E;
+    -status-offline: #6B7280;
+
+    /* Shadow Colors */
+    -shadow-sm: rgba(0, 0, 0, 0.05);
+    -shadow-md: rgba(0, 0, 0, 0.1);
+    -shadow-lg: rgba(0, 0, 0, 0.15);
+    -shadow-xl: rgba(0, 0, 0, 0.25);
+}
+
+/* ========================================
+   COMMON TEXT FIELDS
+   ======================================== */
+
+.text-field,
+TextField {
+    -fx-background-color: #F9FAFB;
+    -fx-background-radius: 10;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 10;
+    -fx-padding: 10 15;
+    -fx-font-size: 14px;
+    -fx-text-fill: #1F2937;
+    -fx-prompt-text-fill: #9CA3AF;
+}
+
+.text-field:focused,
+TextField:focused {
+    -fx-border-color: #6366F1;
+    -fx-background-color: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(99, 102, 241, 0.25), 8, 0, 0, 0);
+}
+
+.text-field:disabled,
+TextField:disabled {
+    -fx-opacity: 0.6;
+    -fx-background-color: #F3F4F6;
+}
+
+/* ========================================
+   COMMON BUTTONS
+   ======================================== */
+
+/* Primary Button */
+.btn-primary,
+.primary-button {
+    -fx-background-color: linear-gradient(to right, #6366F1, #8B5CF6);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 24;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(99, 102, 241, 0.3), 8, 0, 0, 2);
+}
+
+.btn-primary:hover,
+.primary-button:hover {
+    -fx-background-color: linear-gradient(to right, #4F46E5, #7C3AED);
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+.btn-primary:pressed,
+.primary-button:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+/* Secondary Button */
+.btn-secondary,
+.secondary-button {
+    -fx-background-color: #F3F4F6;
+    -fx-text-fill: #6366F1;
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-padding: 12 24;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 10;
+}
+
+.btn-secondary:hover,
+.secondary-button:hover {
+    -fx-background-color: #E5E7EB;
+    -fx-border-color: #6366F1;
+}
+
+.btn-secondary:pressed,
+.secondary-button:pressed {
+    -fx-background-color: #D1D5DB;
+}
+
+/* Success Button */
+.btn-success {
+    -fx-background-color: linear-gradient(to right, #10B981, #059669);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 24;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+.btn-success:hover {
+    -fx-background-color: linear-gradient(to right, #059669, #047857);
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+/* Danger Button */
+.btn-danger {
+    -fx-background-color: linear-gradient(to right, #EF4444, #DC2626);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 24;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+.btn-danger:hover {
+    -fx-background-color: linear-gradient(to right, #DC2626, #B91C1C);
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+/* Warning Button */
+.btn-warning {
+    -fx-background-color: linear-gradient(to right, #F59E0B, #D97706);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 24;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+.btn-warning:hover {
+    -fx-background-color: linear-gradient(to right, #D97706, #B45309);
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+/* Info Button */
+.btn-info {
+    -fx-background-color: linear-gradient(to right, #3B82F6, #2563EB);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 24;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+.btn-info:hover {
+    -fx-background-color: linear-gradient(to right, #2563EB, #1D4ED8);
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+/* Disabled Button */
+.button:disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}
+
+/* Icon Button */
+.btn-icon {
+    -fx-background-color: transparent;
+    -fx-text-fill: #6B7280;
+    -fx-font-size: 18px;
+    -fx-padding: 8;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+.btn-icon:hover {
+    -fx-background-color: #F3F4F6;
+    -fx-text-fill: #1F2937;
+}
+
+/* ========================================
+   COMMON LABELS
+   ======================================== */
+
+.label-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1F2937;
+}
+
+.label-subtitle {
+    -fx-font-size: 16px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #6B7280;
+}
+
+.label-body {
+    -fx-font-size: 14px;
+    -fx-text-fill: #1F2937;
+}
+
+.label-caption {
+    -fx-font-size: 12px;
+    -fx-text-fill: #9CA3AF;
+}
+
+.label-small {
+    -fx-font-size: 11px;
+    -fx-text-fill: #6B7280;
+}
+
+/* ========================================
+   COMMON CARDS
+   ======================================== */
+
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 15;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.08), 10, 0, 0, 2);
+}
+
+.card:hover {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.12), 15, 0, 0, 4);
+}
+
+.card-elevated {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 20, 0, 0, 5);
+}
+
+/* ========================================
+   COMMON SCROLL PANES
+   ======================================== */
+
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane > .corner {
+    -fx-background-color: transparent;
+}
+
+/* Vertical Scrollbar */
+.scroll-pane .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8;
+}
+
+.scroll-pane .scroll-bar:vertical .track {
+    -fx-background-color: #F3F4F6;
+    -fx-background-radius: 4;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: #D1D5DB;
+    -fx-background-radius: 4;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #9CA3AF;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb:pressed {
+    -fx-background-color: #6B7280;
+}
+
+/* Horizontal Scrollbar */
+.scroll-pane .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+    -fx-pref-height: 8;
+}
+
+.scroll-pane .scroll-bar:horizontal .track {
+    -fx-background-color: #F3F4F6;
+    -fx-background-radius: 4;
+}
+
+.scroll-pane .scroll-bar:horizontal .thumb {
+    -fx-background-color: #D1D5DB;
+    -fx-background-radius: 4;
+}
+
+.scroll-pane .scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: #9CA3AF;
+}
+
+/* Hide scrollbar buttons */
+.scroll-pane .scroll-bar .increment-button,
+.scroll-pane .scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-pref-height: 0;
+    -fx-pref-width: 0;
+}
+
+/* ========================================
+   COMMON SEPARATORS
+   ======================================== */
+
+.separator .line {
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1 0 0 0;
+}
+
+.separator-vertical .line {
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 0 0 0 1;
+}
+
+/* ========================================
+   COMMON CHECKBOXES
+   ======================================== */
+
+.check-box {
+    -fx-text-fill: #1F2937;
+    -fx-font-size: 14px;
+}
+
+.check-box .box {
+    -fx-background-color: #F9FAFB;
+    -fx-border-color: #D1D5DB;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.check-box:selected .box {
+    -fx-background-color: #6366F1;
+    -fx-border-color: #6366F1;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: white;
+}
+
+.check-box:hover .box {
+    -fx-border-color: #6366F1;
+}
+
+/* ========================================
+   COMMON RADIO BUTTONS
+   ======================================== */
+
+.radio-button {
+    -fx-text-fill: #1F2937;
+    -fx-font-size: 14px;
+}
+
+.radio-button .radio {
+    -fx-background-color: #F9FAFB;
+    -fx-border-color: #D1D5DB;
+    -fx-border-width: 1.5;
+    -fx-background-radius: 50%;
+    -fx-border-radius: 50%;
+}
+
+.radio-button:selected .radio {
+    -fx-background-color: #6366F1;
+    -fx-border-color: #6366F1;
+}
+
+.radio-button:selected .dot {
+    -fx-background-color: white;
+}
+
+/* ========================================
+   COMMON COMBO BOXES
+   ======================================== */
+
+.combo-box {
+    -fx-background-color: #F9FAFB;
+    -fx-background-radius: 10;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 10;
+    -fx-padding: 8 12;
+}
+
+.combo-box:focused {
+    -fx-border-color: #6366F1;
+    -fx-background-color: #FFFFFF;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: #1F2937;
+    -fx-font-size: 14px;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 10, 0, 0, 2);
+}
+
+.combo-box-popup .list-view .list-cell:hover {
+    -fx-background-color: #F3F4F6;
+}
+
+.combo-box-popup .list-view .list-cell:selected {
+    -fx-background-color: #E0E7FF;
+    -fx-text-fill: #6366F1;
+}
+
+/* ========================================
+   COMMON PROGRESS INDICATORS
+   ======================================== */
+
+.progress-indicator {
+    -fx-progress-color: #6366F1;
+    -fx-pref-width: 50;
+    -fx-pref-height: 50;
+}
+
+.progress-bar {
+    -fx-background-color: #E5E7EB;
+    -fx-background-radius: 10;
+}
+
+.progress-bar .bar {
+    -fx-background-color: linear-gradient(to right, #6366F1, #8B5CF6);
+    -fx-background-radius: 10;
+    -fx-background-insets: 0;
+    -fx-padding: 0.5em;
+}
+
+/* ========================================
+   COMMON TOOLTIPS
+   ======================================== */
+
+.tooltip {
+    -fx-background-color: #1F2937;
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-padding: 8 12;
+    -fx-background-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 8, 0, 0, 2);
+}
+
+/* ========================================
+   COMMON LIST VIEWS
+   ======================================== */
+
+.list-view {
+    -fx-background-color: transparent;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+}
+
+.list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #1F2937;
+    -fx-padding: 10 15;
+}
+
+.list-view .list-cell:hover {
+    -fx-background-color: #F3F4F6;
+}
+
+.list-view .list-cell:selected {
+    -fx-background-color: #E0E7FF;
+    -fx-text-fill: #6366F1;
+}
+
+.list-view:focused .list-cell:selected {
+    -fx-background-color: #C7D2FE;
+}
+
+/* ========================================
+   COMMON TABLE VIEWS
+   ======================================== */
+
+.table-view {
+    -fx-background-color: white;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+}
+
+.table-view .column-header {
+    -fx-background-color: #F9FAFB;
+    -fx-text-fill: #1F2937;
+    -fx-font-weight: bold;
+    -fx-padding: 10 15;
+}
+
+.table-view .table-cell {
+    -fx-text-fill: #1F2937;
+    -fx-padding: 10 15;
+}
+
+.table-view .table-row-cell:hover {
+    -fx-background-color: #F3F4F6;
+}
+
+.table-view .table-row-cell:selected {
+    -fx-background-color: #E0E7FF;
+}
+
+/* ========================================
+   COMMON BADGES
+   ======================================== */
+
+.badge {
+    -fx-background-radius: 12;
+    -fx-padding: 4 12;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.badge-primary {
+    -fx-background-color: #E0E7FF;
+    -fx-text-fill: #6366F1;
+}
+
+.badge-success {
+    -fx-background-color: #D1FAE5;
+    -fx-text-fill: #10B981;
+}
+
+.badge-warning {
+    -fx-background-color: #FEF3C7;
+    -fx-text-fill: #F59E0B;
+}
+
+.badge-danger {
+    -fx-background-color: #FEE2E2;
+    -fx-text-fill: #EF4444;
+}
+
+.badge-info {
+    -fx-background-color: #DBEAFE;
+    -fx-text-fill: #3B82F6;
+}
+
+/* ========================================
+   COMMON ALERTS/NOTIFICATIONS
+   ======================================== */
+
+.alert {
+    -fx-background-radius: 10;
+    -fx-padding: 15;
+    -fx-background-color: white;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 10, 0, 0, 2);
+}
+
+.alert-success {
+    -fx-border-color: #10B981;
+    -fx-border-width: 0 0 0 4;
+    -fx-background-color: #F0FDF4;
+}
+
+.alert-warning {
+    -fx-border-color: #F59E0B;
+    -fx-border-width: 0 0 0 4;
+    -fx-background-color: #FFFBEB;
+}
+
+.alert-error {
+    -fx-border-color: #EF4444;
+    -fx-border-width: 0 0 0 4;
+    -fx-background-color: #FEF2F2;
+}
+
+.alert-info {
+    -fx-border-color: #3B82F6;
+    -fx-border-width: 0 0 0 4;
+    -fx-background-color: #EFF6FF;
+}
+
+/* ========================================
+   COMMON TRANSITIONS
+   ======================================== */
+
+.button,
+.text-field,
+.combo-box,
+.check-box,
+.radio-button {
+    -fx-transition: all 0.3s ease;
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.text-center {
+    -fx-alignment: CENTER;
+}
+
+.text-left {
+    -fx-alignment: CENTER_LEFT;
+}
+
+.text-right {
+    -fx-alignment: CENTER_RIGHT;
+}
+
+.hidden {
+    -fx-opacity: 0;
+    -fx-visibility: hidden;
+}
+
+.disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}
+
+.clickable {
+    -fx-cursor: hand;
+}
+
+/* ========================================
+   SPACING UTILITIES
+   ======================================== */
+
+.spacing-xs { -fx-spacing: 5; }
+.spacing-sm { -fx-spacing: 10; }
+.spacing-md { -fx-spacing: 15; }
+.spacing-lg { -fx-spacing: 20; }
+.spacing-xl { -fx-spacing: 30; }
+
+.padding-xs { -fx-padding: 5; }
+.padding-sm { -fx-padding: 10; }
+.padding-md { -fx-padding: 15; }
+.padding-lg { -fx-padding: 20; }
+.padding-xl { -fx-padding: 30; }
+
+/* ========================================
+   RESPONSIVE UTILITIES
+   ======================================== */
+
+@media screen and (max-width: 600px) {
+    .label-title { -fx-font-size: 20px; }
+    .label-subtitle { -fx-font-size: 14px; }
+    .button { -fx-font-size: 12px; -fx-padding: 8 16; }
+}

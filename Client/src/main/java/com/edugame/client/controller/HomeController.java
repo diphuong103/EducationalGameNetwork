@@ -4,25 +4,34 @@ import com.edugame.client.model.User;
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.ChatPopupHandler;
 import com.edugame.client.util.SceneManager;
+import com.edugame.common.Protocol;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javafx.geometry.Pos;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -50,6 +59,10 @@ public class HomeController {
     @FXML private Button roomButton;
     @FXML private Button bossButton;
 
+    @FXML
+    private Button btnCreateRoom;
+
+
     // Leaderboard
     @FXML private VBox leaderboardList;
 
@@ -61,6 +74,11 @@ public class HomeController {
     @FXML private VBox globalChatBox;
     @FXML private Button toggleChatButton;
     @FXML private Button emojiButton;
+
+    @FXML
+    private Label chatBadge;
+    @FXML
+    private Label friendsBadge;
 
     private User currentUser;
     private Gson gson = new Gson();
@@ -746,28 +764,189 @@ public class HomeController {
     /** ---------------- BUTTON HANDLERS ---------------- */
     @FXML
     private void handleTrainingMode() {
-        showComingSoon("Chế độ Luyện Tập đang được phát triển!");
+        showSubjectSelectionPopup(
+                SubjectSelectionController.SelectionMode.TRAINING,
+                this::startTrainingMode
+        );
     }
 
     @FXML
     private void handleQuickMatch() {
         try {
             cleanup(); // Clean up before switching
-            SceneManager.getInstance().switchScene("FindMatch.fxml");
+            showSubjectSelectionPopup(
+                    SubjectSelectionController.SelectionMode.QUICK_MATCH,
+                    this::startQuickMatch
+            );
         } catch (Exception e) {
             showError("Không thể chuyển sang màn hình tìm trận!");
         }
     }
 
-    @FXML
-    private void handleRoomMode() {
-        showComingSoon("Chế độ Phòng Chơi đang được phát triển!");
+    private void showSubjectSelectionPopup(
+            SubjectSelectionController.SelectionMode mode,
+            SubjectSelectionController.SubjectSelectionCallback callback) {
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/SubjectSelectionPopup.fxml")
+            );
+            StackPane root = loader.load();
+
+            SubjectSelectionController controller = loader.getController();
+            controller.setMode(mode);
+            controller.setCallback(callback);
+
+            // Tạo stage cho popup
+            Stage dialogStage = new Stage();
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
+            dialogStage.initStyle(StageStyle.TRANSPARENT);
+            dialogStage.setTitle("Chọn Môn Học");
+
+            Scene scene = new Scene(root);
+            scene.setFill(javafx.scene.paint.Color.TRANSPARENT);
+            dialogStage.setScene(scene);
+
+            controller.setDialogStage(dialogStage);
+
+            // Hiển thị popup
+            dialogStage.showAndWait();
+
+        } catch (IOException e) {
+            System.err.println("❌ Error loading SubjectSelectionPopup.fxml");
+            System.err.println("   Path: " + getClass().getResource("/SubjectSelectionPopup.fxml"));
+            e.printStackTrace();
+            showError("Không thể hiển thị popup chọn môn học!\n" + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("❌ Unexpected error in popup");
+            e.printStackTrace();
+            showError("Lỗi không xác định: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Bắt đầu chế độ luyện tập với môn học đã chọn
+     */
+    private void startTrainingMode(String subject) {
+        System.out.println("🎓 Starting Training Mode: " + subject);
+
+        try {
+            // Lưu subject vào session
+           serverConnection.setSelectedSubject(subject);
+
+            // Chuyển sang màn hình luyện tập
+            cleanup();
+            SceneManager.getInstance().switchScene("TrainingMode.fxml");
+
+        } catch (Exception e) {
+            showError("Không thể vào chế độ luyện tập!");
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Bắt đầu tìm trận nhanh với môn học đã chọn
+     */
+    private void startQuickMatch(String subject) {
+        System.out.println("🔍 Starting Quick Match: " + subject);
+
+        try {
+            // Lưu subject vào session
+            serverConnection.setSelectedSubject(subject);
+
+            // Gửi request tìm trận đến server
+            String request = String.format(
+                    "{\"type\":\"%s\",\"subject\":\"%s\",\"difficulty\":\"%s\"}",
+                    Protocol.FIND_MATCH,
+                    subject,
+                    Protocol.MEDIUM  // Default difficulty
+            );
+
+            serverConnection.sendMessage(request);
+
+            // Chuyển sang màn hình tìm trận (có loading + countdown)
+            cleanup();
+            SceneManager.getInstance().switchScene("FindMatch.fxml");
+
+        } catch (Exception e) {
+            showError("Không thể bắt đầu tìm trận!");
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * Bắt đầu tạo phòng với môn học đã chọn
+     */
+    private void startCreateRoom(String subject) {
+        handleCreateRoom(subject, "medium");
     }
 
     @FXML
     private void handleCreateRoom() {
-        showComingSoon("Tạo phòng đang được phát triển!");
+        showSubjectSelectionPopup(
+                SubjectSelectionController.SelectionMode.CREATE_ROOM,
+                this::startCreateRoom  // callback
+        );
     }
+
+
+    /**
+     * Handle Create Room
+     */
+    private void handleCreateRoom(String subject, String difficulty) {
+        showLoadingDialog("Đang tạo phòng...");
+
+        serverConnection.createRoom(subject, difficulty, roomData -> {
+            Platform.runLater(() -> {
+                hideLoadingDialog();
+
+                if (roomData == null) {
+                    System.err.println("❌ Room data is null");
+                    showError("Không thể tạo phòng!");
+                    return;
+                }
+
+                // Debug: Print received data
+                System.out.println("✅ Received room data from server:");
+                System.out.println("   Room ID: " + roomData.get("roomId"));
+                System.out.println("   Room Name: " + roomData.get("roomName"));
+                System.out.println("   Subject: " + roomData.get("subject"));
+                System.out.println("   Difficulty: " + roomData.get("difficulty"));
+                System.out.println("   Players: " + roomData.get("players"));
+
+                try {
+                    // Load Room.fxml
+                    FXMLLoader loader = new FXMLLoader(
+                            getClass().getResource("/fxml/Room.fxml")
+                    );
+                    Parent root = loader.load();
+
+                    // Get controller and initialize with room data
+                    RoomController roomController = loader.getController();
+                    roomController.initializeRoom(roomData);  // Pass Map directly
+
+                    // Switch scene
+                    Scene scene = new Scene(root);
+                    Stage stage = (Stage) btnCreateRoom.getScene().getWindow();
+                    stage.setScene(scene);
+                    stage.show();
+
+                    System.out.println("✅ Successfully navigated to room: " + roomData.get("roomId"));
+
+                } catch (IOException e) {
+                    System.err.println("❌ IO Error loading Room.fxml: " + e.getMessage());
+                    e.printStackTrace();
+                    showError("Không thể tải giao diện phòng!");
+                } catch (Exception e) {
+                    System.err.println("❌ Error switching to room: " + e.getMessage());
+                    e.printStackTrace();
+                    showError("Không thể vào phòng: " + e.getMessage());
+                }
+            });
+        });
+    }
+
 
     @FXML
     private void handleNotifications() {
@@ -913,5 +1092,68 @@ public class HomeController {
             alert.showAndWait();
         }
     }
+
+    public void updateChatNotificationCount(int count) {
+        if (count > 0) {
+            chatBadge.setText(String.valueOf(count));
+            chatBadge.setVisible(true);
+        } else {
+            chatBadge.setVisible(false);
+        }
+    }
+
+    public void updateFriendNotificationCount(int count) {
+        if (count > 0) {
+            friendsBadge.setText(String.valueOf(count));
+            friendsBadge.setVisible(true);
+        } else {
+            friendsBadge.setVisible(false);
+        }
+    }
+    private Stage loadingStage;
+
+    private void showLoadingDialog(String message) {
+        if (loadingStage != null && loadingStage.isShowing()) return; // tránh mở trùng
+
+        Platform.runLater(() -> {
+            Label lblMessage = new Label(message);
+            lblMessage.setStyle("-fx-font-size: 14px; -fx-text-fill: #333;");
+
+            ProgressIndicator progressIndicator = new ProgressIndicator();
+            progressIndicator.setPrefSize(50, 50);
+
+            VBox layout = new VBox(15, progressIndicator, lblMessage);
+            layout.setAlignment(Pos.CENTER);
+            layout.setPadding(new Insets(20));
+            layout.setStyle("-fx-background-color: white; -fx-border-radius: 10; -fx-background-radius: 10;");
+
+            Scene scene = new Scene(layout);
+            loadingStage = new Stage();
+            loadingStage.setScene(scene);
+            loadingStage.setResizable(false);
+            loadingStage.initModality(Modality.APPLICATION_MODAL);
+            loadingStage.initStyle(StageStyle.TRANSPARENT);
+
+            // Làm nền mờ
+            scene.setFill(Color.TRANSPARENT);
+            layout.setStyle("-fx-background-color: rgba(255,255,255,0.9); -fx-background-radius: 10;");
+
+            loadingStage.show();
+        });
+    }
+
+    /**
+     * Ẩn dialog loading (nếu đang hiển thị)
+     */
+    private void hideLoadingDialog() {
+        Platform.runLater(() -> {
+            if (loadingStage != null) {
+                loadingStage.close();
+                loadingStage = null;
+            }
+        });
+    }
+
+
 
 }

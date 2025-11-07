@@ -1,0 +1,435 @@
+/* ========================================
+   HOME SCREEN STYLES
+   ======================================== */
+
+/* ========================================
+   GLOBAL STYLES
+   ======================================== */
+
+.root {
+    -fx-font-family: "Arial", "Segoe UI", sans-serif;
+}
+
+/* ========================================
+   HOME ROOT
+   ======================================== */
+
+.home-root {
+    -fx-background-color: #f5f7fa;
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.main-header {
+    -fx-background-color: linear-gradient(to right, #6366F1, #8B5CF6);
+    -fx-padding: 12 20;
+    -fx-background-radius: 0 0 16 16;
+    -fx-effect: dropshadow(gaussian, rgba(99, 102, 241, 0.25), 25, 0.2, 0, 4);
+    -fx-alignment: center-left;
+}
+
+.user-avatar {
+    -fx-background-color: white;
+    -fx-background-radius: 50%;
+    -fx-padding: 10;
+    -fx-min-width: 48;
+    -fx-min-height: 48;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 6, 0, 0, 2);
+    -fx-cursor: hand;
+}
+
+.user-name {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-fill: white;
+}
+
+.info-icon {
+    -fx-font-size: 14px;
+    -fx-fill: rgba(255, 255, 255, 0.8);
+}
+
+.info-text {
+    -fx-font-size: 13px;
+    -fx-fill: rgba(255, 255, 255, 0.9);
+    -fx-font-weight: 500;
+}
+
+.header-button {
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-padding: 8 18;
+    -fx-background-color: rgba(255, 255, 255, 0.15);
+    -fx-background-radius: 10;
+    -fx-text-fill: white;
+    -fx-border-color: rgba(255, 255, 255, 0.25);
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.1), 5, 0, 0, 1);
+}
+
+.header-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.25);
+    -fx-border-color: rgba(255, 255, 255, 0.4);
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+.logout-button {
+    -fx-background-color: rgba(255, 107, 107, 0.9);
+    -fx-text-fill: white;
+    -fx-border-color: transparent;
+}
+
+.logout-button:hover {
+    -fx-background-color: rgba(255, 107, 107, 1);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+/* ========================================
+   MAIN CONTENT
+   ======================================== */
+
+.main-content {
+    -fx-background-color: #f5f7fa;
+}
+
+/* ========================================
+   GAME MODE CARDS
+   ======================================== */
+
+.game-card {
+    -fx-background-color: white;
+    -fx-background-radius: 16;
+    -fx-padding: 25;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.08), 15, 0, 0, 5);
+    -fx-alignment: center;
+    -fx-min-height: 280;
+}
+
+.game-card:hover {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 20, 0, 0, 8);
+    -fx-translate-y: -3;
+    -fx-cursor: hand;
+}
+
+.card-icon {
+    -fx-background-radius: 50%;
+    -fx-pref-width: 80;
+    -fx-pref-height: 80;
+    -fx-alignment: center;
+}
+
+.training-icon {
+    -fx-background-color: #DBEAFE;
+}
+
+.quick-icon {
+    -fx-background-color: #FEF3C7;
+}
+
+.room-icon {
+    -fx-background-color: #D1FAE5;
+}
+
+.icon-large {
+    -fx-font-size: 40px;
+}
+
+.card-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-fill: #1F2937;
+}
+
+.card-desc {
+    -fx-font-size: 13px;
+    -fx-fill: #6B7280;
+    -fx-text-alignment: center;
+}
+
+.card-info {
+    -fx-padding: 8 0 0 0;
+}
+
+.card-meta {
+    -fx-font-size: 12px;
+    -fx-fill: #9CA3AF;
+}
+
+.card-button {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 14 0;
+    -fx-background-color: #6366F1;
+    -fx-background-radius: 10;
+    -fx-text-fill: white;
+    -fx-cursor: hand;
+}
+
+.card-button:hover {
+    -fx-background-color: #4F46E5;
+    -fx-scale-x: 1.02;
+    -fx-scale-y: 1.02;
+}
+
+/* ========================================
+   LEADERBOARD BOX
+   ======================================== */
+
+.leaderboard-box {
+    -fx-background-color: white;
+    -fx-background-radius: 15;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 10, 0, 0, 2);
+}
+
+.box-header {
+    -fx-padding: 0 0 10 0;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 0 2 0;
+}
+
+.box-header-icon {
+    -fx-font-size: 24px;
+}
+
+.box-header-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-fill: #2d3748;
+}
+
+.leaderboard-content {
+    -fx-padding: 10 0;
+}
+
+/* Rank Items */
+.rank-item {
+    -fx-background-color: #f7fafc;
+    -fx-background-radius: 10;
+    -fx-padding: 10 12;
+}
+
+.rank-item.rank-1 {
+    -fx-background-color: linear-gradient(to right, #ffd700, #ffed4e);
+}
+
+.rank-item.rank-2 {
+    -fx-background-color: linear-gradient(to right, #c0c0c0, #e8e8e8);
+}
+
+.rank-item.rank-3 {
+    -fx-background-color: linear-gradient(to right, #cd7f32, #e9967a);
+}
+
+.rank-item.rank-current {
+    -fx-background-color: linear-gradient(to right, #667eea, #764ba2);
+}
+
+.rank-item.rank-current .rank-name,
+.rank-item.rank-current .rank-score,
+.rank-item.rank-current .rank-number {
+    -fx-fill: white;
+}
+
+/* Rank Number */
+.rank-number {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-fill: #4a5568;
+}
+
+.rank-number.gold {
+    -fx-fill: #b8860b;
+}
+
+.rank-number.silver {
+    -fx-fill: #696969;
+}
+
+.rank-number.bronze {
+    -fx-fill: #8b4513;
+}
+
+/* Rank Name & Score */
+.rank-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-fill: #2d3748;
+}
+
+.rank-score {
+    -fx-font-size: 12px;
+    -fx-fill: #718096;
+}
+
+/* Online Status */
+.online-status {
+    -fx-font-size: 12px;
+    -fx-fill: #48bb78;
+}
+
+/* View More Button */
+.view-more-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #667eea;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    -fx-underline: false;
+}
+
+.view-more-btn:hover {
+    -fx-text-fill: #5568d3;
+    -fx-underline: true;
+    -fx-background-color: #f7fafc;
+    -fx-background-radius: 8;
+}
+
+/* ========================================
+   CHAT BOX
+   ======================================== */
+
+.chat-box {
+    -fx-background-color: white;
+    -fx-background-radius: 15;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 10, 0, 0, 2);
+}
+
+.chat-header {
+    -fx-padding: 0 0 10 0;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 0 2 0;
+}
+
+.chat-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.chat-scroll .viewport {
+    -fx-background-color: #f8f9fa;
+    -fx-background-radius: 10;
+}
+
+.chat-messages {
+    -fx-background-color: #f8f9fa;
+    -fx-background-radius: 10;
+}
+
+/* Chat Message Styles */
+.chat-message {
+    -fx-padding: 8 12;
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);
+}
+
+.chat-message:hover {
+    -fx-background-color: #f7fafc;
+}
+
+.chat-sender {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-fill: #667eea;
+}
+
+.chat-online {
+    -fx-font-size: 10px;
+    -fx-fill: #48bb78;
+}
+
+.chat-text {
+    -fx-font-size: 13px;
+    -fx-fill: #2d3748;
+}
+
+/* Self Message */
+.chat-self {
+    -fx-background-color: linear-gradient(to right, #667eea, #764ba2);
+}
+
+.chat-sender-self {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-fill: white;
+}
+
+.chat-text-self {
+    -fx-font-size: 13px;
+    -fx-fill: rgba(255, 255, 255, 0.95);
+}
+
+/* Chat Input */
+.emoji-button {
+    -fx-background-color: transparent;
+    -fx-font-size: 18px;
+    -fx-cursor: hand;
+    -fx-padding: 5 10;
+}
+
+.emoji-button:hover {
+    -fx-background-color: #f7fafc;
+    -fx-background-radius: 8;
+}
+
+.send-button {
+    -fx-background-color: linear-gradient(to right, #667eea, #764ba2);
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 20;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+.send-button:hover {
+    -fx-background-color: linear-gradient(to right, #5568d3, #6a3f8f);
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+.game-card,
+.card-button,
+.header-button {
+    -fx-transition: all 0.3s ease;
+}
+
+/* ========================================
+   SCROLLBAR STYLING
+   ======================================== */
+
+.scroll-pane {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:vertical {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: #cbd5e0;
+    -fx-background-radius: 5;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #a0aec0;
+}
+
+.scroll-pane .scroll-bar:vertical .increment-button,
+.scroll-pane .scroll-bar:vertical .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}

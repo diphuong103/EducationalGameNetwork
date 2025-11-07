@@ -10,7 +10,8 @@
 <StackPane xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.edugame.client.controller.LoginController"
-           styleClass="root-container">
+           styleClass="root-container"
+           stylesheets="@../css/login.css , @../css/common.css">
 
     <!-- Background Container -->
     <VBox alignment="CENTER" spacing="0" styleClass="background-container">

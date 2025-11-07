@@ -16,10 +16,25 @@ public class Protocol {
     public static final String LEAVE_ROOM = "LEAVE_ROOM";
     public static final String START_GAME = "START_GAME";
     public static final String READY = "READY";
+    public static final String ROOM_UPDATE = "ROOM_UPDATE";
+    public static final String PLAYER_JOINED = "PLAYER_JOINED";
+    public static final String PLAYER_LEFT = "PLAYER_LEFT";
+    public static final String KEY_ROOM_ID = "room_id";
+
 
     public static final String ANSWER_QUESTION = "ANSWER_QUESTION";
     public static final String GAME_RESULT = "GAME_RESULT";
     public static final String NEXT_QUESTION = "NEXT_QUESTION";
+
+    public static final String UPDATE_PASSWORD= "UPDATE_PASSWORD";
+    public static final String GET_STATISTICS = "GET_STATISTICS";
+    public static final String GET_TRAINING_QUESTIONS = "GET_TRAINING_QUESTIONS";
+    public static final String SUBMIT_ANSWER = "SUBMIT_ANSWER";
+
+    public static final String TRAINING_MODE = "TRAINING_MODE";
+    public static final String MATCH_FAILED = "MATCH_FAILED";
+
+
 
     // Chat
     public static final String CHAT_MESSAGE = "CHAT_MESSAGE";

@@ -13,7 +13,8 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Text?>
 
-<BorderPane prefHeight="600" prefWidth="900" styleClass="chat-root" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.edugame.client.controller.ChatController">
+<BorderPane styleClass="chat-root"
+            stylesheets="@../css/chat.css, @../css/common.css"  prefHeight="600" prefWidth="900" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.edugame.client.controller.ChatController" >
 
     <!-- HEADER -->
     <top>

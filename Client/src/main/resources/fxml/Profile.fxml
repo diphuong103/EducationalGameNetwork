@@ -8,7 +8,8 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.edugame.client.controller.ProfileController">
+            fx:controller="com.edugame.client.controller.ProfileController"
+            stylesheets="@../css/profile.css , @../css/common.css">
 
     <top>
         <HBox spacing="10" alignment="CENTER_LEFT" styleClass="profile-header">

@@ -1,0 +1,556 @@
+/* ============================================
+   ROOM/LOBBY STYLES
+   ============================================ */
+
+/* ============================================
+   ROOT & BACKGROUND
+   ============================================ */
+
+.root {
+    -fx-background-color: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+/* ============================================
+   HEADER COMPONENTS
+   ============================================ */
+
+.back-button {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-background-radius: 12;
+    -fx-padding: 10 20;
+    -fx-cursor: hand;
+    -fx-border-color: rgba(255, 255, 255, 0.2);
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 10, 0, 0, 2);
+}
+
+.back-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.15);
+    -fx-border-color: rgba(255, 255, 255, 0.3);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.back-button:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+.room-id-container {
+    -fx-background-color: rgba(58, 134, 255, 0.15);
+    -fx-background-radius: 12;
+    -fx-padding: 12 20;
+    -fx-border-color: rgba(58, 134, 255, 0.4);
+    -fx-border-radius: 12;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(58, 134, 255, 0.3), 15, 0, 0, 0);
+}
+
+.room-id-text {
+    -fx-text-fill: #3a86ff;
+    -fx-font-size: 18;
+    -fx-font-weight: bold;
+    -fx-font-family: "Courier New", monospace;
+}
+
+/* ============================================
+   PLAYER SLOTS
+   ============================================ */
+
+/* Host Slot */
+.player-slot-host {
+    -fx-background-color: linear-gradient(to bottom, rgba(255, 215, 0, 0.15), rgba(255, 140, 0, 0.1));
+    -fx-background-radius: 20;
+    -fx-padding: 10;
+    -fx-border-color: rgba(255, 215, 0, 0.6);
+    -fx-border-radius: 20;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(255, 215, 0, 0.4), 20, 0, 0, 5);
+}
+
+/* Empty Slot */
+.player-slot-empty {
+    -fx-background-color: rgba(40, 40, 40, 0.5);
+    -fx-background-radius: 20;
+    -fx-padding: 10;
+    -fx-border-color: rgba(100, 100, 100, 0.3);
+    -fx-border-radius: 20;
+    -fx-border-width: 2;
+    -fx-border-style: dashed;
+}
+
+/* Filled Slot */
+.player-slot-filled {
+    -fx-background-color: linear-gradient(to bottom, rgba(58, 134, 255, 0.15), rgba(29, 67, 127, 0.1));
+    -fx-background-radius: 20;
+    -fx-padding: 10;
+    -fx-border-color: rgba(58, 134, 255, 0.6);
+    -fx-border-radius: 20;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(58, 134, 255, 0.3), 15, 0, 0, 3);
+}
+
+/* ============================================
+   AVATAR BORDERS
+   ============================================ */
+
+.avatar-border-host {
+    -fx-fill: transparent;
+    -fx-stroke: linear-gradient(to bottom, gold, orange);
+    -fx-stroke-width: 4;
+    -fx-effect: dropshadow(gaussian, rgba(255, 215, 0, 0.6), 15, 0, 0, 0);
+}
+
+.avatar-border-empty {
+    -fx-fill: rgba(50, 50, 50, 0.3);
+    -fx-stroke: rgba(100, 100, 100, 0.4);
+    -fx-stroke-width: 2;
+    -fx-stroke-dash-array: 8 4;
+}
+
+.avatar-border-filled {
+    -fx-fill: transparent;
+    -fx-stroke: linear-gradient(to bottom, #3a86ff, #1d437f);
+    -fx-stroke-width: 3;
+    -fx-effect: dropshadow(gaussian, rgba(58, 134, 255, 0.5), 12, 0, 0, 0);
+}
+
+/* ============================================
+   PLAYER NAME LABELS
+   ============================================ */
+
+.player-name-host {
+    -fx-text-fill: gold;
+    -fx-font-size: 13;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.8), 5, 0, 0, 1);
+}
+
+.player-name-empty {
+    -fx-text-fill: #666666;
+    -fx-font-size: 14;
+    -fx-font-style: italic;
+}
+
+.player-name-filled {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 16;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.8), 5, 0, 0, 1);
+}
+
+.player-score {
+    -fx-text-fill: #ffcc00;
+    -fx-font-size: 13;
+    -fx-font-weight: bold;
+}
+
+.host-badge {
+    -fx-background-color: linear-gradient(to right, gold, orange);
+    -fx-text-fill: #000000;
+    -fx-font-size: 11;
+    -fx-font-weight: bold;
+    -fx-padding: 2 6 2 6;
+    -fx-background-radius: 11;
+}
+
+/* ============================================
+   READY INDICATOR
+   ============================================ */
+
+.ready-indicator {
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.8), 10, 0, 0, 0);
+}
+
+/* ============================================
+   CHAT CONTAINER
+   ============================================ */
+
+.chat-container {
+    -fx-background-color: rgba(30, 30, 30, 0.85);
+    -fx-background-radius: 15;
+    -fx-padding: 15;
+    -fx-border-color: rgba(255, 255, 255, 0.1);
+    -fx-border-radius: 15;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.5), 20, 0, 0, 5);
+}
+
+.chat-header {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 16;
+    -fx-font-weight: bold;
+}
+
+.chat-list {
+    -fx-background-color: rgba(20, 20, 20, 0.6);
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.08);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+}
+
+.chat-list .viewport {
+    -fx-background-color: transparent;
+}
+
+.chat-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 13;
+    -fx-padding: 8 10;
+}
+
+.chat-list .list-cell:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+}
+
+.chat-input {
+    -fx-background-color: rgba(50, 50, 50, 0.7);
+    -fx-text-fill: white;
+    -fx-prompt-text-fill: #888888;
+    -fx-font-size: 13;
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.15);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-padding: 8 12;
+}
+
+.chat-input:focused {
+    -fx-border-color: #3a86ff;
+    -fx-border-width: 2;
+}
+
+.send-button {
+    -fx-background-color: linear-gradient(to right, #3a86ff, #2563eb);
+    -fx-text-fill: white;
+    -fx-font-size: 13;
+    -fx-font-weight: bold;
+    -fx-background-radius: 10;
+    -fx-padding: 8 20;
+    -fx-cursor: hand;
+    -fx-border-color: rgba(255, 255, 255, 0.2);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+}
+
+.send-button:hover {
+    -fx-background-color: linear-gradient(to right, #2563eb, #1d4ed8);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.send-button:pressed {
+    -fx-scale-x: 0.95;
+    -fx-scale-y: 0.95;
+}
+
+/* ============================================
+   FRIENDS PANEL
+   ============================================ */
+
+.friends-panel {
+    -fx-background-color: rgba(30, 30, 30, 0.85);
+    -fx-background-radius: 15;
+    -fx-padding: 15;
+    -fx-border-color: rgba(255, 255, 255, 0.1);
+    -fx-border-radius: 15;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.5), 20, 0, 0, 5);
+}
+
+.friends-header {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 16;
+    -fx-font-weight: bold;
+}
+
+/* Filter Buttons */
+.filter-button {
+    -fx-background-color: rgba(60, 60, 60, 0.6);
+    -fx-text-fill: #aaaaaa;
+    -fx-font-size: 11;
+    -fx-background-radius: 8;
+    -fx-padding: 5 10;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8;
+}
+
+.filter-button:hover {
+    -fx-background-color: rgba(80, 80, 80, 0.7);
+    -fx-text-fill: #ffffff;
+}
+
+.filter-active {
+    -fx-background-color: rgba(58, 134, 255, 0.3);
+    -fx-text-fill: #3a86ff;
+    -fx-font-weight: bold;
+    -fx-border-color: #3a86ff;
+    -fx-border-width: 1;
+}
+
+/* Friends List */
+.friend-list {
+    -fx-background-color: rgba(20, 20, 20, 0.6);
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.08);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+}
+
+.friend-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #e0e0e0;
+    -fx-padding: 10;
+    -fx-background-radius: 8;
+}
+
+.friend-list .list-cell:hover {
+    -fx-background-color: rgba(58, 134, 255, 0.15);
+}
+
+.friend-list .list-cell:selected {
+    -fx-background-color: rgba(58, 134, 255, 0.3);
+    -fx-border-color: #3a86ff;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+}
+
+/* ============================================
+   ACTION BUTTONS
+   ============================================ */
+
+.action-button {
+    -fx-font-size: 14;
+    -fx-font-weight: bold;
+    -fx-background-radius: 12;
+    -fx-padding: 12 20;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.4), 10, 0, 0, 3);
+}
+
+.invite-button {
+    -fx-background-color: linear-gradient(to right, #3a86ff, #2563eb);
+    -fx-text-fill: white;
+    -fx-border-color: rgba(255, 255, 255, 0.2);
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+}
+
+.invite-button:hover {
+    -fx-background-color: linear-gradient(to right, #2563eb, #1d4ed8);
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+.invite-button:disabled {
+    -fx-background-color: rgba(100, 100, 100, 0.3);
+    -fx-text-fill: #666666;
+    -fx-opacity: 0.6;
+}
+
+.ready-button {
+    -fx-background-color: linear-gradient(to right, #4caf50, #388e3c);
+    -fx-text-fill: white;
+    -fx-border-color: rgba(255, 255, 255, 0.2);
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+}
+
+.ready-button:hover {
+    -fx-background-color: linear-gradient(to right, #388e3c, #2e7d32);
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+.ready-button-active {
+    -fx-background-color: linear-gradient(to right, #ff9800, #f57c00);
+    -fx-text-fill: white;
+}
+
+.start-button {
+    -fx-background-color: linear-gradient(to right, #ff5722, #e64a19);
+    -fx-text-fill: white;
+    -fx-border-color: rgba(255, 255, 255, 0.3);
+    -fx-border-radius: 12;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(255, 87, 34, 0.5), 15, 0, 0, 0);
+}
+
+.start-button:hover {
+    -fx-background-color: linear-gradient(to right, #e64a19, #d84315);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.start-button:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+.start-button:disabled {
+    -fx-background-color: rgba(100, 100, 100, 0.3);
+    -fx-text-fill: #666666;
+    -fx-opacity: 0.6;
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: rgba(255, 255, 255, 0.2);
+    -fx-background-radius: 5;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.3);
+}
+
+.scroll-bar .track {
+    -fx-background-color: rgba(0, 0, 0, 0.1);
+    -fx-background-radius: 5;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+/* ============================================
+   SEPARATOR
+   ============================================ */
+
+.separator .line {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-border-width: 1;
+}
+
+/* ============================================
+   EMOJI BUTTON
+   ============================================ */
+
+#emojiButton {
+    -fx-background-color: transparent;
+    -fx-font-size: 18px;
+    -fx-cursor: hand;
+    -fx-padding: 5 10;
+}
+
+#emojiButton:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-background-radius: 5;
+}
+
+/* ============================================
+   ANIMATIONS & TRANSITIONS
+   ============================================ */
+
+.back-button,
+.action-button,
+.filter-button,
+.send-button {
+    -fx-transition: all 0.3s ease;
+}
+
+/* ============================================
+   HOVER EFFECTS
+   ============================================ */
+
+.button:hover {
+    -fx-cursor: hand;
+}
+
+/* ============================================
+   CHAT MESSAGE STYLES (Dynamic)
+   ============================================ */
+
+.chat-message {
+    -fx-padding: 5 8;
+    -fx-background-radius: 8;
+}
+
+.chat-message-self {
+    -fx-background-color: rgba(58, 134, 255, 0.2);
+}
+
+.chat-message-other {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+}
+
+.chat-sender {
+    -fx-text-fill: #3a86ff;
+    -fx-font-weight: bold;
+    -fx-font-size: 12;
+}
+
+.chat-text {
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 13;
+}
+
+.chat-timestamp {
+    -fx-text-fill: #888888;
+    -fx-font-size: 10;
+}
+
+/* ============================================
+   FRIEND LIST ITEM (Dynamic)
+   ============================================ */
+
+.friend-item {
+    -fx-padding: 8;
+    -fx-background-radius: 8;
+}
+
+.friend-name {
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: bold;
+    -fx-font-size: 13;
+}
+
+.friend-status {
+    -fx-text-fill: #aaaaaa;
+    -fx-font-size: 11;
+}
+
+.friend-online {
+    -fx-text-fill: #4caf50;
+}
+
+.friend-ingame {
+    -fx-text-fill: #ff9800;
+}
+
+/* ============================================
+   LOADING/EMPTY STATES
+   ============================================ */
+
+.loading-indicator {
+    -fx-alignment: CENTER;
+    -fx-padding: 20;
+}
+
+.progress-indicator {
+    -fx-progress-color: #3a86ff;
+}
+
+.empty-state {
+    -fx-alignment: CENTER;
+    -fx-padding: 30;
+}
+
+.empty-text {
+    -fx-text-fill: #888888;
+    -fx-font-size: 14;
+    -fx-text-alignment: center;
+}

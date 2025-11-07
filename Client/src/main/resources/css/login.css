@@ -1,0 +1,333 @@
+/* ========================================
+   LOGIN & REGISTER SCREENS
+   ======================================== */
+
+/* ========== ROOT & COLORS ========== */
+.root {
+    -fx-font-family: "Arial", "Segoe UI", sans-serif;
+}
+
+/* Root Container */
+.root-container {
+    -primary-color: #6366F1;
+    -primary-dark: #4F46E5;
+    -primary-light: #818CF8;
+    -secondary-color: #E0E7FF;
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #667eea 0%, #764ba2 100%);
+    -card-background: #FFFFFF;
+    -text-primary: #374151;
+    -text-secondary: #9CA3AF;
+    -success-color: #10B981;
+    -error-color: #EF4444;
+    -border-color: #E5E7EB;
+}
+
+/* ========== BACKGROUND ========== */
+.background-container {
+    -fx-background-color: #667eea;
+    -fx-padding: 20;
+}
+
+/* ========== CONTENT CARD ========== */
+.content-card {
+    -fx-background-color: #FFFFFF;
+    -fx-alignment: center;
+    -fx-background-radius: 25;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 20, 0, 0, 10);
+    -fx-padding: 40 35 40 35;
+}
+
+/* ========== TYPOGRAPHY ========== */
+.title-text {
+    -fx-font-size: 36px;
+    -fx-font-weight: bold;
+    -fx-fill: #6366F1;
+    -fx-font-family: "Arial Rounded MT Bold", "Arial", sans-serif;
+}
+
+.subtitle-text {
+    -fx-font-size: 16px;
+    -fx-fill: #9CA3AF;
+}
+
+.register-title {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-fill: #6366F1;
+    -fx-font-family: "Arial", sans-serif;
+}
+
+.register-subtitle {
+    -fx-font-size: 14px;
+    -fx-fill: #9CA3AF;
+}
+
+.field-label {
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #374151;
+}
+
+.divider-text {
+    -fx-font-size: 14px;
+    -fx-text-fill: #9CA3AF;
+}
+
+.feature-text {
+    -fx-font-size: 14px;
+    -fx-fill: #6B7280;
+}
+
+.checkmark {
+    -fx-font-size: 16px;
+    -fx-fill: #10B981;
+    -fx-font-weight: bold;
+}
+
+.version-text {
+    -fx-font-size: 12px;
+    -fx-fill: #D1D5DB;
+    -fx-text-alignment: center;
+}
+
+.terms-text {
+    -fx-font-size: 11px;
+    -fx-fill: #9CA3AF;
+    -fx-text-alignment: center;
+}
+
+/* ========== TEXT FIELDS ========== */
+.custom-text-field {
+    -fx-font-size: 14px;
+    -fx-padding: 15 20;
+    -fx-background-color: #F9FAFB;
+    -fx-background-radius: 12;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 12;
+    -fx-text-fill: #374151;
+    -fx-prompt-text-fill: #9CA3AF;
+}
+
+.custom-text-field:focused {
+    -fx-border-color: #6366F1;
+    -fx-background-color: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(99, 102, 241, 0.25), 8, 0, 0, 0);
+}
+
+/* ========== BUTTONS ========== */
+.primary-button {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-padding: 15 30;
+    -fx-background-color: #6366F1;
+    -fx-background-radius: 12;
+    -fx-text-fill: white;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(99, 102, 241, 0.4), 10, 0, 0, 4);
+}
+
+.primary-button:hover {
+    -fx-background-color: #4F46E5;
+    -fx-effect: dropshadow(gaussian, rgba(99, 102, 241, 0.6), 15, 0, 0, 6);
+    -fx-scale-y: 1.02;
+    -fx-scale-x: 1.02;
+}
+
+.primary-button:pressed {
+    -fx-background-color: #4338CA;
+    -fx-translate-y: 2;
+}
+
+.secondary-button {
+    -fx-font-size: 15px;
+    -fx-font-weight: 600;
+    -fx-padding: 15 30;
+    -fx-background-color: #F3F4F6;
+    -fx-background-radius: 12;
+    -fx-text-fill: #6366F1;
+    -fx-cursor: hand;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 12;
+}
+
+.secondary-button:hover {
+    -fx-background-color: #E5E7EB;
+    -fx-border-color: #6366F1;
+}
+
+.secondary-button:pressed {
+    -fx-background-color: #D1D5DB;
+}
+
+.back-button {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 16;
+    -fx-background-color: transparent;
+    -fx-text-fill: #6366F1;
+    -fx-cursor: hand;
+    -fx-background-radius: 10;
+}
+
+.back-button:hover {
+    -fx-background-color: #F3F4F6;
+}
+
+/* ========== CHECKBOX ========== */
+.remember-checkbox {
+    -fx-font-size: 13px;
+    -fx-text-fill: #6B7280;
+}
+
+.remember-checkbox .box {
+    -fx-background-color: #F9FAFB;
+    -fx-border-color: #D1D5DB;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.remember-checkbox:selected .box {
+    -fx-background-color: #6366F1;
+    -fx-border-color: #6366F1;
+}
+
+.remember-checkbox:selected .mark {
+    -fx-background-color: white;
+}
+
+/* ========== HYPERLINK ========== */
+.forgot-link {
+    -fx-font-size: 13px;
+    -fx-text-fill: #6366F1;
+    -fx-underline: false;
+    -fx-cursor: hand;
+}
+
+.forgot-link:hover {
+    -fx-text-fill: #4F46E5;
+    -fx-underline: true;
+}
+
+/* ========== SEPARATOR ========== */
+.separator .line {
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* ========== TOGGLE BUTTONS (Age Selection) ========== */
+.age-toggle {
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-padding: 12 24;
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 10;
+    -fx-text-fill: #6B7280;
+    -fx-cursor: hand;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 2;
+    -fx-border-radius: 10;
+}
+
+.age-toggle:hover {
+    -fx-border-color: #C7D2FE;
+    -fx-background-color: #F5F7FF;
+}
+
+.age-toggle:selected {
+    -fx-background-color: #6366F1;
+    -fx-text-fill: white;
+    -fx-border-color: #6366F1;
+}
+
+/* ========== AVATAR BUTTONS ========== */
+.avatar-button {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 15;
+    -fx-padding: 10;
+    -fx-cursor: hand;
+    -fx-border-color: #E5E7EB;
+    -fx-border-width: 2;
+    -fx-border-radius: 15;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.05), 5, 0, 0, 2);
+}
+
+.avatar-button:hover {
+    -fx-border-color: #C7D2FE;
+    -fx-effect: dropshadow(gaussian, rgba(99, 102, 241, 0.3), 8, 0, 0, 3);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.avatar-button:selected {
+    -fx-border-color: #6366F1;
+    -fx-border-width: 3;
+    -fx-background-color: #EEF2FF;
+    -fx-effect: dropshadow(gaussian, rgba(99, 102, 241, 0.5), 10, 0, 0, 4);
+}
+
+/* ========== SCROLL PANE ========== */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+    -fx-alignment: center;
+}
+
+.scroll-pane .scroll-bar:vertical {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:vertical .track {
+    -fx-background-color: #F3F4F6;
+    -fx-background-radius: 5;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: #D1D5DB;
+    -fx-background-radius: 5;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #9CA3AF;
+}
+
+/* ========== LOADING OVERLAY ========== */
+.loading-overlay {
+    -fx-background-color: rgba(0, 0, 0, 0.4);
+}
+
+.loading-spinner {
+    -fx-progress-color: #6366F1;
+    -fx-pref-width: 60;
+    -fx-pref-height: 60;
+}
+
+/* ========== ANIMATIONS ========== */
+.primary-button,
+.secondary-button,
+.avatar-button,
+.age-toggle {
+    -fx-transition: all 0.3s ease;
+}
+
+/* ========== RESPONSIVE ========== */
+@media screen and (max-width: 600px) {
+    .content-card {
+        -fx-padding: 25 20 25 20;
+    }
+
+    .title-text {
+        -fx-font-size: 28px;
+    }
+
+    .age-toggle {
+        -fx-padding: 10 18;
+        -fx-font-size: 12px;
+    }
+}

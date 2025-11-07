@@ -2,6 +2,8 @@ package com.edugame.server.network;
 
 import com.edugame.common.Protocol;
 import com.edugame.server.database.DatabaseConnection;
+import com.edugame.server.game.GameRoomManager;
+import com.edugame.server.game.MatchmakingManager;
 import com.edugame.server.model.User;
 
 import java.io.IOException;
@@ -18,11 +20,35 @@ public class GameServer {
     private List<ClientHandler> connectedClients;
     private boolean running;
     private int port;
+    private final MatchmakingManager matchmakingManager;
+    private final GameRoomManager roomManager;
+    private static GameServer instance;
 
     public GameServer(int port) {
         this.port = port;
         this.connectedClients = new CopyOnWriteArrayList<>(); // Thread-safe
         this.running = false;
+        this.roomManager = new GameRoomManager();
+        this.matchmakingManager = new MatchmakingManager(roomManager);
+        instance = this;
+
+        System.out.println("✅ GameServer initialized!");
+    }
+    public static GameServer getInstance() {
+        return instance;
+    }
+
+    public GameRoomManager getGameRoomManager() {
+        return roomManager;
+    }
+
+    // getters để các class khác có thể dùng
+    public MatchmakingManager getMatchmakingManager() {
+        return matchmakingManager;
+    }
+
+    public GameRoomManager getRoomManager() {
+        return roomManager;
     }
 
     /**
@@ -333,4 +359,6 @@ public class GameServer {
         System.out.println("[SERVER] ⚠️⚠️⚠️ User NOT FOUND or OFFLINE (userId=" + userId + ")");
         return false;
     }
+
+
 }

@@ -11,6 +11,7 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.edugame.client.controller.HomeController"
             styleClass="home-root"
+            stylesheets="@../css/home.css , @../css/common.css"
             prefWidth="1000" prefHeight="700"
 >
 
@@ -123,7 +124,7 @@
                         </HBox>
                     </VBox>
 
-                    <Button text="Tạo phòng" styleClass="card-button"
+                    <Button text="Tạo phòng" styleClass="card-button" fx:id="btnCreateRoom"
                             onAction="#handleCreateRoom" maxWidth="Infinity"/>
                 </VBox>
             </HBox>

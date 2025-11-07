@@ -1,0 +1,392 @@
+/* ============================================
+   PROFILE PAGE STYLES
+   ============================================ */
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.profile-header {
+    -fx-background-color: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+    -fx-padding: 20;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 10, 0, 0, 2);
+}
+
+.profile-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-padding: 0 0 0 10;
+}
+
+.profile-back-btn {
+    -fx-background-color: rgba(255, 255, 255, 0.2);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 16;
+    -fx-background-radius: 20;
+    -fx-cursor: hand;
+    -fx-border-color: rgba(255, 255, 255, 0.3);
+    -fx-border-radius: 20;
+    -fx-border-width: 1;
+}
+
+.profile-back-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.3);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.profile-back-btn:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+/* ========================================
+   CONTENT AREA
+   ======================================== */
+
+.profile-content {
+    -fx-background-color: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+    -fx-padding: 30 20;
+}
+
+/* ========================================
+   AVATAR
+   ======================================== */
+
+.profile-content .image-view {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 15, 0, 0, 3);
+    -fx-background-radius: 60;
+    -fx-border-radius: 60;
+    -fx-border-color: white;
+    -fx-border-width: 4;
+}
+
+.profile-change-avatar-btn {
+    -fx-background-color: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 20;
+    -fx-background-radius: 20;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(102, 126, 234, 0.4), 8, 0, 0, 2);
+}
+
+.profile-change-avatar-btn:hover {
+    -fx-background-color: linear-gradient(to right, #764ba2 0%, #667eea 100%);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.profile-change-avatar-btn:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+/* ========================================
+   NAME SECTION
+   ======================================== */
+
+.profile-name-label {
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2d3748;
+    -fx-padding: 10 0 5 0;
+}
+
+.profile-edit-name-btn {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #667eea;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 18;
+    -fx-background-radius: 18;
+    -fx-cursor: hand;
+    -fx-border-color: #667eea;
+    -fx-border-radius: 18;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 5, 0, 0, 2);
+}
+
+.profile-edit-name-btn:hover {
+    -fx-background-color: #667eea;
+    -fx-text-fill: white;
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.profile-edit-name-btn:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+/* ========================================
+   INFO GRID
+   ======================================== */
+
+.profile-info-grid {
+    -fx-background-color: white;
+    -fx-background-radius: 15;
+    -fx-padding: 25;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 10, 0, 0, 3);
+    -fx-max-width: 400;
+}
+
+.profile-info-grid .label {
+    -fx-font-size: 15px;
+    -fx-text-fill: #4a5568;
+    -fx-padding: 5;
+}
+
+/*.profile-info-grid .label:first-child {*/
+/*    -fx-font-weight: bold;*/
+/*    -fx-text-fill: #2d3748;*/
+/*}*/
+
+/* Row styling for better visual separation */
+.profile-info-grid > * {
+    -fx-padding: 8 0;
+}
+
+/* Highlight data labels */
+.profile-info-grid > .label[fx\:id$="Label"] {
+    -fx-font-weight: bold;
+    -fx-text-fill: #667eea;
+    -fx-font-size: 16px;
+}
+
+/* Stats highlight - for percentage/win rate */
+.profile-info-grid .label[text*="%"] {
+    -fx-text-fill: #48bb78 !important;
+    -fx-font-weight: bold;
+}
+
+/* ========================================
+   DETAIL BUTTON
+   ======================================== */
+
+.profile-detail-btn {
+    -fx-background-color: linear-gradient(to right, #48bb78 0%, #38a169 100%);
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 30;
+    -fx-background-radius: 25;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(72, 187, 120, 0.4), 10, 0, 0, 3);
+    -fx-margin: 20 0 0 0;
+}
+
+.profile-detail-btn:hover {
+    -fx-background-color: linear-gradient(to right, #38a169 0%, #2f855a 100%);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.profile-detail-btn:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+/* ========================================
+   ACTION BUTTONS (Chat, Add Friend)
+   ======================================== */
+
+/* Chat Button */
+#chatButton {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-background-radius: 10;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-padding: 10 20;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(33, 150, 243, 0.4), 8, 0, 0, 2);
+}
+
+#chatButton:hover {
+    -fx-background-color: #1976D2;
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+#chatButton:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+/* Add Friend Button */
+#addFriendButton {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-background-radius: 10;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-padding: 10 20;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.4), 8, 0, 0, 2);
+}
+
+#addFriendButton:hover {
+    -fx-background-color: #45a049;
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+#addFriendButton:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+/* ========================================
+   HOVER EFFECTS FOR INFO GRID
+   ======================================== */
+
+.profile-info-grid {
+    -fx-border-color: transparent;
+}
+
+.profile-info-grid:hover {
+    -fx-border-color: rgba(102, 126, 234, 0.2);
+    -fx-border-width: 2;
+    -fx-border-radius: 15;
+}
+
+/* ========================================
+   RESPONSIVE ADJUSTMENTS
+   ======================================== */
+
+.profile-content .vbox {
+    -fx-max-width: 500;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+.profile-change-avatar-btn,
+.profile-edit-name-btn,
+.profile-detail-btn,
+.profile-back-btn,
+#chatButton,
+#addFriendButton {
+    -fx-transition: all 0.3s ease;
+}
+
+/* ========================================
+   LOADING/PLACEHOLDER STATES
+   ======================================== */
+
+.profile-loading {
+    -fx-alignment: CENTER;
+    -fx-padding: 50;
+}
+
+.profile-loading .progress-indicator {
+    -fx-progress-color: #667eea;
+}
+
+/* ========================================
+   EMPTY STATE
+   ======================================== */
+
+.profile-empty-state {
+    -fx-alignment: CENTER;
+    -fx-padding: 50;
+}
+
+.profile-empty-text {
+    -fx-font-size: 16px;
+    -fx-text-fill: #718096;
+    -fx-text-alignment: center;
+}
+
+/* ========================================
+   BADGE STYLES (for achievements, etc.)
+   ======================================== */
+
+.profile-badge {
+    -fx-background-color: linear-gradient(to right, #FFD700, #FFA500);
+    -fx-background-radius: 20;
+    -fx-padding: 5 15;
+    -fx-effect: dropshadow(gaussian, rgba(255, 215, 0, 0.4), 8, 0, 0, 2);
+}
+
+.profile-badge-text {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+/* ========================================
+   STATISTICS BAR (if needed)
+   ======================================== */
+
+.stats-bar {
+    -fx-background-color: #e2e8f0;
+    -fx-background-radius: 10;
+    -fx-padding: 0;
+}
+
+.stats-bar-fill {
+    -fx-background-color: linear-gradient(to right, #667eea, #764ba2);
+    -fx-background-radius: 10;
+}
+
+/* ========================================
+   DIVIDER
+   ======================================== */
+
+.profile-divider {
+    -fx-background-color: #e2e8f0;
+    -fx-padding: 1;
+}
+
+/* ========================================
+   SCROLLBAR (if needed)
+   ======================================== */
+
+.profile-content .scroll-pane {
+    -fx-background-color: transparent;
+}
+
+.profile-content .scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.profile-content .scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: #cbd5e0;
+    -fx-background-radius: 5;
+}
+
+.profile-content .scroll-pane .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #a0aec0;
+}
+
+/* ========================================
+   SPECIAL EFFECTS
+   ======================================== */
+
+/* Glow effect for important elements */
+.profile-highlight {
+    -fx-effect: dropshadow(gaussian, rgba(102, 126, 234, 0.6), 15, 0, 0, 0);
+}
+
+/* Pulse animation for new achievements */
+@keyframes pulse {
+    0%, 100% {
+        -fx-scale-x: 1;
+        -fx-scale-y: 1;
+    }
+    50% {
+        -fx-scale-x: 1.05;
+        -fx-scale-y: 1.05;
+    }
+}
+
+.profile-new-badge {
+    -fx-animation: pulse 2s infinite;
+}

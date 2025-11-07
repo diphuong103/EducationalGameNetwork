@@ -10,7 +10,8 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.edugame.client.controller.FriendsController"
             prefWidth="1000" prefHeight="700"
-            styleClass="friends-root">
+            styleClass="friends-root"
+            stylesheets="@../css/friends.css , @../css/common.css">
 
     <!-- HEADER -->
     <top>

@@ -9,7 +9,8 @@
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.edugame.client.controller.LeaderboardController"
             prefHeight="700.0" prefWidth="900.0"
-            styleClass="leaderboard-page">
+                styleClass="leaderboard-page"
+            stylesheets="@../css/leaderboard.css , @../css/common.css">
 
     <VBox spacing="20" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0"
           AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" styleClass="main-container">

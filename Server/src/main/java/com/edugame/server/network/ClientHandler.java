@@ -1,12 +1,13 @@
 package com.edugame.server.network;
 
 import com.edugame.common.Protocol;
-import com.edugame.server.database.FriendDAO;
-import com.edugame.server.database.UserDAO;
-import com.edugame.server.database.LeaderboardDAO;
-import com.edugame.server.database.MessageDAO;
+import com.edugame.server.database.*;
 
+import com.edugame.server.game.GameRoomManager;
+import com.edugame.server.game.MatchmakingManager;
 import com.edugame.server.model.Friend;
+import com.edugame.server.model.Question;
+import com.edugame.server.model.Room;
 import com.edugame.server.model.User;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -15,10 +16,9 @@ import java.io.*;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
+import static org.apache.poi.poifs.crypt.CryptoFunctions.hashPassword;
 
 public class ClientHandler implements Runnable {
     private Socket clientSocket;
@@ -31,6 +31,12 @@ public class ClientHandler implements Runnable {
     private User currentUser;
     private boolean running;
     private GameServer server;
+    private MatchmakingManager matchmakingManager;
+    private QuestionDAO questionDAO;
+
+    public void setMatchmakingManager(MatchmakingManager matchmakingManager) {
+        this.matchmakingManager = matchmakingManager;
+    }
 
     // 🔹 DateTimeFormatter cho log
     private static final DateTimeFormatter LOG_TIME_FORMAT =
@@ -44,6 +50,7 @@ public class ClientHandler implements Runnable {
         this.leaderboardDAO = new LeaderboardDAO();
         this.messageDAO = new MessageDAO();
         this.running = true;
+        this.questionDAO = new QuestionDAO();
 
         try {
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -109,6 +116,16 @@ public class ClientHandler implements Runnable {
                 case Protocol.GET_LEADERBOARD:
                     logWithTime("   → Calling handleGetLeaderboard()");
                     handleGetLeaderboard(jsonMessage);
+                    break;
+
+                case Protocol.FIND_MATCH:
+                    logWithTime("   → Calling handleFindMatch()");
+                    handleFindMatch(jsonMessage);
+                    break;
+
+                case Protocol.CANCEL_FIND_MATCH:
+                    logWithTime("   → Calling handleCancelFindMatch()");
+                    handleCancelFindMatch(jsonMessage);
                     break;
 
                 case Protocol.GLOBAL_CHAT:
@@ -181,6 +198,46 @@ public class ClientHandler implements Runnable {
                 case Protocol.GET_PENDING_REQUESTS:
                     logWithTime("   → Calling handleGetPendingRequests()");
                     handleGetPendingRequests(jsonMessage);
+                    break;
+
+                case Protocol.UPDATE_PASSWORD:
+                    logWithTime("   → Calling handleUpdatePassword()");
+                    handleUpdatePassword(jsonMessage);
+                    break;
+
+                case Protocol.GET_STATISTICS:
+                    logWithTime("   → Calling handleGetStatistics()");
+                    handleGetStatistics(jsonMessage);
+                    break;
+
+                case Protocol.GET_TRAINING_QUESTIONS:
+                    logWithTime("   → Calling handleGetTrainingQuestions()");
+                    handleGetTrainingQuestions(jsonMessage);
+                    break;
+
+                case Protocol.CREATE_ROOM:
+                    logWithTime("   → Calling handleGetTrainingQuestions()");
+                    handleCreateRoom(jsonMessage);
+                    break;
+
+                case Protocol.JOIN_ROOM:
+                    logWithTime("   → Calling handleJoinRoom()");
+                    handleJoinRoom(jsonMessage);
+                    break;
+
+                case Protocol.LEAVE_ROOM:
+                    logWithTime("   → Calling handleLeaveRoom()");
+                    handleLeaveRoom(jsonMessage);
+                    break;
+
+                case Protocol.READY:
+                    logWithTime("   → Calling handlePlayerReady()");
+                    handlePlayerReady(jsonMessage);
+                    break;
+
+                case Protocol.SUBMIT_ANSWER:
+                    logWithTime("   → Calling handleSubmitAnswer()");
+                    handleSubmitAnswer(jsonMessage);
                     break;
 
                 case Protocol.LOGOUT:
@@ -839,6 +896,64 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    /**
+     * Handler: UPDATE_PASSWORD - Đổi mật khẩu
+     */
+    private void handleUpdatePassword(JsonObject request) {
+//        try {
+//            logWithTime("🔐 [UPDATE_PASSWORD] Processing request...");
+//
+//            if (currentUser == null) {
+//                logWithTime("❌ [UPDATE_PASSWORD] User not logged in");
+//                sendError("Bạn chưa đăng nhập!");
+//                return;
+//            }
+//
+//            String oldPassword = request.get("oldPassword").getAsString();
+//            String newPassword = request.get("newPassword").getAsString();
+//
+//            logWithTime("🔐 [UPDATE_PASSWORD] User: " + currentUser.getUsername());
+//
+//            // Validate old password
+//            String storedHash = userDAO.getPassword(currentUser.getUsername());
+//            String inputHash = hashPassword(oldPassword);
+//
+//            if (storedHash == null || !storedHash.equals(inputHash)) {
+//                logWithTime("❌ [UPDATE_PASSWORD] Old password incorrect");
+//
+//                Map<String, Object> response = new HashMap<>();
+//                response.put("type", "UPDATE_PASSWORD");
+//                response.put("success", false);
+//                response.put("message", "Mật khẩu cũ không đúng!");
+//                sendMessage(response);
+//                return;
+//            }
+//
+//            // Hash new password before updating
+//            String newHashedPassword = hashPassword(newPassword);
+//            boolean success = userDAO.updatePassword(currentUser.getUserId(), newHashedPassword);
+//
+//            Map<String, Object> response = new HashMap<>();
+//            response.put("type", "UPDATE_PASSWORD");
+//            response.put("success", success);
+//
+//            if (success) {
+//                response.put("message", "Đổi mật khẩu thành công!");
+//                logWithTime("✅ [UPDATE_PASSWORD] Password updated successfully");
+//            } else {
+//                response.put("message", "Đổi mật khẩu thất bại!");
+//                logWithTime("❌ [UPDATE_PASSWORD] Failed to update password");
+//            }
+//
+//            sendMessage(response);
+//
+//        } catch (Exception e) {
+//            logWithTime("❌ [UPDATE_PASSWORD] Error: " + e.getMessage());
+//            e.printStackTrace();
+//            sendError("Lỗi khi đổi mật khẩu!");
+//        }
+    }
+
     private void handleGetLeaderboard(JsonObject jsonMessage) {
         try {
             String subject = jsonMessage.has("subject") ? jsonMessage.get("subject").getAsString() : "total";
@@ -929,7 +1044,7 @@ public class ClientHandler implements Runnable {
         logWithTime("💬 CHAT [" + username + "]: " + message.substring(0, Math.min(50, message.length())));
     }
 
-    void sendMessage(Map<String, Object> data) {
+    public void sendMessage(Map<String, Object> data) {
         try {
             if (writer != null && !writer.checkError()) {
                 String json = gson.toJson(data);
@@ -1161,4 +1276,487 @@ public class ClientHandler implements Runnable {
     public boolean isRunning() {
         return running;
     }
+
+
+    // Tìm trận
+    /**
+     * Handler: FIND_MATCH - Tìm trận đấu
+     */
+    private void handleFindMatch(JsonObject request) {
+        try {
+            logWithTime("🔍 [FIND_MATCH] Processing request...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [FIND_MATCH] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            // Parse request
+            String subject = request.get("subject").getAsString();
+            String difficulty = request.has("difficulty") ?
+                    request.get("difficulty").getAsString() :
+                    Protocol.MEDIUM;
+
+            logWithTime("🔍 [FIND_MATCH] User: " + currentUser.getUsername() +
+                    " | Subject: " + subject +
+                    " | Difficulty: " + difficulty);
+
+            // Validate subject
+            if (!isValidSubject(subject)) {
+                logWithTime("❌ [FIND_MATCH] Invalid subject: " + subject);
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", Protocol.FIND_MATCH);
+                response.put("success", false);
+                response.put("message", "Môn học không hợp lệ!");
+                sendMessage(response);
+                return;
+            }
+
+            // Validate difficulty
+            if (!isValidDifficulty(difficulty)) {
+                logWithTime("❌ [FIND_MATCH] Invalid difficulty: " + difficulty);
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", Protocol.FIND_MATCH);
+                response.put("success", false);
+                response.put("message", "Độ khó không hợp lệ!");
+                sendMessage(response);
+                return;
+            }
+
+            // Call MatchmakingManager
+            boolean success = matchmakingManager.findMatch(this, subject, difficulty);
+
+            // Send response
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.FIND_MATCH);
+            response.put("success", success);
+
+            if (success) {
+                response.put("message", "Đang tìm kiếm đối thủ...");
+                logWithTime("✅ [FIND_MATCH] User added to matchmaking queue");
+            } else {
+                response.put("message", "Bạn đã trong hàng đợi tìm kiếm!");
+                logWithTime("⚠️ [FIND_MATCH] User already in queue");
+            }
+
+            sendMessage(response);
+
+        } catch (Exception e) {
+            logWithTime("❌ [FIND_MATCH] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi tìm trận đấu!");
+        }
+    }
+
+    /**
+     * Handler: CANCEL_FIND_MATCH - Hủy tìm trận
+     */
+    private void handleCancelFindMatch(JsonObject request) {
+        try {
+            logWithTime("❌ [CANCEL_FIND_MATCH] Processing request...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [CANCEL_FIND_MATCH] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            logWithTime("❌ [CANCEL_FIND_MATCH] User: " + currentUser.getUsername());
+
+            // Call MatchmakingManager
+            boolean success = matchmakingManager.cancelFindMatch(this);
+
+            if (!success) {
+                logWithTime("⚠️ [CANCEL_FIND_MATCH] No active search found");
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", Protocol.CANCEL_FIND_MATCH);
+                response.put("success", false);
+                response.put("message", "Bạn không có tìm kiếm nào đang hoạt động!");
+                sendMessage(response);
+            } else {
+                logWithTime("✅ [CANCEL_FIND_MATCH] Search cancelled successfully");
+            }
+
+        } catch (Exception e) {
+            logWithTime("❌ [CANCEL_FIND_MATCH] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi hủy tìm kiếm!");
+        }
+    }
+
+    /**
+     * Validate subject
+     */
+    private boolean isValidSubject(String subject) {
+        return Protocol.MATH.equals(subject) ||
+                Protocol.ENGLISH.equals(subject) ||
+                Protocol.LITERATURE.equals(subject);
+    }
+
+    /**
+     * Validate difficulty
+     */
+    private boolean isValidDifficulty(String difficulty) {
+        return Protocol.EASY.equals(difficulty) ||
+                Protocol.MEDIUM.equals(difficulty) ||
+                Protocol.HARD.equals(difficulty);
+    }
+
+
+
+
+    /**
+     * Handler: GET_STATISTICS - Lấy thống kê game
+     */
+    private void handleGetStatistics(JsonObject request) {
+        try {
+            logWithTime("📊 [GET_STATISTICS] Processing request...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [GET_STATISTICS] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            logWithTime("📊 [GET_STATISTICS] User: " + currentUser.getUsername());
+
+            // Get fresh data from database
+            User user = userDAO.getUserById(currentUser.getUserId());
+
+            if (user == null) {
+                logWithTime("❌ [GET_STATISTICS] User not found");
+                sendError("Không tìm thấy thông tin người dùng!");
+                return;
+            }
+
+            // Calculate win rate
+            double winRate = 0.0;
+            if (user.getTotalGames() > 0) {
+                winRate = (double) user.getWins() / user.getTotalGames() * 100.0;
+            }
+
+            // Build response
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", "GET_STATISTICS");
+            response.put("success", true);
+            response.put("totalGames", user.getTotalGames());
+            response.put("wins", user.getWins());
+            response.put("losses", user.getTotalGames() - user.getWins());
+            response.put("totalScore", user.getTotalScore());
+            response.put("mathScore", user.getMathScore());
+            response.put("englishScore", user.getEnglishScore());
+            response.put("literatureScore", user.getLiteratureScore());
+            response.put("winRate", Math.round(winRate * 100.0) / 100.0);
+
+            sendMessage(response);
+            logWithTime("✅ [GET_STATISTICS] Statistics sent successfully");
+
+        } catch (Exception e) {
+            logWithTime("❌ [GET_STATISTICS] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi lấy thống kê!");
+        }
+    }
+
+    /**
+     * Handler: GET_TRAINING_QUESTIONS - Lấy câu hỏi luyện tập
+     */
+    private void handleGetTrainingQuestions(JsonObject request) {
+        try {
+            logWithTime("📝 [GET_TRAINING_QUESTIONS] Processing request...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [GET_TRAINING_QUESTIONS] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            String subject = request.get("subject").getAsString();
+            String difficulty = request.get("difficulty").getAsString();
+            int count = request.has("count") ? request.get("count").getAsInt() : 10;
+
+            logWithTime("📝 [GET_TRAINING_QUESTIONS] User: " + currentUser.getUsername() +
+                    " | Subject: " + subject +
+                    " | Difficulty: " + difficulty +
+                    " | Count: " + count);
+
+            // Get questions from database
+            List<Question> questions = questionDAO.getRandomQuestions(subject, difficulty, count);
+
+            if (questions == null || questions.isEmpty()) {
+                logWithTime("⚠️ [GET_TRAINING_QUESTIONS] No questions found");
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", "GET_TRAINING_QUESTIONS");
+                response.put("success", false);
+                response.put("message", "Không tìm thấy câu hỏi phù hợp!");
+                sendMessage(response);
+                return;
+            }
+
+            // Build response
+            List<Map<String, Object>> questionList = new ArrayList<>();
+
+            for (Question q : questions) {
+                Map<String, Object> qMap = new HashMap<>();
+                qMap.put("questionId", q.getQuestionId());
+                qMap.put("subject", q.getSubject());
+                qMap.put("question", q.getQuestion());
+                qMap.put("optionA", q.getOptionA());
+                qMap.put("optionB", q.getOptionB());
+                qMap.put("optionC", q.getOptionC());
+                qMap.put("optionD", q.getOptionD());
+                qMap.put("correctAnswer", q.getCorrectAnswer());
+                qMap.put("difficulty", q.getDifficulty());
+
+                questionList.add(qMap);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", "GET_TRAINING_QUESTIONS");
+            response.put("success", true);
+            response.put("questions", questionList);
+            response.put("count", questions.size());
+
+            sendMessage(response);
+            logWithTime("✅ [GET_TRAINING_QUESTIONS] Sent " + questions.size() + " questions");
+
+        } catch (Exception e) {
+            logWithTime("❌ [GET_TRAINING_QUESTIONS] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi lấy câu hỏi!");
+        }
+    }
+    /**
+     * Tạo một số nguyên ngẫu nhiên có đúng 4 chữ số (từ 1000 đến 9999).
+     * * @return Số nguyên ngẫu nhiên có 4 chữ số.
+     */
+    private int generateRandom4DigitId() {
+        // Phạm vi: [min, max]
+        int min = 1000;
+        int max = 9999;
+
+        // Sử dụng Random để tạo số ngẫu nhiên trong phạm vi [min, max]
+        // Công thức: random.nextInt((max - min) + 1) + min
+        Random random = new Random();
+        return random.nextInt((max - min) + 1) + min;
+    }
+
+    private void handleCreateRoom(JsonObject request) {
+        try {
+            String subject = request.get("subject").getAsString();
+            String difficulty = request.get("difficulty").getAsString();
+
+            if (currentUser == null) {
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            // 1️⃣ Tạo phòng trong DB
+            Room newRoom = RoomDAO.createRoom(currentUser.getUserId(), subject, difficulty);
+            if (newRoom == null) {
+                sendError("Không thể tạo phòng trong database!");
+                return;
+            }
+
+            // 2️⃣ Tạo phòng trong memory
+            String roomId = String.valueOf(newRoom.getRoomId());
+            GameRoomManager.GameRoom gameRoom = server.getGameRoomManager()
+                    .createRoomWithId(roomId, this, newRoom.getRoomName(), subject, difficulty, newRoom.getMaxPlayers());
+
+            if (gameRoom == null) {
+                sendError("Không thể tạo phòng trong memory!");
+                return;
+            }
+
+            // 3️⃣ Chuẩn bị phản hồi
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.CREATE_ROOM);
+            response.put("success", true);
+            response.put("roomId", roomId);
+            response.put("roomName", newRoom.getRoomName());
+            response.put("subject", subject);
+            response.put("difficulty", difficulty);
+            response.put("maxPlayers", newRoom.getMaxPlayers());
+            response.put("currentPlayers", 1);
+
+            // 👑 Thông tin host
+            Map<String, Object> hostInfo = new HashMap<>();
+            hostInfo.put("userId", currentUser.getUserId());
+            hostInfo.put("username", currentUser.getUsername());
+            hostInfo.put("fullName", currentUser.getFullName());
+            hostInfo.put("avatarUrl", currentUser.getAvatarUrl());
+            hostInfo.put("totalScore", currentUser.getTotalScore());
+            hostInfo.put("isHost", true);
+            hostInfo.put("isReady", false);
+
+            List<Map<String, Object>> players = new ArrayList<>();
+            players.add(hostInfo);
+            response.put("players", players);
+
+            // 4️⃣ Gửi kết quả về client
+            sendMessage(response);
+
+            logWithTime("✅ Room created successfully! ID=" + roomId);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("type", Protocol.CREATE_ROOM);
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Lỗi server: " + e.getMessage());
+            sendMessage(errorResponse);
+        }
+    }
+
+
+    /**
+     * Handler: JOIN_ROOM - Vào phòng game
+     */
+    private void handleJoinRoom(JsonObject request) {
+        try {
+            logWithTime("🚪 [JOIN_ROOM] Processing request...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [JOIN_ROOM] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            String roomId = request.get("roomId").getAsString();
+
+            logWithTime("🚪 [JOIN_ROOM] User: " + currentUser.getUsername() +
+                    " | RoomId: " + roomId);
+
+            // TODO: Implement game room logic
+            // boolean success = gameRoomManager.joinRoom(this, roomId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", "JOIN_ROOM");
+            response.put("success", true);
+            response.put("message", "Đã vào phòng: " + roomId);
+
+            sendMessage(response);
+            logWithTime("✅ [JOIN_ROOM] User joined room successfully");
+
+        } catch (Exception e) {
+            logWithTime("❌ [JOIN_ROOM] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi vào phòng!");
+        }
+    }
+
+    /**
+     * Handler: LEAVE_ROOM - Rời phòng game
+     */
+    private void handleLeaveRoom(JsonObject request) {
+        try {
+            logWithTime("🚪 [LEAVE_ROOM] Processing request...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [LEAVE_ROOM] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            logWithTime("🚪 [LEAVE_ROOM] User: " + currentUser.getUsername());
+
+            // TODO: Implement game room logic
+            // boolean success = gameRoomManager.leaveRoom(this);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", "LEAVE_ROOM");
+            response.put("success", true);
+            response.put("message", "Đã rời phòng");
+
+            sendMessage(response);
+            logWithTime("✅ [LEAVE_ROOM] User left room successfully");
+
+        } catch (Exception e) {
+            logWithTime("❌ [LEAVE_ROOM] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi rời phòng!");
+        }
+    }
+
+    /**
+     * Handler: PLAYER_READY - Sẵn sàng chơi
+     */
+    private void handlePlayerReady(JsonObject request) {
+        try {
+            logWithTime("✅ [PLAYER_READY] Processing request...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [PLAYER_READY] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            logWithTime("✅ [PLAYER_READY] User: " + currentUser.getUsername());
+
+            // TODO: Implement game ready logic
+            // gameRoomManager.setPlayerReady(this);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", "PLAYER_READY");
+            response.put("success", true);
+            response.put("message", "Đã sẵn sàng!");
+
+            sendMessage(response);
+            logWithTime("✅ [PLAYER_READY] Ready status sent");
+
+        } catch (Exception e) {
+            logWithTime("❌ [PLAYER_READY] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi gửi trạng thái sẵn sàng!");
+        }
+    }
+
+    /**
+     * Handler: SUBMIT_ANSWER - Nộp câu trả lời
+     */
+    private void handleSubmitAnswer(JsonObject request) {
+        try {
+            logWithTime("📝 [SUBMIT_ANSWER] Processing request...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [SUBMIT_ANSWER] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            int questionId = request.get("questionId").getAsInt();
+            String answer = request.get("answer").getAsString();
+            long timeSpent = request.get("timeSpent").getAsLong();
+
+            logWithTime("📝 [SUBMIT_ANSWER] User: " + currentUser.getUsername() +
+                    " | QuestionId: " + questionId +
+                    " | Answer: " + answer +
+                    " | Time: " + timeSpent + "ms");
+
+            // TODO: Implement answer validation and scoring
+            // GameRoom room = gameRoomManager.getRoomByUser(this);
+            // if (room != null) {
+            //     room.submitAnswer(this, questionId, answer, timeSpent);
+            // }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", "SUBMIT_ANSWER");
+            response.put("success", true);
+            response.put("message", "Đã nộp câu trả lời!");
+
+            sendMessage(response);
+            logWithTime("✅ [SUBMIT_ANSWER] Answer submitted successfully");
+
+        } catch (Exception e) {
+            logWithTime("❌ [SUBMIT_ANSWER] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi nộp câu trả lời!");
+        }
+    }
+
 }

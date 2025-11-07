@@ -50,6 +50,7 @@ public class UserDAO {
         return false;
     }
 
+    
     /**
      * Login user - validate credentials
      */
@@ -278,6 +279,89 @@ public class UserDAO {
         }
     }
 
+    /**
+     * Lấy thông tin người dùng theo username
+     */
+    public User getUserByUsername(String username) {
+        String sql = "SELECT * FROM users WHERE username = ?";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                User user = new User();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setEmail(rs.getString("email"));
+                user.setFullName(rs.getString("full_name"));
+                user.setAge(rs.getInt("age"));
+                user.setAvatarUrl(rs.getString("avatar_url"));
+                user.setTotalScore(rs.getInt("total_score"));
+                user.setMathScore(rs.getInt("math_score"));
+                user.setEnglishScore(rs.getInt("english_score"));
+                user.setLiteratureScore(rs.getInt("literature_score"));
+                user.setTotalGames(rs.getInt("total_games"));
+                user.setWins(rs.getInt("wins"));
+                user.setOnline(rs.getBoolean("is_online"));
+
+                return user;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error getting user by username: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Lấy mật khẩu đã mã hóa của người dùng (dùng cho xác thực, đổi mật khẩu)
+     */
+    public String getPassword(String username) {
+        String sql = "SELECT password FROM users WHERE username = ?";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("password");
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error getting password: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Cập nhật mật khẩu mới cho người dùng
+     */
+    public boolean updatePassword(int userId, String newPassword) {
+        String sql = "UPDATE users SET password = ? WHERE user_id = ?";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            String hashedPassword = hashPassword(newPassword);
+            pstmt.setString(1, hashedPassword);
+            pstmt.setInt(2, userId);
+
+            int rows = pstmt.executeUpdate();
+
+            if (rows > 0) {
+                System.out.println("✅ Password updated for user_id=" + userId);
+                return true;
+            } else {
+                System.out.println("⚠️ No user found with id=" + userId);
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error updating password: " + e.getMessage());
+        }
+
+        return false;
+    }
 
 
 }
