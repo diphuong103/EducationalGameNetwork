@@ -16,9 +16,11 @@ import javafx.scene.layout.*;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Controller cho màn hình phòng chờ game
@@ -49,6 +51,9 @@ public class RoomController {
     @FXML private Button btnFilterAll, btnFilterOnline, btnFilterInGame;
     @FXML private Button btnReady;
     @FXML private Button btnStart;
+    @FXML private Label kickIcon2;
+    @FXML private Label kickIcon3;
+    @FXML private Label kickIcon4;
 
     // ==================== Data ====================
 
@@ -60,9 +65,11 @@ public class RoomController {
     private boolean isHost = false;
     private boolean isReady = false;
     private Map<Integer, PlayerInfo> players = new HashMap<>();
+    private Map<Integer, Integer> userIdToSlot = new HashMap<>();
     private List<FriendItem> allFriends = new ArrayList<>();
     private String currentFilter = "ALL";
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+    private Consumer<JsonObject> kickPlayerCallback;
 
 
     @FXML
@@ -74,14 +81,56 @@ public class RoomController {
         setupEventHandlers();
         loadFriendsList();
 
+        setupKickIcons();
+
         // Register callbacks
         connection.setPlayerJoinedCallback(this::handlePlayerJoined);
         connection.setPlayerLeftCallback(this::handlePlayerLeft);
         connection.setPlayerReadyCallback(this::handlePlayerReady);
         connection.setRoomChatCallback(this::handleRoomChatMessage);
+        connection.setKickPlayerCallback(this::handleKickPlayer);
 
         System.out.println("✅ RoomController initialized");
     }
+
+    /**
+     * Setup kick icons - chỉ hiện khi là host
+     */
+    private void setupKickIcons() {
+        kickIcon2.setVisible(false);
+        kickIcon3.setVisible(false);
+        kickIcon4.setVisible(false);
+
+        // Set style
+        String kickStyle = "-fx-text-fill: #ff4444; -fx-font-size: 18px; -fx-cursor: hand;";
+        kickIcon2.setStyle(kickStyle);
+        kickIcon3.setStyle(kickStyle);
+        kickIcon4.setStyle(kickStyle);
+
+        // Add hover effects
+        addKickIconHoverEffect(kickIcon2);
+        addKickIconHoverEffect(kickIcon3);
+        addKickIconHoverEffect(kickIcon4);
+
+        // Add click handlers
+        kickIcon2.setOnMouseClicked(e -> kickPlayer(2));
+        kickIcon3.setOnMouseClicked(e -> kickPlayer(3));
+        kickIcon4.setOnMouseClicked(e -> kickPlayer(4));
+    }
+
+    /**
+     * Add hover effect to kick icon
+     */
+    private void addKickIconHoverEffect(Label kickIcon) {
+        kickIcon.setOnMouseEntered(e -> {
+            kickIcon.setStyle(kickIcon.getStyle() + "-fx-scale-x: 1.2; -fx-scale-y: 1.2;");
+        });
+        kickIcon.setOnMouseExited(e -> {
+            kickIcon.setStyle(kickIcon.getStyle() + "-fx-scale-x: 1.0; -fx-scale-y: 1.0;");
+        });
+    }
+
+
 
     public void initializeRoom(Map<String, Object> roomData) {
         this.currentRoomData = roomData;
@@ -89,6 +138,9 @@ public class RoomController {
         this.subject = getStringValue(roomData.get("subject"));
         this.difficulty = getStringValue(roomData.get("difficulty"));
         lblRoomId.setText("Phòng #" + roomId);
+
+        players.clear();
+        userIdToSlot.clear();
 
         Object playersObj = roomData.get("playersList");
         if (playersObj instanceof List) {
@@ -127,12 +179,17 @@ public class RoomController {
                 boolean playerIsHost = getBooleanValue(player.get("isHost"));
                 boolean playerIsReady = getBooleanValue(player.get("isReady"));
 
+                int slot = i + 1; // Slot 1-4
+
+                // ✅ MAP userId -> slot
+                userIdToSlot.put(userId, slot);
+
                 if (userId == connection.getCurrentUserId()) {
                     isHost = playerIsHost;
                     isReady = playerIsReady;
                 }
 
-                updatePlayer(i + 1, userId, name, avatarUrl, score, playerIsReady);
+                updatePlayer(slot, userId, name, avatarUrl, score, playerIsReady);
             }
         }
 
@@ -140,18 +197,179 @@ public class RoomController {
         if (isHost) {
             btnReady.setVisible(false);
             btnStart.setVisible(true);
-            btnStart.setDisable(true);
+            checkStartButtonState();
+            updateKickIconsVisibility(true);
         } else {
             btnStart.setVisible(false);
             btnReady.setVisible(true);
             updateReadyButton();
+            updateKickIconsVisibility(false);
         }
 
         updateOnlineCount();
-        checkStartButtonState();
         System.out.println("✅ Room initialized successfully");
     }
 
+    /**
+     * Update kick icons visibility based on host status
+     */
+    public void updateKickIconsVisibility(boolean visible) {
+        Platform.runLater(() -> {
+            if (kickIcon2 != null) {
+                // Chỉ hiện nếu slot 2 có người
+                kickIcon2.setVisible(visible && players.containsKey(2));
+            }
+            if (kickIcon3 != null) {
+                kickIcon3.setVisible(visible && players.containsKey(3));
+            }
+            if (kickIcon4 != null) {
+                kickIcon4.setVisible(visible && players.containsKey(4));
+            }
+        });
+    }
+
+    /**
+     * Kick player khỏi phòng (chỉ host)
+     */
+    private void kickPlayer(int slot) {
+        if (!isHost) {
+            showWarning("Chỉ chủ phòng mới có thể kick người chơi!");
+            return;
+        }
+
+        PlayerInfo player = players.get(slot);
+        if (player == null) {
+            System.out.println("⚠️ Không có người chơi ở slot " + slot);
+            return;
+        }
+
+        // Confirm dialog
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Xác nhận");
+        alert.setHeaderText("Kick người chơi");
+        alert.setContentText("Bạn có chắc muốn kick " + player.name + " ra khỏi phòng?");
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                System.out.println("👢 Kicking player: " + player.name + " (userId=" + player.userId + ")");
+                connection.kickPlayerFromRoom(roomId, player.userId);
+            }
+        });
+    }
+
+    /**
+     * Handle player bị kick (từ server)
+     */
+    private void handleKickPlayer(Map<String, Object> data) {
+        Platform.runLater(() -> {
+            int kickedUserId = getIntValue(data.get("userId"));
+            String kickedUsername = getStringValue(data.get("username"));
+            boolean isMe = (kickedUserId == connection.getCurrentUserId());
+
+            System.out.println("👢 Player kicked: " + kickedUsername);
+
+            // ✅ Nếu là chính mình bị kick
+            if (isMe) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("Thông báo");
+                alert.setHeaderText("Bị kick khỏi phòng");
+                alert.setContentText("Bạn đã bị chủ phòng mời ra khỏi phòng!");
+                alert.showAndWait();
+
+                System.out.println("🚪 I was kicked - returning to home");
+
+                cleanup();
+                try {
+                    SceneManager.getInstance().switchScene("Home.fxml");
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                return;
+            }
+
+            // ✅ Nếu người khác bị kick
+            Integer slotToRemove = userIdToSlot.get(kickedUserId);
+            if (slotToRemove != null) {
+                removePlayer(slotToRemove);
+                userIdToSlot.remove(kickedUserId);
+                addSystemMessage(kickedUsername + " đã bị chủ phòng mời ra khỏi phòng");
+
+                // ✅ Ẩn kick icon của slot đó nếu là host
+                if (isHost) {
+                    Label kickIcon = getKickIconBySlot(slotToRemove);
+                    if (kickIcon != null) {
+                        kickIcon.setVisible(false);
+                    }
+                }
+            }
+
+            // ✅ Xử lý chuyển host (nếu có)
+            boolean isNewHost = getBooleanValue(data.get("isNewHost"));
+            if (isNewHost) {
+                int newHostId = getIntValue(data.get("newHostId"));
+                handleHostTransfer(newHostId);
+            }
+        });
+    }
+
+    /**
+     * Xử lý chuyển host
+     */
+    private void handleHostTransfer(int newHostUserId) {
+        System.out.println("👑 Host transfer: new host userId = " + newHostUserId);
+
+        // ✅ Nếu MÌNH là host mới
+        if (newHostUserId == connection.getCurrentUserId()) {
+            isHost = true;
+            isReady = false;
+
+            btnReady.setVisible(false);
+            btnStart.setVisible(true);
+            checkStartButtonState();
+
+            // ✅ Hiện kick icons
+            updateKickIconsVisibility(true);
+
+            // Ẩn ready indicator của mình
+            Integer mySlot = userIdToSlot.get(connection.getCurrentUserId());
+            if (mySlot != null) {
+                Circle myIndicator = getReadyIndicatorBySlot(mySlot);
+                if (myIndicator != null) {
+                    myIndicator.setVisible(false);
+                }
+
+                PlayerInfo myInfo = players.get(mySlot);
+                if (myInfo != null) {
+                    myInfo.isReady = false;
+                }
+            }
+
+            addSystemMessage("Bạn đã trở thành chủ phòng");
+            System.out.println("✅ I am now the host!");
+        } else {
+            // ✅ Người khác thành host - ẩn kick icons
+            updateKickIconsVisibility(false);
+
+            // Ẩn ready indicator của host mới
+            Integer newHostSlot = userIdToSlot.get(newHostUserId);
+            if (newHostSlot != null) {
+                Circle indicator = getReadyIndicatorBySlot(newHostSlot);
+                if (indicator != null) {
+                    indicator.setVisible(false);
+                }
+
+                PlayerInfo hostInfo = players.get(newHostSlot);
+                if (hostInfo != null) {
+                    hostInfo.isReady = false;
+                }
+            }
+        }
+    }
+
+
+    /**
+     * Handle player joined - LƯU avatarUrl
+     */
     private void handlePlayerJoined(Map<String, Object> data) {
         Platform.runLater(() -> {
             int userId = getIntValue(data.get("userId"));
@@ -164,48 +382,164 @@ public class RoomController {
 
             int emptySlot = findEmptySlot();
             if (emptySlot > 0) {
+                userIdToSlot.put(userId, emptySlot);
                 updatePlayer(emptySlot, userId, fullName, avatarUrl, score, false);
-                addSystemMessage(username + " đã tham gia phòng");
+                addSystemMessage(fullName + " đã tham gia phòng");
             }
         });
     }
 
+
+    /**
+     * Xử lý khi có người rời phòng
+     */
     private void handlePlayerLeft(Map<String, Object> data) {
         Platform.runLater(() -> {
             int userId = getIntValue(data.get("userId"));
             String username = getStringValue(data.get("username"));
-            boolean newHostId = getBooleanValue(data.get("isNewHost"));
+            boolean isNewHost = getBooleanValue(data.get("isNewHost"));
 
-            System.out.println("👋 Player left: " + username);
+            System.out.println("👋 Player left: " + username + " (userId=" + userId + ")");
 
-            // Find and remove player
-            Integer slotToRemove = null;
-            for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
-                if (entry.getValue().userId == userId) {
-                    slotToRemove = entry.getKey();
-                    break;
-                }
-            }
+            // ✅ Tìm slot của người rời
+            Integer slotToRemove = userIdToSlot.get(userId);
 
             if (slotToRemove != null) {
+                System.out.println("   Removing from slot: " + slotToRemove);
+
+                // ✅ XÓA người chơi khỏi slot
                 removePlayer(slotToRemove);
+                userIdToSlot.remove(userId);
                 addSystemMessage(username + " đã rời phòng");
             }
 
-            // Handle host transfer
-            if (newHostId && userId != connection.getCurrentUserId()) {
+            // ✅ XỬ LÝ CHUYỂN HOST
+            if (isNewHost) {
                 int newHostUserId = getIntValue(data.get("newHostId"));
+
+                System.out.println("👑 Host transfer detected!");
+                System.out.println("   Old host userId: " + userId);
+                System.out.println("   New host userId: " + newHostUserId);
+                System.out.println("   Current user userId: " + connection.getCurrentUserId());
+
+                // ✅ Nếu MÌNH là host mới
                 if (newHostUserId == connection.getCurrentUserId()) {
-                    isHost = true;
-                    btnReady.setVisible(false);
-                    btnStart.setVisible(true);
-                    checkStartButtonState();
-                    addSystemMessage("Bạn đã trở thành chủ phòng");
+                    handleBecomeHost();
+                } else {
+                    // ✅ Người khác thành host - SWAP vị trí lên slot 1
+                    handleOtherBecomeHost(newHostUserId);
                 }
             }
         });
     }
 
+    /**
+     * Xử lý khi MÌNH trở thành host
+     */
+    private void handleBecomeHost() {
+        System.out.println("🎉 I am now the HOST!");
+
+        isHost = true;
+        isReady = false;
+
+        // ✅ Tìm slot hiện tại của mình
+        Integer myCurrentSlot = userIdToSlot.get(connection.getCurrentUserId());
+
+        System.out.println("   My current slot: " + myCurrentSlot);
+
+        if (myCurrentSlot != null && myCurrentSlot != 1) {
+            // ✅ SWAP: Di chuyển mình lên slot 1
+            PlayerInfo myInfo = players.get(myCurrentSlot);
+
+            if (myInfo != null) {
+                System.out.println("   Swapping from slot " + myCurrentSlot + " to slot 1");
+
+                // Remove khỏi slot cũ
+                removePlayer(myCurrentSlot);
+                userIdToSlot.remove(connection.getCurrentUserId());
+
+                // Add vào slot 1
+                updatePlayer(1, myInfo.userId, myInfo.name, "", myInfo.score, false);
+                userIdToSlot.put(connection.getCurrentUserId(), 1);
+
+                // ✅ Load lại avatar
+                ImageView avatar1 = getAvatarBySlot(1);
+                if (avatar1 != null) {
+                    loadAvatar(avatar1, myInfo.avatarUrl);
+                }
+            }
+        }
+
+        // ✅ Update UI: Ẩn nút Ready, hiện nút Start
+        btnReady.setVisible(false);
+        btnStart.setVisible(true);
+        checkStartButtonState();
+
+        // ✅ Hiện kick icons
+        updateKickIconsVisibility(true);
+
+        // ✅ Ẩn ready indicator của mình
+        Circle myIndicator = getReadyIndicatorBySlot(1);
+        if (myIndicator != null) {
+            myIndicator.setVisible(false);
+        }
+
+        addSystemMessage("🎉 Bạn đã trở thành chủ phòng!");
+        System.out.println("✅ Become host completed!");
+    }
+
+    /**
+     * Xử lý khi NGƯỜI KHÁC trở thành host
+     */
+    private void handleOtherBecomeHost(int newHostUserId) {
+        System.out.println("👑 Other player become host: " + newHostUserId);
+
+        // ✅ Tìm slot hiện tại của host mới
+        Integer newHostCurrentSlot = userIdToSlot.get(newHostUserId);
+
+        System.out.println("   New host current slot: " + newHostCurrentSlot);
+
+        if (newHostCurrentSlot != null && newHostCurrentSlot != 1) {
+            // ✅ SWAP: Di chuyển host mới lên slot 1
+            PlayerInfo newHostInfo = players.get(newHostCurrentSlot);
+
+            if (newHostInfo != null) {
+                System.out.println("   Swapping new host from slot " + newHostCurrentSlot + " to slot 1");
+
+                String newHostAvatarUrl = newHostInfo.avatarUrl;
+
+                // Remove khỏi slot cũ
+                removePlayer(newHostCurrentSlot);
+                userIdToSlot.remove(newHostUserId);
+
+                // Add vào slot 1
+                updatePlayer(1, newHostInfo.userId, newHostInfo.name, newHostAvatarUrl, newHostInfo.score, false);
+                userIdToSlot.put(newHostUserId, 1);
+
+                // ✅ Ẩn ready indicator (vì giờ là host)
+                Circle indicator = getReadyIndicatorBySlot(1);
+                if (indicator != null) {
+                    indicator.setVisible(false);
+                }
+
+                // ✅ Update player info
+                newHostInfo.isReady = false;
+            }
+        }
+
+        // ✅ Ẩn kick icons (vì mình không còn là host)
+        updateKickIconsVisibility(false);
+
+        System.out.println("✅ Other become host completed!");
+    }
+
+
+
+    // ==================== Player Management ====================
+
+    /**
+     * Update player - LƯU avatarUrl vào PlayerInfo
+     */
     private void updatePlayer(int slot, int userId, String name, String avatarUrl, int score, boolean isReady) {
         Platform.runLater(() -> {
             ImageView avatar = getAvatarBySlot(slot);
@@ -231,19 +565,38 @@ public class RoomController {
                     readyIndicator.setVisible(isReady);
                 }
 
+                // ✅ Hiện kick icon nếu là host và không phải slot 1
+                if (isHost && slot > 1) {
+                    Label kickIcon = getKickIconBySlot(slot);
+                    if (kickIcon != null) {
+                        kickIcon.setVisible(true);
+                    }
+                }
+
+                // ✅ LƯU avatarUrl vào PlayerInfo
                 PlayerInfo player = new PlayerInfo();
                 player.userId = userId;
                 player.name = name;
+                player.avatarUrl = avatarUrl; // ✅ LƯU avatarUrl
                 player.score = score;
                 player.isReady = isReady;
                 players.put(slot, player);
+
+                System.out.println("✅ Updated slot " + slot + ": " + name + " (userId=" + userId + ")");
             }
 
             updateOnlineCount();
-            checkStartButtonState();
+
+            if (isHost) {
+                checkStartButtonState();
+            }
         });
     }
 
+
+    /**
+     * Override removePlayer để ẩn kick icon
+     */
     private void removePlayer(int slot) {
         Platform.runLater(() -> {
             ImageView avatar = getAvatarBySlot(slot);
@@ -251,6 +604,7 @@ public class RoomController {
             Label scoreLabel = getScoreLabelBySlot(slot);
             Circle readyIndicator = getReadyIndicatorBySlot(slot);
             Label emptyIcon = getEmptyIconBySlot(slot);
+            Label kickIcon = getKickIconBySlot(slot);
 
             if (avatar != null && nameLabel != null) {
                 setDefaultAvatar(avatar);
@@ -269,13 +623,34 @@ public class RoomController {
                     readyIndicator.setVisible(false);
                 }
 
+                // ✅ Ẩn kick icon
+                if (kickIcon != null) {
+                    kickIcon.setVisible(false);
+                }
+
                 players.remove(slot);
             }
 
             updateOnlineCount();
-            checkStartButtonState();
+
+            if (isHost) {
+                checkStartButtonState();
+            }
         });
     }
+
+    /**
+     * Get kick icon by slot
+     */
+    private Label getKickIconBySlot(int slot) {
+        switch (slot) {
+            case 2: return kickIcon2;
+            case 3: return kickIcon3;
+            case 4: return kickIcon4;
+            default: return null;
+        }
+    }
+
 
 
     private void handlePlayerReady(Map<String, Object> data) {
@@ -283,23 +658,40 @@ public class RoomController {
             int userId = getIntValue(data.get("userId"));
             boolean ready = getBooleanValue(data.get("isReady"));
 
-            System.out.println("✅ Player ready status: " + userId + " = " + ready);
+            System.out.println("✅ Player ready status: userId=" + userId + " ready=" + ready);
 
-            // Update player ready status
-            for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
-                if (entry.getValue().userId == userId) {
-                    entry.getValue().isReady = ready;
-                    Circle indicator = getReadyIndicatorBySlot(entry.getKey());
-                    if (indicator != null) {
-                        indicator.setVisible(ready);
-                    }
-                    break;
+            // ✅ Tìm slot bằng userIdToSlot map
+            Integer slot = userIdToSlot.get(userId);
+
+            if (slot != null) {
+                System.out.println("   Found player in slot: " + slot);
+
+                // ✅ Update player info
+                PlayerInfo playerInfo = players.get(slot);
+                if (playerInfo != null) {
+                    playerInfo.isReady = ready;
+                    System.out.println("   Updated PlayerInfo.isReady = " + ready);
                 }
+
+                // ✅ Update ready indicator
+                Circle indicator = getReadyIndicatorBySlot(slot);
+                if (indicator != null) {
+                    indicator.setVisible(ready);
+                    System.out.println("   Set indicator visible = " + ready);
+                } else {
+                    System.out.println("   ⚠️ Indicator is NULL for slot " + slot);
+                }
+            } else {
+                System.out.println("   ⚠️ User not found in userIdToSlot map");
             }
 
-            checkStartButtonState();
+            // ✅ Check if host can start game
+            if (isHost) {
+                checkStartButtonState();
+            }
         });
     }
+
 
 
     private int findEmptySlot() {
@@ -400,14 +792,32 @@ public class RoomController {
 
     private void handleRoomChatMessage(com.google.gson.JsonObject json) {
         try {
-            boolean success = json.get("success").getAsBoolean();
-            if (!success) return;
+            // Check which format the server is using
+            if (json.has("sender") && json.has("message")) {
+                // New format from server
+                String senderId = json.has("senderId") ? json.get("senderId").getAsString() : "";
+                String sender = json.get("sender").getAsString();
+                String message = json.get("message").getAsString();
 
-            String username = json.get("username").getAsString();
-            String message = json.get("message").getAsString();
+                // Don't display if it's from current user (already displayed when sent)
+                if (!senderId.equals(connection.getCurrentUserId()) &&
+                        !sender.equals(connection.getCurrentFullName())) {
+                    addChatMessage(sender, message, false);
+                }
 
-            if (!username.equals(connection.getCurrentUsername())) {
-                addChatMessage(username, message, false);
+            } else if (json.has("success")) {
+                // Old format (if still supported)
+                boolean success = json.get("success").getAsBoolean();
+                if (!success) return;
+
+                String username = json.get("username").getAsString();
+                String message = json.get("message").getAsString();
+
+                if (!username.equals(connection.getCurrentUsername())) {
+                    addChatMessage(username, message, false);
+                }
+            } else {
+                System.err.println("❌ Unknown room chat message format: " + json);
             }
 
         } catch (Exception e) {
@@ -415,6 +825,7 @@ public class RoomController {
             e.printStackTrace();
         }
     }
+
 
     @FXML
     private void handleShowEmoji() {
@@ -959,6 +1370,9 @@ public class RoomController {
         System.out.println("📧 Invited friend: " + friend.name);
     }
 
+    // ==================== Actions ====================
+
+
     /**
      * Handle ready button
      */
@@ -966,13 +1380,24 @@ public class RoomController {
         isReady = !isReady;
         updateReadyButton();
 
-        // Update own ready indicator
-        readyIndicator1.setVisible(isReady);
+        // ✅ Update own ready indicator
+        Integer mySlot = userIdToSlot.get(connection.getCurrentUserId());
+        if (mySlot != null) {
+            Circle indicator = getReadyIndicatorBySlot(mySlot);
+            if (indicator != null) {
+                indicator.setVisible(isReady);
+            }
+
+            PlayerInfo myInfo = players.get(mySlot);
+            if (myInfo != null) {
+                myInfo.isReady = isReady;
+            }
+        }
 
         // Send to server
         connection.sendReady(isReady);
 
-        System.out.println("✅ Ready status: " + isReady);
+        System.out.println("✅ Ready status changed: " + isReady);
     }
 
     private void updateReadyButton() {
@@ -994,11 +1419,13 @@ public class RoomController {
      */
     private void handleStartGame() {
         if (!isHost) {
+            System.out.println("⚠️ Not host, cannot start game");
             return;
         }
 
         if (!checkAllPlayersReady()) {
             showWarning("Chưa đủ người chơi hoặc chưa tất cả sẵn sàng!");
+            System.out.println("⚠️ Not all players ready");
             return;
         }
 
@@ -1013,20 +1440,30 @@ public class RoomController {
      */
     private boolean checkAllPlayersReady() {
         if (players.size() < 2) {
+            System.out.println("   ❌ Not enough players: " + players.size());
             return false;
         }
 
-        for (PlayerInfo player : players.values()) {
-            // Skip host (doesn't need to ready)
-            if (player.userId == connection.getCurrentUserId() && isHost) {
+        int myUserId = connection.getCurrentUserId();
+
+        for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
+            PlayerInfo player = entry.getValue();
+
+            // ✅ Skip host (host không cần ready)
+            if (player.userId == myUserId && isHost) {
+                System.out.println("   ⏭️ Skipping host (me): " + player.name);
                 continue;
             }
 
             if (!player.isReady) {
+                System.out.println("   ❌ Player not ready: " + player.name + " (userId=" + player.userId + ")");
                 return false;
             }
+
+            System.out.println("   ✅ Player ready: " + player.name);
         }
 
+        System.out.println("   ✅ All players ready!");
         return true;
     }
 
@@ -1072,8 +1509,10 @@ public class RoomController {
             return;
         }
 
-        boolean canStart = players.size() >= 2 && checkAllPlayersReady();
+        boolean canStart = checkAllPlayersReady();
         btnStart.setDisable(!canStart);
+
+        System.out.println("🎮 Start button state: " + (canStart ? "ENABLED" : "DISABLED"));
     }
 
     // ==================== Helper Methods ====================
@@ -1167,6 +1606,7 @@ public class RoomController {
         connection.clearPlayerJoinedCallback();
         connection.clearPlayerLeftCallback();
         connection.clearPlayerReadyCallback();
+        connection.clearKickPlayerCallback();
         System.out.println("🧹 RoomController cleaned up");
     }
 
@@ -1191,6 +1631,7 @@ public class RoomController {
     private static class PlayerInfo {
         int userId;
         String name;
+        String avatarUrl;
         int score;
         boolean isReady;
     }

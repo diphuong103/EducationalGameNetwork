@@ -75,6 +75,7 @@ public class ServerConnection {
 
     private Consumer<Map<String, Object>> playerLeftCallback;
     private Consumer<Map<String, Object>> playerReadyCallback;
+    private Consumer<Map<String, Object>> kickPlayerCallback;
 
 
     @FunctionalInterface
@@ -110,6 +111,16 @@ public class ServerConnection {
         this.playerReadyCallback = null;
     }
 
+    /**
+     * Set callback cho KICK_PLAYER
+     */
+    public void setKickPlayerCallback(Consumer<Map<String, Object>> callback) {
+        this.kickPlayerCallback = callback;
+    }
+
+    public void clearKickPlayerCallback() {
+        this.kickPlayerCallback = null;
+    }
 
 
     private Map<String, Consumer<User>> profileByIdCallbacks = new HashMap<>();
@@ -858,6 +869,13 @@ public class ServerConnection {
                 }
                 break;
 
+            case Protocol.KICK_PLAYER:
+                System.out.println("👢 [CLIENT] Received KICK_PLAYER");
+                if (kickPlayerCallback != null) {
+                    kickPlayerCallback.accept(data);
+                }
+                break;
+
             case Protocol.PLAYER_READY:
                 System.out.println("✅ [CLIENT] Received PLAYER_READY");
                 if (playerReadyCallback != null) {
@@ -935,6 +953,29 @@ public class ServerConnection {
         if (dynamicHandler != null) {
             System.out.println("🎯 Found dynamic handler for: " + type);
             dynamicHandler.accept(json);
+        }
+    }
+
+    /**
+     * Xử lý khi có người chơi bị kick khỏi phòng
+     * @param json dữ liệu JSON từ server (chứa userId, username, isKickedByHost, newHostId, v.v.)
+     */
+    /**
+     * Gửi yêu cầu kick player
+     */
+    public void kickPlayerFromRoom(String roomId, int targetUserId) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.KICK_PLAYER);
+            request.addProperty("roomId", roomId);
+            request.addProperty("targetUserId", targetUserId);
+
+            sendRequest(request);
+            System.out.println("📤 KICK_PLAYER request sent: targetUserId=" + targetUserId);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send KICK_PLAYER: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

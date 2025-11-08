@@ -38,6 +38,7 @@ public class Protocol {
     public static final String KEY_ROOM_ID = "room_id";
     public static final String ROOM_CHAT = "ROOM_CHAT";
     public static final String INVITE_TO_ROOM = "INVITE_TO_ROOM";
+    public static final String KICK_PLAYER = "KICK_PLAYER";
 
 
 

@@ -134,6 +134,14 @@ public class ClientHandler implements Runnable {
                     logWithTime("   → Calling handleGlobalChat()");
                     handleGlobalChat(jsonMessage);
                     break;
+                case Protocol.ROOM_CHAT:
+                    logWithTime("   → Calling handleRoomChat()");
+                    handleRoomChat(jsonMessage);
+                    break;
+                case Protocol.GAME_CHAT:
+                    logWithTime("   → Calling handleGameChat()");
+                    handleGameChat(jsonMessage);
+                    break;
 
                 case Protocol.GET_MESSAGES:
                     logWithTime("   → Calling handleGetMessages()");
@@ -236,6 +244,10 @@ public class ClientHandler implements Runnable {
                     logWithTime("   → Calling handleLeaveRoom()");
                     handleLeaveRoom(jsonMessage);
                     break;
+                case Protocol.KICK_PLAYER:
+                    logWithTime("   → Calling handleKickPlayer()");
+                    handleKickPlayer(jsonMessage);
+                    break;
 
                 case Protocol.READY:
                     logWithTime("   → Calling handlePlayerReady()");
@@ -264,6 +276,9 @@ public class ClientHandler implements Runnable {
             e.printStackTrace();
             sendError("Invalid message format");
         }
+    }
+
+    private void handleGameChat(JsonObject jsonMessage) {
     }
 
 
@@ -1797,13 +1812,114 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    /**
+     * Handler: KICK_PLAYER - Kick người chơi khỏi phòng (chỉ host)
+     */
+    private void handleKickPlayer(JsonObject request) {
+        try {
+            logWithTime("👢 [KICK_PLAYER] ========== START ==========");
 
+            if (currentUser == null) {
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            String roomId = request.get("roomId").getAsString().trim();
+            int targetUserId = request.get("targetUserId").getAsInt();
+
+            GameRoomManager.GameRoom room = gameRoomManager.getRoom(roomId);
+
+            if (room == null) {
+                logWithTime("❌ [KICK_PLAYER] Room not found");
+                sendError("Phòng không tồn tại!");
+                return;
+            }
+
+            // ✅ Check if requester is host
+            if (room.getHost().getUserId() != currentUser.getUserId()) {
+                logWithTime("❌ [KICK_PLAYER] Not host");
+                sendError("Chỉ chủ phòng mới có thể kick người chơi!");
+                return;
+            }
+
+            // ✅ Check if target player exists in room
+            if (!room.hasPlayer(targetUserId)) {
+                logWithTime("❌ [KICK_PLAYER] Target not in room");
+                sendError("Người chơi không trong phòng!");
+                return;
+            }
+
+            // ✅ Cannot kick self
+            if (targetUserId == currentUser.getUserId()) {
+                logWithTime("❌ [KICK_PLAYER] Cannot kick self");
+                sendError("Không thể kick chính mình!");
+                return;
+            }
+
+            // ✅ Find target ClientHandler
+            ClientHandler targetHandler = null;
+            User targetUser = null;
+
+            for (ClientHandler client : room.getPlayers()) {
+                if (client.getCurrentUser().getUserId() == targetUserId) {
+                    targetHandler = client;
+                    targetUser = client.getCurrentUser();
+                    break;
+                }
+            }
+
+            if (targetHandler == null || targetUser == null) {
+                logWithTime("❌ [KICK_PLAYER] Target handler not found");
+                sendError("Không tìm thấy người chơi!");
+                return;
+            }
+
+            logWithTime("👢 [KICK_PLAYER] Kicking: " + targetUser.getUsername());
+
+            // ✅ Get all players before removing
+            List<ClientHandler> allPlayers = new ArrayList<>(room.getPlayers());
+
+            // ✅ Remove player from room
+            boolean removed = gameRoomManager.leaveRoom(targetHandler, roomId);
+
+            if (!removed) {
+                logWithTime("❌ [KICK_PLAYER] Failed to remove player");
+                sendError("Không thể kick người chơi!");
+                return;
+            }
+
+            // ✅ Prepare kick notification
+            Map<String, Object> kickNotification = new HashMap<>();
+            kickNotification.put("type", Protocol.KICK_PLAYER);
+            kickNotification.put("userId", targetUserId);
+            kickNotification.put("username", targetUser.getUsername());
+            kickNotification.put("isNewHost", false);
+
+            // ✅ Send notification to all players (including kicked player)
+            for (ClientHandler client : allPlayers) {
+                try {
+                    client.sendMessage(kickNotification);
+                    logWithTime("   📤 Notified: " + client.getCurrentUser().getUsername());
+                } catch (Exception e) {
+                    logWithTime("   ⚠️ Failed to notify: " + e.getMessage());
+                }
+            }
+
+            logWithTime("✅ [KICK_PLAYER] Player kicked successfully");
+            logWithTime("👢 [KICK_PLAYER] ========== END ==========");
+
+        } catch (Exception e) {
+            logWithTime("❌ [KICK_PLAYER] Exception: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi kick người chơi!");
+        }
+    }
     /**
      * Handler: LEAVE_ROOM - Rời phòng game
      */
     private void handleLeaveRoom(JsonObject request) {
         try {
-            logWithTime("🚪 [LEAVE_ROOM] Processing request...");
+            logWithTime("🚪 [LEAVE_ROOM] ========== START ==========");
 
             if (currentUser == null) {
                 sendError("Bạn chưa đăng nhập!");
@@ -1827,11 +1943,15 @@ public class ClientHandler implements Runnable {
             int leavingUserId = currentUser.getUserId();
             String leavingUsername = currentUser.getUsername();
 
-            // Get remaining players before removing
+            logWithTime("   User leaving: " + leavingUsername + " (wasHost=" + wasHost + ")");
+
+            // ✅ Get remaining players BEFORE removing
             List<ClientHandler> remainingPlayers = new ArrayList<>(room.getPlayers());
             remainingPlayers.remove(this);
 
-            // Remove player from room
+            logWithTime("   Remaining players: " + remainingPlayers.size());
+
+            // ✅ Remove player from room (this will auto-assign new host if needed)
             boolean success = gameRoomManager.leaveRoom(this, roomId);
 
             if (!success) {
@@ -1847,6 +1967,8 @@ public class ClientHandler implements Runnable {
             response.put("message", "Đã rời phòng");
             sendMessage(response);
 
+            logWithTime("   ✅ Player removed from room");
+
             // ✅ Broadcast PLAYER_LEFT to remaining players
             if (!remainingPlayers.isEmpty()) {
                 Map<String, Object> leftNotification = new HashMap<>();
@@ -1854,15 +1976,20 @@ public class ClientHandler implements Runnable {
                 leftNotification.put("userId", leavingUserId);
                 leftNotification.put("username", leavingUsername);
 
-                // If host left, assign new host
+                // ✅ If host left, get NEW host from room (already assigned by GameRoom)
                 if (wasHost) {
-                    ClientHandler newHost = remainingPlayers.get(0);
-                    User newHostUser = newHost.getCurrentUser();
+                    // ✅ Get the NEW host that was auto-assigned
+                    User newHostUser = room.getHost();
 
                     leftNotification.put("isNewHost", true);
                     leftNotification.put("newHostId", newHostUser.getUserId());
 
-                    logWithTime("👑 [LEAVE_ROOM] New host: " + newHostUser.getUsername());
+                    logWithTime("   👑 New host assigned: " + newHostUser.getUsername() +
+                            " (userId=" + newHostUser.getUserId() + ")");
+
+                    // ✅ IMPORTANT: Clear ready status của new host
+                    room.setPlayerReady(newHostUser.getUserId(), false);
+
                 } else {
                     leftNotification.put("isNewHost", false);
                 }
@@ -1878,10 +2005,10 @@ public class ClientHandler implements Runnable {
                 }
             }
 
-            logWithTime("✅ [LEAVE_ROOM] Player left successfully");
+            logWithTime("✅ [LEAVE_ROOM] ========== END ==========");
 
         } catch (Exception e) {
-            logWithTime("❌ [LEAVE_ROOM] Error: " + e.getMessage());
+            logWithTime("❌ [LEAVE_ROOM] Exception: " + e.getMessage());
             e.printStackTrace();
             sendError("Lỗi khi rời phòng!");
         }
@@ -2042,6 +2169,7 @@ public class ClientHandler implements Runnable {
             chatMessage.put("type", Protocol.ROOM_CHAT);
             chatMessage.put("senderId", currentUser.getUserId());
             chatMessage.put("sender", currentUser.getFullName());
+            chatMessage.put("username", currentUser.getUsername()); // Add this
             chatMessage.put("message", message);
             chatMessage.put("timestamp", System.currentTimeMillis());
 
@@ -2060,7 +2188,6 @@ public class ClientHandler implements Runnable {
             logWithTime("❌ [ROOM_CHAT] Error: " + e.getMessage());
         }
     }
-
     /**
      * Handler: SUBMIT_ANSWER - Nộp câu trả lời
      */
