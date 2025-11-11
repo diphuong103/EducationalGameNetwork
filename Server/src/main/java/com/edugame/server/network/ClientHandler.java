@@ -3,14 +3,14 @@ package com.edugame.server.network;
 import com.edugame.common.Protocol;
 import com.edugame.server.database.*;
 
+import com.edugame.server.game.GameManager;
 import com.edugame.server.game.GameRoomManager;
 import com.edugame.server.game.MatchmakingManager;
-import com.edugame.server.model.Friend;
-import com.edugame.server.model.Question;
-import com.edugame.server.model.Room;
-import com.edugame.server.model.User;
+import com.edugame.server.model.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import javafx.application.Platform;
+import javafx.fxml.FXMLLoader;
 
 import java.io.*;
 import java.net.Socket;
@@ -34,7 +34,7 @@ public class ClientHandler implements Runnable {
     private MatchmakingManager matchmakingManager;
     private QuestionDAO questionDAO;
     private static final GameRoomManager gameRoomManager = GameRoomManager.getInstance();
-
+    private GameManager gameManager = GameManager.getInstance();
 
     public void setMatchmakingManager(MatchmakingManager matchmakingManager) {
         this.matchmakingManager = matchmakingManager;
@@ -252,6 +252,10 @@ public class ClientHandler implements Runnable {
                 case Protocol.READY:
                     logWithTime("   → Calling handlePlayerReady()");
                     handlePlayerReady(jsonMessage);
+                    break;
+                case Protocol.START_GAME:
+                    logWithTime("   → Calling handlePlayerReady()");
+                    handleStartGame(jsonMessage);
                     break;
 
                 case Protocol.SUBMIT_ANSWER:
@@ -1527,7 +1531,7 @@ public class ClientHandler implements Runnable {
                 Map<String, Object> qMap = new HashMap<>();
                 qMap.put("questionId", q.getQuestionId());
                 qMap.put("subject", q.getSubject());
-                qMap.put("question", q.getQuestion());
+                qMap.put("question", q.getQuestionText());
                 qMap.put("optionA", q.getOptionA());
                 qMap.put("optionB", q.getOptionB());
                 qMap.put("optionC", q.getOptionC());
@@ -2079,7 +2083,7 @@ public class ClientHandler implements Runnable {
     }
 
     /**
-     * Handler: START_GAME - Bắt đầu game (chỉ host)
+     * Handler: START_GAME - Host bắt đầu game
      */
     private void handleStartGame(JsonObject request) {
         try {
@@ -2098,38 +2102,72 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
-            // Check if requester is host
+            // ✅ Check if requester is host
             if (room.getHost().getUserId() != currentUser.getUserId()) {
                 sendError("Chỉ chủ phòng mới có thể bắt đầu game!");
                 return;
             }
 
-            // Check minimum players
+            // ✅ Check minimum players
             if (room.getPlayerCount() < 2) {
                 sendError("Cần ít nhất 2 người chơi!");
                 return;
             }
 
-            // Check all players ready (except host)
+            // ✅ Check all players ready (except host)
             if (!room.areAllPlayersReady()) {
                 sendError("Chưa tất cả người chơi sẵn sàng!");
                 return;
             }
 
-            // TODO: Load questions and prepare game
-            // List<Question> questions = questionDAO.getRandomQuestions(
-            //     room.getSubject(), room.getDifficulty(), 10
-            // );
+            // ✅ Start game session
+            List<ClientHandler> players = room.getPlayers();
+            boolean success = gameManager.startGame(
+                    roomId,
+                    room.getSubject(),
+                    room.getDifficulty(),
+                    players
+            );
+
+            if (!success) {
+                sendError("Không thể bắt đầu game!");
+                return;
+            }
+
+            // ✅ Setup broadcast callback
+            GameSession session = gameManager.getSession(roomId);
+            if (session != null) {
+                session.setResultBroadcaster(rid -> {
+                    broadcastQuestionResults(rid, players);
+                });
+            }
 
             // ✅ Broadcast START_GAME to all players
             Map<String, Object> startNotification = new HashMap<>();
             startNotification.put("type", Protocol.START_GAME);
             startNotification.put("success", true);
             startNotification.put("roomId", roomId);
-            startNotification.put("message", "Game bắt đầu!");
-            // startNotification.put("questions", questions);
+            startNotification.put("subject", room.getSubject());
+            startNotification.put("difficulty", room.getDifficulty());
+            startNotification.put("message", "Game bắt đầu trong 10 giây!");
+            startNotification.put("countdownSeconds", 10);
 
-            for (ClientHandler player : room.getPlayers()) {
+            // ✅ Add player info
+            List<Map<String, Object>> playerInfoList = new ArrayList<>();
+            for (ClientHandler player : players) {
+                if (player.getCurrentUser() != null) {
+                    Map<String, Object> pInfo = new HashMap<>();
+                    pInfo.put("userId", player.getCurrentUser().getUserId());
+                    pInfo.put("username", player.getCurrentUser().getUsername());
+                    pInfo.put("fullName", player.getCurrentUser().getFullName());
+                    pInfo.put("avatarUrl", player.getCurrentUser().getAvatarUrl());
+                    playerInfoList.add(pInfo);
+                }
+            }
+            startNotification.put("players", playerInfoList);
+
+            // ✅ Broadcast to all players
+            for (ClientHandler player : players) {
                 try {
                     player.sendMessage(startNotification);
                     logWithTime("   📤 Notified: " + player.getCurrentUser().getUsername());
@@ -2140,12 +2178,266 @@ public class ClientHandler implements Runnable {
 
             logWithTime("✅ [START_GAME] Game started successfully");
 
+            // ✅ Schedule first question after countdown (10 seconds)
+            new Thread(() -> {
+                try {
+                    Thread.sleep(10000); // Wait for countdown
+
+                    // Start game
+                    gameManager.beginGameAfterCountdown(roomId);
+
+                    // Send first question
+                    sendNextQuestion(roomId, players);
+
+                } catch (InterruptedException e) {
+                    logWithTime("❌ [START_GAME] Countdown interrupted");
+                }
+            }, "GameCountdown-" + roomId).start();
+
         } catch (Exception e) {
             logWithTime("❌ [START_GAME] Error: " + e.getMessage());
             e.printStackTrace();
             sendError("Lỗi khi bắt đầu game!");
         }
     }
+
+    /**
+     * Gửi câu hỏi tiếp theo cho tất cả players
+     */
+    private void sendNextQuestion(String roomId, List<ClientHandler> players) {
+        try {
+            GameSession session = gameManager.getSession(roomId);
+            if (session == null) {
+                logWithTime("❌ [NEXT_QUESTION] Session not found: " + roomId);
+                return;
+            }
+
+            Question question = session.getCurrentQuestion();
+            if (question == null) {
+                logWithTime("⚠️ [NEXT_QUESTION] No more questions, ending game");
+                endGameAndSendResults(roomId, players);
+                return;
+            }
+
+            // ✅ Prepare question data
+            Map<String, Object> questionData = new HashMap<>();
+            questionData.put("type", Protocol.GAME_QUESTION);
+            questionData.put("roomId", roomId);
+            questionData.put("questionNumber", session.getCurrentQuestionIndex() + 1);
+            questionData.put("totalQuestions", Protocol.QUESTIONS_PER_GAME);
+            questionData.put("questionId", question.getQuestionId());
+            questionData.put("questionText", question.getQuestionText());
+            questionData.put("timeLimit", Protocol.QUESTION_TIME_LIMIT);
+
+            // ✅ Add options (A, B, C, D)
+            List<String> options = new ArrayList<>();
+            options.add(question.getOptionA());
+            options.add(question.getOptionB());
+            options.add(question.getOptionC());
+            options.add(question.getOptionD());
+            questionData.put("options", options);
+
+            // ✅ Broadcast to all players
+            for (ClientHandler player : players) {
+                try {
+                    player.sendMessage(questionData);
+                } catch (Exception e) {
+                    logWithTime("   ⚠️ Failed to send question to " + player.getCurrentUser().getUsername());
+                }
+            }
+
+            logWithTime("✅ [NEXT_QUESTION] Sent question " + (session.getCurrentQuestionIndex() + 1));
+
+        } catch (Exception e) {
+            logWithTime("❌ [NEXT_QUESTION] Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * Handler: SUBMIT_ANSWER - Player gửi câu trả lời
+     * ✅ IMPROVED VERSION
+     */
+    private void handleSubmitAnswer(JsonObject request) {
+        try {
+            logWithTime("📝 [SUBMIT_ANSWER] Processing answer...");
+
+            if (currentUser == null) {
+                logWithTime("❌ [SUBMIT_ANSWER] User not logged in");
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            String roomId = request.get("roomId").getAsString();
+            int answerIndex = request.get("answer").getAsInt(); // 0-3 for A-D
+
+            // Convert index to letter (A, B, C, D)
+            String answer = String.valueOf((char)('A' + answerIndex));
+
+            int userId = currentUser.getUserId();
+
+            logWithTime("📝 [SUBMIT_ANSWER] User: " + currentUser.getUsername() +
+                    " | Room: " + roomId +
+                    " | Answer: " + answer);
+
+            // ✅ Submit to GameManager
+            GameSession.AnswerResult result = gameManager.submitAnswer(roomId, userId, answer);
+
+            if (!result.success) {
+                sendError(result.message);
+                return;
+            }
+
+            // ✅ Send immediate feedback to player
+            Map<String, Object> feedback = new HashMap<>();
+            feedback.put("type", Protocol.ANSWER_RESULT);
+            feedback.put("success", true);
+            feedback.put("isCorrect", result.message.equals("Correct!"));
+            feedback.put("timeTaken", result.timeTaken);
+            feedback.put("correctStreak", result.correctStreak);
+            feedback.put("message", result.message);
+
+            sendMessage(feedback);
+
+            logWithTime("✅ [SUBMIT_ANSWER] Answer recorded: " +
+                    (result.message.equals("Correct!") ? "✅ CORRECT" : "❌ WRONG"));
+
+            // ✅ Check if all players answered (will be handled by GameSession)
+            // GameSession will automatically call processQuestionResults()
+
+        } catch (Exception e) {
+            logWithTime("❌ [SUBMIT_ANSWER] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Lỗi khi nộp câu trả lời!");
+        }
+    }
+
+    /**
+     * Broadcast kết quả câu hỏi và cập nhật vị trí xe
+     * ✅ Gọi từ GameSession sau khi xử lý xong answers
+     */
+    public void broadcastQuestionResults(String roomId, List<ClientHandler> players) {
+        try {
+            GameSession session = gameManager.getSession(roomId);
+            if (session == null) return;
+
+            Map<String, Object> resultsData = new HashMap<>();
+            resultsData.put("type", Protocol.QUESTION_RESULT);
+            resultsData.put("roomId", roomId);
+
+            // ✅ Add player positions
+            List<Map<String, Object>> positions = new ArrayList<>();
+            for (Map.Entry<Integer, GameSession.PlayerGameState> entry :
+                    session.getPlayerStates().entrySet()) {
+
+                GameSession.PlayerGameState state = entry.getValue();
+                Map<String, Object> pos = new HashMap<>();
+                pos.put("userId", state.userId);
+                pos.put("position", state.position);
+                pos.put("score", state.score);
+                pos.put("gotNitro", state.gotNitro);
+                pos.put("correctStreak", state.correctStreak);
+                positions.add(pos);
+            }
+            resultsData.put("positions", positions);
+
+            // ✅ Broadcast to all players
+            for (ClientHandler player : players) {
+                try {
+                    player.sendMessage(resultsData);
+                } catch (Exception e) {
+                    logWithTime("   ⚠️ Failed to send results to player");
+                }
+            }
+
+            logWithTime("✅ [GAME_UPDATE] Broadcast positions to all players");
+
+            // ✅ Check if game finished
+            if (session.isFinished()) {
+                endGameAndSendResults(roomId, players);
+            } else {
+                // ✅ Send next question after 2 seconds
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(2000);
+                        sendNextQuestion(roomId, players);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }, "NextQuestion-" + roomId).start();
+            }
+
+        } catch (Exception e) {
+            logWithTime("❌ [BROADCAST_RESULTS] Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Kết thúc game và gửi kết quả cuối cùng
+     */
+    private void endGameAndSendResults(String roomId, List<ClientHandler> players) {
+        try {
+            logWithTime("🏁 [GAME_END] Ending game: " + roomId);
+
+            GameSession session = gameManager.getSession(roomId);
+            if (session == null) return;
+
+            // ✅ End game (will save to database)
+            gameManager.endGame(roomId, players);
+
+            // ✅ Prepare final results
+            Map<String, Object> endData = new HashMap<>();
+            endData.put("type", Protocol.GAME_END);
+            endData.put("roomId", roomId);
+            endData.put("message", "Game kết thúc!");
+
+            // ✅ Add rankings
+            List<Map<String, Object>> rankings = new ArrayList<>();
+            List<GameSession.PlayerGameState> sortedStates = new ArrayList<>(
+                    session.getPlayerStates().values()
+            );
+            sortedStates.sort((a, b) -> {
+                int posCompare = Double.compare(b.position, a.position);
+                if (posCompare != 0) return posCompare;
+                return Integer.compare(b.score, a.score);
+            });
+
+            for (GameSession.PlayerGameState state : sortedStates) {
+                Map<String, Object> ranking = new HashMap<>();
+                ranking.put("userId", state.userId);
+                ranking.put("rank", state.finalRank);
+                ranking.put("position", state.position);
+                ranking.put("score", state.score);
+                rankings.add(ranking);
+            }
+            endData.put("rankings", rankings);
+
+            // ✅ Winner info
+            if (!sortedStates.isEmpty()) {
+                GameSession.PlayerGameState winner = sortedStates.get(0);
+                endData.put("winnerId", winner.userId);
+                endData.put("winnerScore", winner.score);
+            }
+
+            // ✅ Broadcast to all players
+            for (ClientHandler player : players) {
+                try {
+                    player.sendMessage(endData);
+                } catch (Exception e) {
+                    logWithTime("   ⚠️ Failed to send end data to player");
+                }
+            }
+
+            logWithTime("✅ [GAME_END] Results sent to all players");
+
+        } catch (Exception e) {
+            logWithTime("❌ [GAME_END] Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     /**
      * Handler: ROOM_CHAT - Chat trong phòng
      */
@@ -2186,48 +2478,6 @@ public class ClientHandler implements Runnable {
 
         } catch (Exception e) {
             logWithTime("❌ [ROOM_CHAT] Error: " + e.getMessage());
-        }
-    }
-    /**
-     * Handler: SUBMIT_ANSWER - Nộp câu trả lời
-     */
-    private void handleSubmitAnswer(JsonObject request) {
-        try {
-            logWithTime("📝 [SUBMIT_ANSWER] Processing request...");
-
-            if (currentUser == null) {
-                logWithTime("❌ [SUBMIT_ANSWER] User not logged in");
-                sendError("Bạn chưa đăng nhập!");
-                return;
-            }
-
-            int questionId = request.get("questionId").getAsInt();
-            String answer = request.get("answer").getAsString();
-            long timeSpent = request.get("timeSpent").getAsLong();
-
-            logWithTime("📝 [SUBMIT_ANSWER] User: " + currentUser.getUsername() +
-                    " | QuestionId: " + questionId +
-                    " | Answer: " + answer +
-                    " | Time: " + timeSpent + "ms");
-
-            // TODO: Implement answer validation and scoring
-            // GameRoom room = gameRoomManager.getRoomByUser(this);
-            // if (room != null) {
-            //     room.submitAnswer(this, questionId, answer, timeSpent);
-            // }
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("type", "SUBMIT_ANSWER");
-            response.put("success", true);
-            response.put("message", "Đã nộp câu trả lời!");
-
-            sendMessage(response);
-            logWithTime("✅ [SUBMIT_ANSWER] Answer submitted successfully");
-
-        } catch (Exception e) {
-            logWithTime("❌ [SUBMIT_ANSWER] Error: " + e.getMessage());
-            e.printStackTrace();
-            sendError("Lỗi khi nộp câu trả lời!");
         }
     }
 

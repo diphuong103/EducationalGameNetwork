@@ -252,4 +252,38 @@ public class SceneManager {
     public Stage getPrimaryStage() {
         return primaryStage;
     }
+
+
+    /**
+     * 🆕 Switch scene bằng Parent (đã load thủ công)
+     * Dùng khi bạn đã tự load FXML bằng FXMLLoader.
+     */
+    public void switchScene(Parent root) {
+        if (primaryStage == null) {
+            throw new IllegalStateException("PrimaryStage chưa được khởi tạo!");
+        }
+
+        // Tạo scene mới
+        Scene newScene = new Scene(root);
+
+        // Hiệu ứng fade transition
+        if (primaryStage.getScene() != null) {
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), primaryStage.getScene().getRoot());
+            fadeOut.setFromValue(1.0);
+            fadeOut.setToValue(0.0);
+            fadeOut.setOnFinished(event -> {
+                primaryStage.setScene(newScene);
+
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(200), root);
+                fadeIn.setFromValue(0.0);
+                fadeIn.setToValue(1.0);
+                fadeIn.play();
+            });
+            fadeOut.play();
+        } else {
+            primaryStage.setScene(newScene);
+            primaryStage.show();
+        }
+    }
+
 }

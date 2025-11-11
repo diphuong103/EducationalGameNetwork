@@ -76,6 +76,12 @@ public class ServerConnection {
     private Consumer<Map<String, Object>> playerLeftCallback;
     private Consumer<Map<String, Object>> playerReadyCallback;
     private Consumer<Map<String, Object>> kickPlayerCallback;
+    private Consumer<Map<String, Object>> questionResultCallback;
+
+    public void setQuestionResultCallback(Consumer<Map<String, Object>> callback) {
+        this.questionResultCallback = callback;
+    }
+
 
 
     @FunctionalInterface
@@ -123,11 +129,84 @@ public class ServerConnection {
     }
 
 
+
     private Map<String, Consumer<User>> profileByIdCallbacks = new HashMap<>();
 
     private Map<String, Consumer<JsonObject>> pendingRequests = new ConcurrentHashMap<>();
 
 
+    // ============================================
+// GAME CALLBACKS
+// ============================================
+    private Consumer<Map<String, Object>> gameStartCallback;
+    private Consumer<Map<String, Object>> gameQuestionCallback;
+    private Consumer<Map<String, Object>> answerResultCallback;
+    private Consumer<Map<String, Object>> gameUpdateCallback;
+    private Consumer<Map<String, Object>> positionUpdateCallback;
+    private Consumer<Map<String, Object>> gameEndCallback;
+    private Consumer<Map<String, Object>> nitroBoostCallback;
+
+    /**
+     * Set callback khi game bắt đầu
+     */
+    public void setGameStartCallback(Consumer<Map<String, Object>> callback) {
+        this.gameStartCallback = callback;
+    }
+
+    /**
+     * Set callback khi nhận câu hỏi mới
+     */
+    public void setGameQuestionCallback(Consumer<Map<String, Object>> callback) {
+        this.gameQuestionCallback = callback;
+    }
+
+    /**
+     * Set callback khi nhận kết quả đáp án
+     */
+    public void setAnswerResultCallback(Consumer<Map<String, Object>> callback) {
+        this.answerResultCallback = callback;
+    }
+
+    /**
+     * Set callback khi game update
+     */
+    public void setGameUpdateCallback(Consumer<Map<String, Object>> callback) {
+        this.gameUpdateCallback = callback;
+    }
+
+    /**
+     * Set callback khi cập nhật vị trí
+     */
+    public void setPositionUpdateCallback(Consumer<Map<String, Object>> callback) {
+        this.positionUpdateCallback = callback;
+    }
+
+    /**
+     * Set callback khi game kết thúc
+     */
+    public void setGameEndCallback(Consumer<Map<String, Object>> callback) {
+        this.gameEndCallback = callback;
+    }
+
+    /**
+     * Set callback khi có nitro boost
+     */
+    public void setNitroBoostCallback(Consumer<Map<String, Object>> callback) {
+        this.nitroBoostCallback = callback;
+    }
+    /**
+     * Clear tất cả game callbacks
+     */
+    public void clearGameCallbacks() {
+        gameStartCallback = null;
+        gameQuestionCallback = null;
+        answerResultCallback = null;
+        gameUpdateCallback = null;
+        positionUpdateCallback = null;
+        questionResultCallback = null;
+        gameEndCallback = null;
+        nitroBoostCallback = null;
+    }
 
     // Loading states
     private boolean isLoadingFriends = false;
@@ -221,6 +300,280 @@ public class ServerConnection {
             System.out.println("✅ Listener thread ready");
         }
     }
+
+    /**
+     * Route incoming messages to appropriate callbacks
+     */
+    private void handleIncomingMessage(String type, JsonObject json) {
+        // ✅ Convert JsonObject sang Map một lần
+        Gson gson = new Gson();
+        Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
+        Map<String, Object> data = gson.fromJson(json, mapType);
+
+        switch (type) {
+            case "ERROR":
+                handleErrorMessage(json);
+                break;
+
+            case Protocol.GET_PROFILE:
+                if (profileCallback != null) {
+                    profileCallback.accept(json);
+                    profileCallback = null;
+                }
+                break;
+
+            case Protocol.GET_PROFILE_BY_ID:
+                handleProfileByIdResponse(json);
+                break;
+
+            case Protocol.UPDATE_PROFILE:
+                handleUpdateProfileResponse(json);
+                break;
+
+            case Protocol.GET_LEADERBOARD:
+                if (leaderboardCallback != null) {
+                    leaderboardCallback.accept(json);
+                    leaderboardCallback = null;
+                }
+                break;
+
+            case Protocol.JOIN_ROOM_RESPONSE:
+                System.out.println("🚪 [CLIENT] Received JOIN_ROOM_RESPONSE");
+                handleJoinRoomResponse(json);
+                break;
+
+            case Protocol.PLAYER_JOINED:
+                System.out.println("🆕 [CLIENT] Received PLAYER_JOINED");
+                if (playerJoinedCallback != null) {
+                    playerJoinedCallback.accept(data);
+                }
+                break;
+
+            case Protocol.PLAYER_LEFT:
+                System.out.println("👋 [CLIENT] Received PLAYER_LEFT");
+                if (playerLeftCallback != null) {
+                    playerLeftCallback.accept(data);
+                }
+                break;
+
+            case Protocol.KICK_PLAYER:
+                System.out.println("👢 [CLIENT] Received KICK_PLAYER");
+                if (kickPlayerCallback != null) {
+                    kickPlayerCallback.accept(data);
+                }
+                break;
+
+            case Protocol.PLAYER_READY:
+                System.out.println("✅ [CLIENT] Received PLAYER_READY");
+                if (playerReadyCallback != null) {
+                    playerReadyCallback.accept(data);
+                }
+                break;
+
+//            case Protocol.ROOM_CHAT:
+//                if (roomChatCallback != null) {
+//                    roomChatCallback.accept(data);
+//                }
+//                break;
+
+
+            // GLOBAL CHAT
+            case Protocol.GLOBAL_CHAT:
+            case "GLOBAL_CHAT_MESSAGE":
+                if (globalChatCallback != null) {
+                    System.out.println("💬 [GLOBAL CHAT] New message received");
+                    globalChatCallback.accept(json);
+                }
+                break;
+
+            // PRIVATE CHAT
+            case Protocol.NEW_MESSAGE:
+                handleNewPrivateMessage(json);
+                break;
+
+            case Protocol.GET_MESSAGES:
+            case Protocol.SEND_MESSAGE:
+            case Protocol.MESSAGE_READ:
+                Consumer<JsonObject> callback = pendingRequests.remove(type);
+                if (callback != null) {
+                    callback.accept(json);
+                }
+                break;
+
+            // ROOM CHAT
+            case Protocol.ROOM_CHAT:
+            case "ROOM_CHAT_MESSAGE":
+                if (roomChatCallback != null) {
+                    System.out.println("🏠 [ROOM CHAT] New message in room");
+                    roomChatCallback.accept(json);
+                }
+                break;
+
+            // GAME CHAT
+            case Protocol.GAME_CHAT:
+            case "GAME_CHAT_MESSAGE":
+                if (gameChatCallback != null) {
+                    System.out.println("🎮 [GAME CHAT] New message in game");
+                    gameChatCallback.accept(json);
+                } else {
+                    System.out.println("⚠️ [GAME CHAT] Tính năng đang phát triển");
+                }
+                break;
+
+            case Protocol.START_GAME:
+                System.out.println("🎮 [CLIENT] Game starting!");
+                if (gameStartCallback != null) {
+                    gameStartCallback.accept(data);
+                }
+                break;
+
+            case Protocol.GAME_QUESTION:
+                System.out.println("❓ [CLIENT] Received new question");
+                if (gameQuestionCallback != null) {
+                    gameQuestionCallback.accept(data);
+                }
+                break;
+
+            case Protocol.ANSWER_RESULT:
+                System.out.println("✅ [CLIENT] Received answer result");
+                if (answerResultCallback != null) {
+                    answerResultCallback.accept(data);
+                }
+                break;
+            case Protocol.QUESTION_RESULT:
+                if (questionResultCallback != null) {
+                    questionResultCallback.accept(data);
+                }
+                break;
+            case Protocol.GAME_UPDATE:
+                System.out.println("🔄 [CLIENT] Received game state update");
+                if (gameUpdateCallback != null) {
+                    gameUpdateCallback.accept(data);
+                }
+                break;
+
+            case Protocol.PLAYER_POSITION_UPDATE:
+                System.out.println("🏎️ [CLIENT] Received position update");
+                if (positionUpdateCallback != null) {
+                    positionUpdateCallback.accept(data);
+                }
+                break;
+
+            case Protocol.GAME_END:
+                System.out.println("🏁 [CLIENT] Game ended!");
+                if (gameEndCallback != null) {
+                    gameEndCallback.accept(data);
+                }
+                break;
+
+            case Protocol.NITRO_BOOST:
+                System.out.println("🚀 [CLIENT] Player used nitro boost!");
+                if (nitroBoostCallback != null) {
+                    nitroBoostCallback.accept(data);
+                }
+                break;
+
+            default:
+                Consumer<JsonObject> cb = pendingRequests.remove(type);
+                if (cb != null) {
+                    cb.accept(json);
+                } else {
+                    System.out.println("⚠️ No handler for message type: " + type);
+                }
+                break;
+        }
+
+        // Check dynamic handlers
+        Consumer<JsonObject> dynamicHandler = messageHandlers.get(type);
+        if (dynamicHandler != null) {
+            System.out.println("🎯 Found dynamic handler for: " + type);
+            dynamicHandler.accept(json);
+        }
+    }
+
+    // ============================================
+// GAME METHODS
+// ============================================
+
+    /**
+     * Gửi đáp án cho câu hỏi hiện tại
+     * @param roomId ID phòng
+     * @param answerIndex Index đáp án (0-3 cho A-D)
+     */
+    public void submitAnswer(String roomId, int answerIndex) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.SUBMIT_ANSWER);
+        request.put("room_id", roomId);
+        request.put("answer", answerIndex);
+        request.put("username", currentUsername);
+        request.put("timestamp", System.currentTimeMillis());
+
+        sendRequest(request);
+        System.out.println("📤 [GAME] Submitted answer: " + (char)('A' + answerIndex));
+    }
+
+    /**
+     * Request game state (nếu bị disconnect)
+     */
+    public void requestGameState(String roomId) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GET_GAME_STATE);
+        request.put("room_id", roomId);
+        request.put("username", currentUsername);
+
+        sendRequest(request);
+        System.out.println("📤 [GAME] Requesting game state");
+    }
+
+    /**
+     * Leave game
+     */
+    public void leaveGame(String roomId) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.LEAVE_GAME);
+        request.put("room_id", roomId);
+        request.put("username", currentUsername);
+
+        sendRequest(request);
+        System.out.println("📤 [GAME] Leaving game");
+    }
+
+    /**
+     * Gửi chat message trong game
+     */
+    public void sendGameChatMessage(String roomId, String message) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GAME_CHAT);
+        request.put("room_id", roomId);
+        request.put("username", currentUsername);
+        request.put("message", message);
+        request.put("timestamp", System.currentTimeMillis());
+
+        sendRequest(request);
+        System.out.println("💬 [GAME CHAT] Sent: " + message);
+    }
+
+    /**
+     * Set callback cho game chat
+     */
+    public void setGameChatCallback(Consumer<JsonObject> callback) {
+        this.gameChatCallback = callback;
+    }
+
+    /**
+     * Ready for next question (optional - nếu muốn player phải confirm)
+     */
+    public void readyForNextQuestion(String roomId) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.READY_NEXT_QUESTION);
+        request.put("room_id", roomId);
+        request.put("username", currentUsername);
+
+        sendRequest(request);
+        System.out.println("✅ [GAME] Ready for next question");
+    }
+
+
 ///** Tìm trận **//
     /**
      * Lưu môn học được chọn vào session
@@ -247,6 +600,7 @@ public class ServerConnection {
         messageHandlers.put(messageType, handler);
         System.out.println("✅ Registered handler for: " + messageType);
     }
+
 
     /**
      * Hủy đăng ký handler
@@ -301,52 +655,52 @@ public class ServerConnection {
         sendJson(request);
     }
 
-    /**
-     * Gửi message đơn giản (dùng cho các request không có callback phức tạp)
-     * @param message JSON string hoặc raw message
-     */
-    public void sendMessage(String message) {
-        if (!isConnected()) {
-            System.err.println("❌ Cannot send message - not connected");
-            return;
-        }
-
-        if (writer != null && !writer.checkError()) {
-            writer.println(message);
-            writer.flush();
-            System.out.println("📤 Sent: " + message);
-        }
-    }
-
-    /**
-     * Gửi request đến server (JsonObject hoặc Map<String, Object>)
-     */
-    private void sendRequest(Object request) {
-        if (!isConnected()) {
-            System.err.println("❌ Cannot send request - not connected");
-            return;
-        }
-
-        try {
-            String jsonString;
-
-            if (request instanceof JsonObject json) {
-                jsonString = json.toString();
-            } else if (request instanceof Map<?, ?> map) {
-                // Chuyển Map sang JSON string
-                jsonString = new Gson().toJson(map);
-            } else {
-                throw new IllegalArgumentException("Unsupported request type: " + request.getClass());
+        /**
+         * Gửi message đơn giản (dùng cho các request không có callback phức tạp)
+         * @param message JSON string hoặc raw message
+         */
+        public void sendMessage(String message) {
+            if (!isConnected()) {
+                System.err.println("❌ Cannot send message - not connected");
+                return;
             }
 
-            // Gửi trực tiếp bằng sendMessage
-            sendMessage(jsonString);
-
-        } catch (Exception e) {
-            System.err.println("❌ Failed to send request: " + e.getMessage());
-            e.printStackTrace();
+            if (writer != null && !writer.checkError()) {
+                writer.println(message);
+                writer.flush();
+                System.out.println("📤 Sent: " + message);
+            }
         }
-    }
+
+        /**
+         * Gửi request đến server (JsonObject hoặc Map<String, Object>)
+         */
+        private void sendRequest(Object request) {
+            if (!isConnected()) {
+                System.err.println("❌ Cannot send request - not connected");
+                return;
+            }
+
+            try {
+                String jsonString;
+
+                if (request instanceof JsonObject json) {
+                    jsonString = json.toString();
+                } else if (request instanceof Map<?, ?> map) {
+                    // Chuyển Map sang JSON string
+                    jsonString = new Gson().toJson(map);
+                } else {
+                    throw new IllegalArgumentException("Unsupported request type: " + request.getClass());
+                }
+
+                // Gửi trực tiếp bằng sendMessage
+                sendMessage(jsonString);
+
+            } catch (Exception e) {
+                System.err.println("❌ Failed to send request: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
 
 
     // ============== TRAINING MODE METHODS ==============/
@@ -659,18 +1013,17 @@ public class ServerConnection {
      * Bắt đầu game (chỉ host)
      */
     public void sendStartGame(String roomId) {
-        try {
-            JsonObject request = new JsonObject();
-            request.addProperty("type", Protocol.START_GAME);
-            request.addProperty("roomId", roomId);
-
-            sendRequest(request);
-            System.out.println("📤 START_GAME request sent");
-
-        } catch (Exception e) {
-            System.err.println("❌ Failed to send START_GAME: " + e.getMessage());
-            e.printStackTrace();
+        if (!isConnected()) {
+            System.err.println("❌ Cannot start game - not connected");
+            return;
         }
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.START_GAME);
+        request.put("roomId", roomId);
+
+        sendRequest(request);
+        System.out.println("📤 [GAME] Start game request sent");
     }
 
 
@@ -814,147 +1167,7 @@ public class ServerConnection {
         }, "GetStatisticsTimeout").start();
     }
 
-    /**
-     * Route incoming messages to appropriate callbacks
-     */
-    private void handleIncomingMessage(String type, JsonObject json) {
-        // ✅ Convert JsonObject sang Map một lần
-        Gson gson = new Gson();
-        Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
-        Map<String, Object> data = gson.fromJson(json, mapType);
 
-        switch (type) {
-            case "ERROR":
-                handleErrorMessage(json);
-                break;
-
-            case Protocol.GET_PROFILE:
-                if (profileCallback != null) {
-                    profileCallback.accept(json);
-                    profileCallback = null;
-                }
-                break;
-
-            case Protocol.GET_PROFILE_BY_ID:
-                handleProfileByIdResponse(json);
-                break;
-
-            case Protocol.UPDATE_PROFILE:
-                handleUpdateProfileResponse(json);
-                break;
-
-            case Protocol.GET_LEADERBOARD:
-                if (leaderboardCallback != null) {
-                    leaderboardCallback.accept(json);
-                    leaderboardCallback = null;
-                }
-                break;
-
-            case Protocol.JOIN_ROOM_RESPONSE:
-                System.out.println("🚪 [CLIENT] Received JOIN_ROOM_RESPONSE");
-                handleJoinRoomResponse(json);
-                break;
-
-            case Protocol.PLAYER_JOINED:
-                System.out.println("🆕 [CLIENT] Received PLAYER_JOINED");
-                if (playerJoinedCallback != null) {
-                    playerJoinedCallback.accept(data);
-                }
-                break;
-
-            case Protocol.PLAYER_LEFT:
-                System.out.println("👋 [CLIENT] Received PLAYER_LEFT");
-                if (playerLeftCallback != null) {
-                    playerLeftCallback.accept(data);
-                }
-                break;
-
-            case Protocol.KICK_PLAYER:
-                System.out.println("👢 [CLIENT] Received KICK_PLAYER");
-                if (kickPlayerCallback != null) {
-                    kickPlayerCallback.accept(data);
-                }
-                break;
-
-            case Protocol.PLAYER_READY:
-                System.out.println("✅ [CLIENT] Received PLAYER_READY");
-                if (playerReadyCallback != null) {
-                    playerReadyCallback.accept(data);
-                }
-                break;
-
-//            case Protocol.ROOM_CHAT:
-//                if (roomChatCallback != null) {
-//                    roomChatCallback.accept(data);
-//                }
-//                break;
-
-            case Protocol.START_GAME:
-                // TODO: Handle game start
-                System.out.println("🎮 [CLIENT] Game starting!");
-                break;
-
-
-            // GLOBAL CHAT
-            case Protocol.GLOBAL_CHAT:
-            case "GLOBAL_CHAT_MESSAGE":
-                if (globalChatCallback != null) {
-                    System.out.println("💬 [GLOBAL CHAT] New message received");
-                    globalChatCallback.accept(json);
-                }
-                break;
-
-            // PRIVATE CHAT
-            case Protocol.NEW_MESSAGE:
-                handleNewPrivateMessage(json);
-                break;
-
-            case Protocol.GET_MESSAGES:
-            case Protocol.SEND_MESSAGE:
-            case Protocol.MESSAGE_READ:
-                Consumer<JsonObject> callback = pendingRequests.remove(type);
-                if (callback != null) {
-                    callback.accept(json);
-                }
-                break;
-
-            // ROOM CHAT
-            case Protocol.ROOM_CHAT:
-            case "ROOM_CHAT_MESSAGE":
-                if (roomChatCallback != null) {
-                    System.out.println("🏠 [ROOM CHAT] New message in room");
-                    roomChatCallback.accept(json);
-                }
-                break;
-
-            // GAME CHAT
-            case Protocol.GAME_CHAT:
-            case "GAME_CHAT_MESSAGE":
-                if (gameChatCallback != null) {
-                    System.out.println("🎮 [GAME CHAT] New message in game");
-                    gameChatCallback.accept(json);
-                } else {
-                    System.out.println("⚠️ [GAME CHAT] Tính năng đang phát triển");
-                }
-                break;
-
-            default:
-                Consumer<JsonObject> cb = pendingRequests.remove(type);
-                if (cb != null) {
-                    cb.accept(json);
-                } else {
-                    System.out.println("⚠️ No handler for message type: " + type);
-                }
-                break;
-        }
-
-        // Check dynamic handlers
-        Consumer<JsonObject> dynamicHandler = messageHandlers.get(type);
-        if (dynamicHandler != null) {
-            System.out.println("🎯 Found dynamic handler for: " + type);
-            dynamicHandler.accept(json);
-        }
-    }
 
     /**
      * Xử lý khi có người chơi bị kick khỏi phòng
@@ -1536,13 +1749,13 @@ public class ServerConnection {
     // CHAT TYPE 4: GAME CHAT - Chat trong game (đang phát triển)
     // ================================================================
 
-    /**
-     * Set callback for game chat messages
-     */
-    public void setGameChatCallback(Consumer<JsonObject> callback) {
-        this.gameChatCallback = callback;
-        System.out.println("✅ Game chat callback registered");
-    }
+//    /**
+//     * Set callback for game chat messages
+//     */
+//    public void setGameChatCallback(Consumer<JsonObject> callback) {
+//        this.gameChatCallback = callback;
+//        System.out.println("✅ Game chat callback registered");
+//    }
 
     /**
      * Clear game chat callback

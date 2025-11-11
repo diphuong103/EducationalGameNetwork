@@ -363,5 +363,143 @@ public class UserDAO {
         return false;
     }
 
+    public boolean updateUserStats(User user) {
+        String sql = """
+        UPDATE users 
+        SET total_games = ?, 
+            wins = ?, 
+            total_score = ?, 
+            math_score = ?, 
+            english_score = ?, 
+            literature_score = ?, 
+            last_login = NOW()
+        WHERE user_id = ?
+    """;
 
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, user.getTotalGames());
+            stmt.setInt(2, user.getWins());
+            stmt.setInt(3, user.getTotalScore());
+            stmt.setInt(4, user.getMathScore());
+            stmt.setInt(5, user.getEnglishScore());
+            stmt.setInt(6, user.getLiteratureScore());
+            stmt.setInt(7, user.getUserId());
+
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+
+        } catch (Exception e) {
+            System.err.println("❌ Lỗi khi cập nhật thống kê người chơi: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    /**
+     * Cập nhật tổng điểm của user (cộng dồn)
+     */
+    public boolean updateTotalScore(int userId, int scoreToAdd) {
+        String query = """
+            UPDATE users 
+            SET total_score = total_score + ? 
+            WHERE user_id = ?
+        """;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, scoreToAdd);
+            stmt.setInt(2, userId);
+
+            int rows = stmt.executeUpdate();
+
+            if (rows > 0) {
+                System.out.println("✅ [UserDAO] Updated score for user " + userId + " (+$" + scoreToAdd + ")");
+                return true;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ [UserDAO] Error updating score: " + e.getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * Cập nhật thống kê win/loss
+     */
+    public boolean updateGameStats(int userId, boolean isWin) {
+        String query;
+
+        if (isWin) {
+            query = """
+                UPDATE users 
+                SET total_games = total_games + 1,
+                    wins = wins + 1
+                WHERE user_id = ?
+            """;
+        } else {
+            query = """
+                UPDATE users 
+                SET total_games = total_games + 1,
+                    losses = losses + 1
+                WHERE user_id = ?
+            """;
+        }
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, userId);
+            int rows = stmt.executeUpdate();
+
+            if (rows > 0) {
+                System.out.println("✅ [UserDAO] Updated game stats for user " + userId +
+                        " (" + (isWin ? "WIN" : "LOSS") + ")");
+                return true;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ [UserDAO] Error updating game stats: " + e.getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * Cập nhật điểm theo môn học
+     */
+    public boolean updateSubjectScore(int userId, String subject, int scoreToAdd) {
+        String column = switch (subject.toLowerCase()) {
+            case "math" -> "math_score";
+            case "english" -> "english_score";
+            case "literature" -> "literature_score";
+            default -> null;
+        };
+
+        if (column == null) {
+            System.err.println("❌ [UserDAO] Invalid subject: " + subject);
+            return false;
+        }
+
+        String query = "UPDATE users SET " + column + " = " + column + " + ? WHERE user_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, scoreToAdd);
+            stmt.setInt(2, userId);
+
+            int rows = stmt.executeUpdate();
+
+            if (rows > 0) {
+                System.out.println("✅ [UserDAO] Updated " + subject + " score for user " + userId);
+                return true;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ [UserDAO] Error updating subject score: " + e.getMessage());
+        }
+
+        return false;
+    }
 }

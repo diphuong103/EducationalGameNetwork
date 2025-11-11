@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<!-- StackPane bao toàn bộ game + overlay -->
+<?import javafx.geometry.Insets?>
+<StackPane fx:id="rootStack"
+           prefHeight="450.0" prefWidth="800.0"
+           styleClass="root"
+           stylesheets="@../css/mathgame.css, @../css/common.css"
+           xmlns="http://javafx.com/javafx/17"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.edugame.client.controller.MathGameController">
+
+    <!-- Game Layout -->
+    <BorderPane fx:id="mainPane">
+
+        <!-- TOP BAR -->
+        <top>
+            <AnchorPane prefHeight="45.0" prefWidth="800.0" style="-fx-background-color: transparent;">
+
+                <!-- Timer trái -->
+                <VBox fx:id="timerBox" layoutX="10.0" layoutY="10.0"
+                      alignment="CENTER" spacing="2.0"
+                      styleClass="timer-box-small">
+                    <Label styleClass="timer-label" text="TIME" />
+                    <Label fx:id="timerLabel" styleClass="timer-value" text="5:00" />
+                </VBox>
+
+                <!-- Nút góc phải -->
+                <HBox spacing="8.0" layoutY="8.0" AnchorPane.rightAnchor="10.0">
+                    <Button fx:id="btnHelp" mnemonicParsing="false" onAction="#handleHelp"
+                            styleClass="top-icon-btn" text="?"/>
+                    <Button fx:id="btnSettings" mnemonicParsing="false" onAction="#handleSettings"
+                            styleClass="top-icon-btn" text="⚙"/>
+                </HBox>
+
+            </AnchorPane>
+        </top>
+
+        <!-- CENTER: Racing Track -->
+        <center>
+            <StackPane>
+                <ImageView fx:id="trackBackground" fitHeight="300.0" fitWidth="800.0"
+                           preserveRatio="false" />
+
+                <!-- Start Line -->
+                <Pane fx:id="startLine" prefWidth="6.0" styleClass="start-line"
+                      StackPane.alignment="CENTER_LEFT" />
+
+                <!-- Lanes -->
+                <VBox spacing="10.0" alignment="CENTER_LEFT" StackPane.alignment="CENTER_LEFT">
+                    <padding>
+                        <Insets top="0" right="0" bottom="0" left="25"/>
+                    </padding>
+                    <HBox alignment="CENTER_LEFT" prefHeight="50.0" spacing="5.0" styleClass="racing-lane">
+                        <Label fx:id="player1Name" styleClass="player-name, player-name-1" text="Player 1"  prefWidth="90"/>
+                        <ImageView fx:id="car1" fitHeight="35.0" fitWidth="55.0" preserveRatio="true">
+                            <image><Image url="@../images/mathgames/red_car.png" /></image>
+                        </ImageView>
+                    </HBox>
+
+                    <HBox alignment="CENTER_LEFT" prefHeight="50.0" spacing="5.0" styleClass="racing-lane">
+                        <Label fx:id="player2Name" styleClass="player-name, player-name-2" text="Player 2" prefWidth="90"/>
+                        <ImageView fx:id="car2" fitHeight="35.0" fitWidth="55.0" preserveRatio="true">
+                            <image><Image url="@../images/mathgames/blue_car.png" /></image>
+                        </ImageView>
+                    </HBox>
+
+                    <HBox alignment="CENTER_LEFT" prefHeight="50.0" spacing="5.0" styleClass="racing-lane">
+                        <Label fx:id="player3Name" styleClass="player-name, player-name-3" text="Player 3" prefWidth="90"/>
+                        <ImageView fx:id="car3" fitHeight="35.0" fitWidth="55.0" preserveRatio="true">
+                            <image><Image url="@../images/mathgames/yellow_car.png" /></image>
+                        </ImageView>
+                    </HBox>
+
+                    <HBox alignment="CENTER_LEFT" prefHeight="50.0" spacing="5.0" styleClass="racing-lane">
+                        <Label fx:id="player4Name" styleClass="player-name, player-name-4" text="Player 4" prefWidth="90"/>
+                        <ImageView fx:id="car4" fitHeight="35.0" fitWidth="55.0" preserveRatio="true">
+                            <image><Image url="@../images/mathgames/white_car.png" /></image>
+                        </ImageView>
+                    </HBox>
+                </VBox>
+
+                <!-- Finish Line -->
+                <Pane fx:id="finishLine" prefWidth="6.0" styleClass="finish-line"
+                      StackPane.alignment="CENTER_RIGHT"  />
+            </StackPane>
+        </center>
+
+        <!-- BOTTOM: Question Panel -->
+        <bottom>
+            <VBox fx:id="questionPanel" prefHeight="150.0" spacing="0.0" styleClass="question-panel-bottom">
+
+                <ProgressBar fx:id="timeProgressBar" prefHeight="3.0" maxWidth="Infinity"
+                             progress="1.0" styleClass="time-progress-top" />
+
+                <VBox alignment="CENTER" prefHeight="65.0" VBox.vgrow="ALWAYS" styleClass="question-text-section">
+                    <Label fx:id="questionLabel" alignment="CENTER" styleClass="question-text-large"
+                           text="15 × 7 = ?" textAlignment="CENTER" wrapText="true" maxWidth="Infinity">
+                        <font><Font name="System Bold" size="24.0" /></font>
+                    </Label>
+                </VBox>
+
+                <Pane prefHeight="0.5" styleClass="divider-line" />
+
+                <HBox alignment="CENTER" prefHeight="80.0" spacing="0.0" styleClass="answer-buttons-section" HBox.hgrow="ALWAYS">
+
+                    <Button fx:id="btnA" mnemonicParsing="false" onAction="#handleAnswer"
+                            maxWidth="Infinity" prefHeight="80.0" HBox.hgrow="ALWAYS"
+                            styleClass="answer-btn-large" text="A) 105">
+                        <font><Font name="System Bold" size="14.0" /></font>
+                    </Button>
+
+                    <Pane prefWidth="0.5" styleClass="vertical-divider" />
+
+                    <Button fx:id="btnB" mnemonicParsing="false" onAction="#handleAnswer"
+                            maxWidth="Infinity" prefHeight="80.0" HBox.hgrow="ALWAYS"
+                            styleClass="answer-btn-large" text="B) 112">
+                        <font><Font name="System Bold" size="14.0" /></font>
+                    </Button>
+
+                    <Pane prefWidth="0.5" styleClass="vertical-divider" />
+
+                    <Button fx:id="btnC" mnemonicParsing="false" onAction="#handleAnswer"
+                            maxWidth="Infinity" prefHeight="80.0" HBox.hgrow="ALWAYS"
+                            styleClass="answer-btn-large" text="C) 98">
+                        <font><Font name="System Bold" size="14.0" /></font>
+                    </Button>
+
+                    <Pane prefWidth="0.5" styleClass="vertical-divider" />
+
+                    <Button fx:id="btnD" mnemonicParsing="false" onAction="#handleAnswer"
+                            maxWidth="Infinity" prefHeight="80.0" HBox.hgrow="ALWAYS"
+                            styleClass="answer-btn-large" text="D) 108">
+                        <font><Font name="System Bold" size="14.0" /></font>
+                    </Button>
+                </HBox>
+            </VBox>
+        </bottom>
+
+    </BorderPane>
+
+    <!-- Countdown Overlay: nằm giữa trung tâm toàn màn hình -->
+    <StackPane fx:id="countdownOverlay" visible="false"
+               styleClass="countdown-overlay" alignment="CENTER">
+        <Label fx:id="countdownLabel" styleClass="countdown-label" text="3">
+            <font><Font name="System Bold" size="100.0" /></font>
+        </Label>
+    </StackPane>
+
+    <!-- Result Overlay -->
+    <StackPane fx:id="resultOverlay" visible="false"
+               styleClass="result-overlay" alignment="CENTER">
+        <VBox alignment="CENTER" spacing="15.0">
+            <Label fx:id="resultTitle" styleClass="result-title" text="🏆 WINNER 🏆">
+                <font><Font name="System Bold" size="36.0" /></font>
+            </Label>
+            <Label fx:id="resultMessage" styleClass="result-message"
+                   text="Player 1 Wins!" textAlignment="CENTER" wrapText="true">
+                <font><Font name="System Bold" size="24.0" /></font>
+            </Label>
+            <Button fx:id="btnBackToLobby" mnemonicParsing="false" onAction="#handleBackToLobby"
+                    styleClass="back-btn" text="BACK TO LOBBY">
+                <font><Font name="System Bold" size="12.0" /></font>
+            </Button>
+        </VBox>
+    </StackPane>
+
+</StackPane>

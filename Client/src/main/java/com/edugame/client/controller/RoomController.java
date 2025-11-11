@@ -2,19 +2,25 @@ package com.edugame.client.controller;
 
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.AvatarUtil;
+import com.edugame.client.util.GameDataParser;
 import com.edugame.client.util.SceneManager;
 import com.edugame.common.Protocol;
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
+import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -89,6 +95,8 @@ public class RoomController {
         connection.setPlayerReadyCallback(this::handlePlayerReady);
         connection.setRoomChatCallback(this::handleRoomChatMessage);
         connection.setKickPlayerCallback(this::handleKickPlayer);
+        connection.setGameStartCallback(this::handleGameStartResponse);
+
 
         System.out.println("✅ RoomController initialized");
     }
@@ -147,7 +155,6 @@ public class RoomController {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> playersList = (List<Map<String, Object>>) playersObj;
 
-            // Sort: Host first
             List<Map<String, Object>> sortedPlayers = new ArrayList<>();
             Map<String, Object> hostPlayer = null;
 
@@ -169,7 +176,6 @@ public class RoomController {
                 }
             }
 
-            // Render players
             for (int i = 0; i < sortedPlayers.size(); i++) {
                 Map<String, Object> player = sortedPlayers.get(i);
                 int userId = getIntValue(player.get("userId"));
@@ -179,9 +185,7 @@ public class RoomController {
                 boolean playerIsHost = getBooleanValue(player.get("isHost"));
                 boolean playerIsReady = getBooleanValue(player.get("isReady"));
 
-                int slot = i + 1; // Slot 1-4
-
-                // ✅ MAP userId -> slot
+                int slot = i + 1;
                 userIdToSlot.put(userId, slot);
 
                 if (userId == connection.getCurrentUserId()) {
@@ -193,23 +197,30 @@ public class RoomController {
             }
         }
 
-        // Update UI based on role
-        if (isHost) {
-            btnReady.setVisible(false);
-            btnStart.setVisible(true);
-            checkStartButtonState();
-            updateKickIconsVisibility(true);
-        } else {
-            btnStart.setVisible(false);
-            btnReady.setVisible(true);
-            updateReadyButton();
-            updateKickIconsVisibility(false);
-        }
+        // ✅ Update UI based on role
+        Platform.runLater(() -> {
+            if (isHost) {
+                btnReady.setVisible(false);
+                btnReady.setManaged(false);
+                btnStart.setVisible(true);
+                btnStart.setManaged(true);
+                checkStartButtonState();
+                updateKickIconsVisibility(true);
+                System.out.println("👑 I am HOST - Start button visible");
+            } else {
+                btnStart.setVisible(false);
+                btnStart.setManaged(false);
+                btnReady.setVisible(true);
+                btnReady.setManaged(true);
+                updateReadyButton();
+                updateKickIconsVisibility(false);
+                System.out.println("👤 I am PLAYER - Ready button visible");
+            }
+        });
 
         updateOnlineCount();
-        System.out.println("✅ Room initialized successfully");
+        System.out.println("✅ Room initialized - Players: " + players.size());
     }
-
     /**
      * Update kick icons visibility based on host status
      */
@@ -385,6 +396,10 @@ public class RoomController {
                 userIdToSlot.put(userId, emptySlot);
                 updatePlayer(emptySlot, userId, fullName, avatarUrl, score, false);
                 addSystemMessage(fullName + " đã tham gia phòng");
+
+                if (isHost) {
+                    checkStartButtonState();
+                }
             }
         });
     }
@@ -411,6 +426,10 @@ public class RoomController {
                 removePlayer(slotToRemove);
                 userIdToSlot.remove(userId);
                 addSystemMessage(username + " đã rời phòng");
+
+                if (isHost) {
+                    checkStartButtonState();
+                }
             }
 
             // ✅ XỬ LÝ CHUYỂN HOST
@@ -470,10 +489,18 @@ public class RoomController {
             }
         }
 
-        // ✅ Update UI: Ẩn nút Ready, hiện nút Start
-        btnReady.setVisible(false);
-        btnStart.setVisible(true);
-        checkStartButtonState();
+//        // ✅ Update UI: Ẩn nút Ready, hiện nút Start
+//        btnReady.setVisible(false);
+//        btnStart.setVisible(true);
+//        checkStartButtonState();
+
+        Platform.runLater(() -> {
+            btnReady.setVisible(false);
+            btnReady.setManaged(false);
+            btnStart.setVisible(true);
+            btnStart.setManaged(true);
+            checkStartButtonState();
+        });
 
         // ✅ Hiện kick icons
         updateKickIconsVisibility(true);
@@ -1415,8 +1442,9 @@ public class RoomController {
 
 
     /**
-     * Handle start game (host only)
+     * ✅ Handle start game button (host only)
      */
+    @FXML
     private void handleStartGame() {
         if (!isHost) {
             System.out.println("⚠️ Not host, cannot start game");
@@ -1429,18 +1457,179 @@ public class RoomController {
             return;
         }
 
-        // Send start game to server
-        connection.sendStartGame(roomId);
+        System.out.println("🎮 Sending START_GAME request to server...");
 
-        System.out.println("🎮 Starting game...");
+        // ✅ Disable start button to prevent double-click
+        if (btnStart != null) {
+            btnStart.setDisable(true);
+            btnStart.setText("Đang bắt đầu...");
+        }
+
+        // ✅ Set callback first
+//        connection.setGameStartCallback(this::handleGameStartResponse);
+
+        // ✅ Send start game request ONCE
+        connection.sendStartGame(roomId);
     }
+
+
+    /**
+     * Xử lý phản hồi START_GAME từ server
+     */
+    private void handleGameStartResponse(Map<String, Object> data) {
+        Platform.runLater(() -> {
+            try {
+                boolean success = getBooleanValue(data.get("success"));
+
+                if (!success) {
+                    String message = getStringValue(data.get("message"));
+                    showError("Không thể bắt đầu game: " + message);
+                    return;
+                }
+
+                System.out.println("✅ [RoomController] START_GAME received, switching to game scene");
+
+                // ✅ Chuyển sang màn hình game
+                switchToGameScene(data);
+
+            } catch (Exception e) {
+                System.err.println("❌ [RoomController] Error handling START_GAME: " + e.getMessage());
+                e.printStackTrace();
+                showError("Lỗi khi bắt đầu game!");
+            }
+        });
+    }
+
+    /**
+     * Chuyển sang màn hình game
+     */
+    private void switchToGameScene(Map<String, Object> gameData) {
+        try {
+            System.out.println("🎮 [RoomController] Switching to MathGame scene...");
+
+            // ✅ Load MathGame.fxml
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/MathGame.fxml"));
+            Parent root = loader.load();
+
+            // ✅ Get controller và initialize game
+            MathGameController gameController = loader.getController();
+            gameController.initializeGame(gameData);
+
+            // ✅ Switch scene
+            SceneManager.getInstance().switchScene(root);
+
+            // ✅ Cleanup room controller
+            cleanup();
+
+            System.out.println("✅ [RoomController] Switched to game scene successfully");
+
+        } catch (IOException e) {
+            System.err.println("❌ [RoomController] Error loading game scene: " + e.getMessage());
+            e.printStackTrace();
+            showError("Không thể tải màn hình game!");
+        }
+    }
+
+
+
+//    /**
+//     * ✅ Handle START_GAME broadcast from server
+//     * This is received by ALL players including host
+//     */
+//    private void handleGameStartBroadcast(JsonObject data) {
+//        Platform.runLater(() -> {
+//            try {
+//                boolean success = data.get("success").getAsBoolean();
+//
+//                if (!success) {
+//                    showError("Không thể bắt đầu game!");
+//                    if (btnStart != null) {
+//                        btnStart.setDisable(false);
+//                        btnStart.setText("Bắt đầu");
+//                    }
+//                    return;
+//                }
+//
+//                System.out.println("🎮 [START_GAME] Received start game broadcast");
+//
+//                // ✅ Parse game data using helper
+//                Map<String, Object> gameData = GameDataParser.parseStartGameData(data);
+//
+//                // ✅ Transition to game scene immediately
+//                // MathGameController will handle its own 10s countdown
+//                transitionToGameScene(gameData);
+//
+//            } catch (Exception e) {
+//                System.err.println("❌ Error handling START_GAME: " + e.getMessage());
+//                e.printStackTrace();
+//                showError("Lỗi khi bắt đầu game!\n" + e.getMessage());
+//
+//                // Re-enable button on error
+//                if (btnStart != null && isHost) {
+//                    btnStart.setDisable(false);
+//                    btnStart.setText("Bắt đầu");
+//                }
+//            }
+//        });
+//    }
+
+//    /**
+//     * ✅ Transition to MathGame Scene
+//     */
+//    private void transitionToGameScene(Map<String, Object> gameData) {
+//        try {
+//            System.out.println("🎮 [TRANSITION] Loading game scene...");
+//
+//            // Clear room callbacks before leaving
+//            connection.clearPlayerJoinedCallback();
+//            connection.clearPlayerLeftCallback();
+//            connection.clearPlayerReadyCallback();
+//            connection.setRoomChatCallback(null);
+//            connection.setKickPlayerCallback(null);
+//            connection.unregisterHandler(Protocol.START_GAME);
+//
+//            System.out.println("🧹 [TRANSITION] Cleared room callbacks");
+//
+//            // Load MathGame Scene with FXMLLoader
+//            FXMLLoader loader = new FXMLLoader(
+//                    getClass().getResource("/fxml/MathGame.fxml")
+//            );
+//            Parent root = loader.load();
+//
+//            // Get MathGameController and initialize with game data
+//            MathGameController gameController = loader.getController();
+//            gameController.initializeGame(gameData);
+//
+//            // Switch scene
+//            Stage stage = (Stage) btnStart.getScene().getWindow();
+//            Scene scene = new Scene(root);
+//            stage.setScene(scene);
+//            stage.setTitle("Math Racing Game - " + gameData.get("subject"));
+//            stage.show();
+//
+//            System.out.println("✅ [TRANSITION] Successfully loaded game scene");
+//
+//        } catch (IOException e) {
+//            System.err.println("❌ [TRANSITION] Failed to load FXML: " + e.getMessage());
+//            e.printStackTrace();
+//            showError("Không thể tải giao diện game!\nKiểm tra file: /fxml/MathGame.fxml");
+//        } catch (Exception e) {
+//            System.err.println("❌ [TRANSITION] Error: " + e.getMessage());
+//            e.printStackTrace();
+//            showError("Lỗi khi chuyển sang màn hình game!\n" + e.getMessage());
+//        }
+//    }
 
     /**
      * Check if all players are ready
      */
     private boolean checkAllPlayersReady() {
-        if (players.size() < 2) {
-            System.out.println("   ❌ Not enough players: " + players.size());
+        int playerCount = players.size();
+
+        System.out.println("🔍 [VALIDATE_START] Players: " + playerCount);
+
+        if (playerCount < 2) {
+            System.out.println("   ❌ Not enough players");
             return false;
         }
 
@@ -1449,21 +1638,20 @@ public class RoomController {
         for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
             PlayerInfo player = entry.getValue();
 
-            // ✅ Skip host (host không cần ready)
             if (player.userId == myUserId && isHost) {
-                System.out.println("   ⏭️ Skipping host (me): " + player.name);
+                System.out.println("   ⏭️ Skip host: " + player.name);
                 continue;
             }
 
             if (!player.isReady) {
-                System.out.println("   ❌ Player not ready: " + player.name + " (userId=" + player.userId + ")");
+                System.out.println("   ❌ Not ready: " + player.name);
                 return false;
             }
 
-            System.out.println("   ✅ Player ready: " + player.name);
+            System.out.println("   ✅ Ready: " + player.name);
         }
 
-        System.out.println("   ✅ All players ready!");
+        System.out.println("   ✅ All non-host players ready!");
         return true;
     }
 
@@ -1505,14 +1693,58 @@ public class RoomController {
      * Check if start button should be enabled
      */
     private void checkStartButtonState() {
-        if (!isHost) {
+        if (!isHost || btnStart == null) {
             return;
         }
 
-        boolean canStart = checkAllPlayersReady();
-        btnStart.setDisable(!canStart);
+        int playerCount = players.size();
 
-        System.out.println("🎮 Start button state: " + (canStart ? "ENABLED" : "DISABLED"));
+        System.out.println("🔍 [CHECK_START] Total players: " + playerCount);
+
+        // Điều kiện 1: Tối thiểu 2 người
+        if (playerCount < 2) {
+            btnStart.setDisable(true);
+            btnStart.setText("▶ Chờ người chơi (1/2)");
+            System.out.println("   ❌ Not enough players");
+            return;
+        }
+
+        // Điều kiện 2: Tất cả NON-HOST players phải ready
+        int myUserId = connection.getCurrentUserId();
+        int readyCount = 0;
+        int nonHostCount = 0;
+
+        for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
+            PlayerInfo player = entry.getValue();
+
+            if (player.userId == myUserId) {
+                System.out.println("   ⏭️ Skip host: " + player.name);
+                continue;
+            }
+
+            nonHostCount++;
+
+            if (player.isReady) {
+                readyCount++;
+                System.out.println("   ✅ Ready: " + player.name);
+            } else {
+                System.out.println("   ❌ Not ready: " + player.name);
+            }
+        }
+
+        System.out.println("   Ready: " + readyCount + "/" + nonHostCount);
+
+        boolean allReady = (nonHostCount > 0 && readyCount == nonHostCount);
+
+        if (allReady) {
+            btnStart.setDisable(false);
+            btnStart.setText("▶ Bắt đầu trò chơi");
+            System.out.println("   ✅ CAN START!");
+        } else {
+            btnStart.setDisable(true);
+            btnStart.setText("▶ Chờ sẵn sàng (" + readyCount + "/" + nonHostCount + ")");
+            System.out.println("   ❌ Waiting for ready");
+        }
     }
 
     // ==================== Helper Methods ====================

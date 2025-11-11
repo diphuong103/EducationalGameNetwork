@@ -28,15 +28,14 @@ public class QuestionDAO {
             stmt.setString(2, difficulty);
             stmt.setInt(3, limit);
 
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                questions.add(mapResultSetToQuestion(rs));
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    questions.add(mapResultSetToQuestion(rs));
+                }
             }
 
         } catch (SQLException e) {
             System.err.println("❌ [QuestionDAO] Error getting random questions: " + e.getMessage());
-            e.printStackTrace();
         }
 
         return questions;
@@ -52,15 +51,15 @@ public class QuestionDAO {
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
             stmt.setInt(1, questionId);
-            ResultSet rs = stmt.executeQuery();
 
-            if (rs.next()) {
-                return mapResultSetToQuestion(rs);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToQuestion(rs);
+                }
             }
 
         } catch (SQLException e) {
             System.err.println("❌ [QuestionDAO] Error getting question by ID: " + e.getMessage());
-            e.printStackTrace();
         }
 
         return null;
@@ -74,8 +73,9 @@ public class QuestionDAO {
             INSERT INTO questions (
                 subject, difficulty, question_text, 
                 option_a, option_b, option_c, option_d, 
-                correct_answer, explanation, points, time_limit, created_by, is_active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                correct_answer, explanation, points, time_limit, 
+                created_by, is_active, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         """;
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -83,7 +83,7 @@ public class QuestionDAO {
 
             stmt.setString(1, q.getSubject());
             stmt.setString(2, q.getDifficulty());
-            stmt.setString(3, q.getQuestion());
+            stmt.setString(3, q.getQuestionText());
             stmt.setString(4, q.getOptionA());
             stmt.setString(5, q.getOptionB());
             stmt.setString(6, q.getOptionC());
@@ -98,10 +98,10 @@ public class QuestionDAO {
             int rows = stmt.executeUpdate();
 
             if (rows > 0) {
-                ResultSet rs = stmt.getGeneratedKeys();
-                if (rs.next()) {
-                    int newId = rs.getInt(1);
-                    q.setQuestionId(newId);
+                try (ResultSet rs = stmt.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        q.setQuestionId(rs.getInt(1));
+                    }
                 }
                 System.out.println("✅ [QuestionDAO] Added new question (ID=" + q.getQuestionId() + ")");
                 return true;
@@ -109,7 +109,6 @@ public class QuestionDAO {
 
         } catch (SQLException e) {
             System.err.println("❌ [QuestionDAO] Error adding question: " + e.getMessage());
-            e.printStackTrace();
         }
 
         return false;
@@ -123,7 +122,8 @@ public class QuestionDAO {
             UPDATE questions
             SET subject = ?, difficulty = ?, question_text = ?,
                 option_a = ?, option_b = ?, option_c = ?, option_d = ?,
-                correct_answer = ?, explanation = ?, points = ?, time_limit = ?, is_active = ?
+                correct_answer = ?, explanation = ?, points = ?, 
+                time_limit = ?, is_active = ?
             WHERE question_id = ?
         """;
 
@@ -132,7 +132,7 @@ public class QuestionDAO {
 
             stmt.setString(1, q.getSubject());
             stmt.setString(2, q.getDifficulty());
-            stmt.setString(3, q.getQuestion());
+            stmt.setString(3, q.getQuestionText());
             stmt.setString(4, q.getOptionA());
             stmt.setString(5, q.getOptionB());
             stmt.setString(6, q.getOptionC());
@@ -150,7 +150,6 @@ public class QuestionDAO {
 
         } catch (SQLException e) {
             System.err.println("❌ [QuestionDAO] Error updating question: " + e.getMessage());
-            e.printStackTrace();
         }
 
         return false;
@@ -173,7 +172,6 @@ public class QuestionDAO {
 
         } catch (SQLException e) {
             System.err.println("❌ [QuestionDAO] Error deleting question: " + e.getMessage());
-            e.printStackTrace();
         }
 
         return false;
@@ -187,7 +185,7 @@ public class QuestionDAO {
         q.setQuestionId(rs.getInt("question_id"));
         q.setSubject(rs.getString("subject"));
         q.setDifficulty(rs.getString("difficulty"));
-        q.setQuestion(rs.getString("question_text"));
+        q.setQuestionText(rs.getString("question_text"));
         q.setOptionA(rs.getString("option_a"));
         q.setOptionB(rs.getString("option_b"));
         q.setOptionC(rs.getString("option_c"));
@@ -198,6 +196,7 @@ public class QuestionDAO {
         q.setTimeLimit(rs.getInt("time_limit"));
         q.setCreatedBy(rs.getInt("created_by"));
         q.setActive(rs.getBoolean("is_active"));
+        q.setCreatedAt(rs.getTimestamp("created_at"));
         return q;
     }
 }

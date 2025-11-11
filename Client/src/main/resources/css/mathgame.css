@@ -1,0 +1,160 @@
+.root {
+    -fx-background-color: #000;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+/* Racing lanes */
+.racing-lane {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-border-color: rgba(255, 255, 255, 0.1);
+    -fx-border-width: 0.5px 0 0.5px 0;
+}
+
+/* Finish line */
+.finish-line {
+    -fx-background-color: repeating-linear-gradient(
+            45deg,
+            #fff,
+            #fff 4px,
+            #000 4px,
+            #000 8px
+    );
+}
+
+/* Player names */
+.player-name {
+    -fx-text-fill: #fff;
+    -fx-font-size: 8px;
+    -fx-font-weight: bold;
+    -fx-padding: 2px 6px;
+    -fx-background-radius: 3px;
+}
+
+.player-name-1 { -fx-border-color: #ff0000; -fx-border-width: 1px; }
+.player-name-2 { -fx-border-color: #00b4ff; -fx-border-width: 1px; }
+.player-name-3 { -fx-border-color: #ffd700; -fx-border-width: 1px; }
+.player-name-4 { -fx-border-color: #fff; -fx-border-width: 1px; }
+
+/* Timer */
+.timer-box {
+    -fx-background-color: rgba(0, 0, 0, 0.85);
+    -fx-padding: 4px 10px;
+    -fx-border-color: #ff0000;
+    -fx-border-width: 1px;
+}
+
+.timer-label {
+    -fx-text-fill: #ff0000;
+    -fx-font-size: 8px;
+    -fx-font-weight: bold;
+}
+
+.timer-value {
+    -fx-text-fill: #fff;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+/* Question panel */
+.question-panel-bottom {
+    -fx-background-color: #1a1a1a;
+    -fx-border-color: #ff0000;
+    -fx-border-width: 1px 0 0 0;
+}
+
+.question-text-large {
+    -fx-text-fill: #fff;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+/* Answer buttons */
+.answer-btn-large {
+    -fx-background-color: #2a2a2a;
+    -fx-text-fill: #fff;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.answer-btn-large:hover {
+    -fx-background-color: #3a3a3a;
+}
+
+.answer-btn-large.answer-btn-correct { -fx-background-color: #00aa00; }
+.answer-btn-large.answer-btn-wrong { -fx-background-color: #aa0000; }
+
+/* Countdown */
+.countdown-label {
+    -fx-text-fill: white;
+    -fx-font-size: 64px;
+    -fx-font-weight: bold;
+}
+
+/* Results */
+.result-title {
+    -fx-text-fill: #ffd700;
+    -fx-font-size: 24px;
+}
+
+.result-message {
+    -fx-text-fill: #fff;
+    -fx-font-size: 18px;
+}
+
+/* Back button */
+.back-btn {
+    -fx-background-color: linear-gradient(to bottom, #ff0000, #cc0000);
+    -fx-text-fill: #fff;
+    -fx-font-size: 10px;
+    -fx-padding: 6px 20px;
+    -fx-background-radius: 6px;
+    -fx-border-color: #ff0000;
+    -fx-border-width: 1px;
+}
+/* Small corner timer box */
+.timer-box-small {
+    -fx-background-color: rgba(0, 0, 0, 0.7);
+    -fx-padding: 4px 10px;
+    -fx-background-radius: 6px;
+    -fx-border-color: #ff0000;
+    -fx-border-width: 1px;
+    -fx-border-radius: 6px;
+    -fx-effect: dropshadow(gaussian, rgba(255, 0, 0, 0.4), 5, 0.5, 0, 0);
+}
+
+.timer-box-small .timer-label {
+    -fx-text-fill: #ff5555;
+    -fx-font-size: 9px;
+    -fx-font-weight: bold;
+}
+
+.timer-box-small .timer-value {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-font-family: "Courier New", monospace;
+}
+/* Top bar small buttons (Help & Settings) */
+.top-icon-btn {
+    -fx-background-color: rgba(40, 40, 40, 0.9);
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6px;
+    -fx-border-color: #ff0000;
+    -fx-border-width: 1px;
+    -fx-border-radius: 6px;
+    -fx-padding: 3px 8px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(255,0,0,0.4), 4, 0.4, 0, 0);
+}
+
+.top-icon-btn:hover {
+    -fx-background-color: #ff0000;
+    -fx-text-fill: #fff;
+}
+
+.top-icon-btn:pressed {
+    -fx-background-color: #aa0000;
+}
+
