@@ -1,30 +1,32 @@
 package com.edugame.server.database;
 
 import com.edugame.server.model.User;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class LeaderboardDAO {
-    private Connection connection;
 
-    public LeaderboardDAO() {
-        this.connection = DatabaseConnection.getInstance().getConnection();
+    private Connection getConnection() throws SQLException {
+        // Always return a fresh, guaranteed-alive connection
+        return DatabaseConnection.getInstance().getConnection();
     }
 
     /**
      * Get top N users by total score
      */
     public List<User> getTopUsers(int limit) {
-        String sql = "SELECT user_id, username, full_name, avatar_url, total_score, is_online " +
-                "FROM users " +
-                "ORDER BY total_score DESC " +
-                "LIMIT ?";
+        String sql =
+                "SELECT user_id, username, full_name, avatar_url, total_score, is_online " +
+                        "FROM users " +
+                        "ORDER BY total_score DESC " +
+                        "LIMIT ?";
 
         List<User> topUsers = new ArrayList<>();
 
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setInt(1, limit);
             ResultSet rs = pstmt.executeQuery();
 
@@ -44,21 +46,24 @@ public class LeaderboardDAO {
 
         } catch (SQLException e) {
             System.err.println("✗ Error getting top users: " + e.getMessage());
-            e.printStackTrace();
         }
 
         return topUsers;
     }
 
+
     /**
      * Get user rank by userId
      */
     public int getUserRank(int userId) {
-        String sql = "SELECT COUNT(*) + 1 as rank " +
-                "FROM users " +
-                "WHERE total_score > (SELECT total_score FROM users WHERE user_id = ?)";
+        String sql =
+                "SELECT COUNT(*) + 1 AS rank " +
+                        "FROM users " +
+                        "WHERE total_score > (SELECT total_score FROM users WHERE user_id = ?)";
 
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setInt(1, userId);
             ResultSet rs = pstmt.executeQuery();
 
@@ -73,37 +78,37 @@ public class LeaderboardDAO {
         return -1;
     }
 
+
     /**
      * Get leaderboard by subject
      */
     public List<User> getLeaderboardBySubject(String subject, int limit) {
         String scoreColumn;
+
         switch (subject.toLowerCase()) {
-            case "math":
-                scoreColumn = "math_score";
-                break;
-            case "english":
-                scoreColumn = "english_score";
-                break;
-            case "literature":
-                scoreColumn = "literature_score";
-                break;
-            default:
-                scoreColumn = "total_score";
+            case "math":       scoreColumn = "math_score"; break;
+            case "english":    scoreColumn = "english_score"; break;
+            case "literature": scoreColumn = "literature_score"; break;
+            default:           scoreColumn = "total_score"; break;
         }
 
-        String sql = "SELECT user_id, username, full_name, avatar_url, " + scoreColumn + " as score, is_online " +
-                "FROM users " +
-                "ORDER BY " + scoreColumn + " DESC " +
-                "LIMIT ?";
+        String sql =
+                "SELECT user_id, username, full_name, avatar_url, " +
+                        scoreColumn + " AS score, is_online " +
+                        "FROM users " +
+                        "ORDER BY " + scoreColumn + " DESC " +
+                        "LIMIT ?";
 
         List<User> leaderboard = new ArrayList<>();
 
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setInt(1, limit);
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
+
                 User user = new User();
                 user.setUserId(rs.getInt("user_id"));
                 user.setUsername(rs.getString("username"));
@@ -113,26 +118,18 @@ public class LeaderboardDAO {
 
                 int score = rs.getInt("score");
 
-                // ✅ Gán đúng theo môn
                 switch (subject.toLowerCase()) {
-                    case "math":
-                        user.setMathScore(score);
-                        break;
-                    case "english":
-                        user.setEnglishScore(score);
-                        break;
-                    case "literature":
-                        user.setLiteratureScore(score);
-                        break;
-                    default:
-                        user.setTotalScore(score);
-                        break;
+                    case "math":       user.setMathScore(score); break;
+                    case "english":    user.setEnglishScore(score); break;
+                    case "literature": user.setLiteratureScore(score); break;
+                    default:           user.setTotalScore(score); break;
                 }
 
                 leaderboard.add(user);
             }
+
         } catch (SQLException e) {
-            System.err.println("✗ Error getting leaderboard: " + e.getMessage());
+            System.err.println("✗ Error getting leaderboard by subject: " + e.getMessage());
         }
 
         return leaderboard;

@@ -9,7 +9,7 @@ import java.security.NoSuchAlgorithmException;
 public class UserDAO {
     private Connection connection;
 
-    public UserDAO() {
+    public UserDAO() throws SQLException {
         this.connection = DatabaseConnection.getInstance().getConnection();
     }
 

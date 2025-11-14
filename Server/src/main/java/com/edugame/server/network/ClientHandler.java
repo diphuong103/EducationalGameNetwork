@@ -14,6 +14,7 @@ import javafx.fxml.FXMLLoader;
 
 import java.io.*;
 import java.net.Socket;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -44,7 +45,7 @@ public class ClientHandler implements Runnable {
     private static final DateTimeFormatter LOG_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
-    public ClientHandler(Socket socket, GameServer server) {
+    public ClientHandler(Socket socket, GameServer server) throws SQLException {
         this.clientSocket = socket;
         this.server = server;
         this.gson = new Gson();
@@ -64,6 +65,14 @@ public class ClientHandler implements Runnable {
             logWithTime("✗ Error initializing client handler: " + e.getMessage());
         }
     }
+
+    /**
+     * Helper method to get GameServer instance
+     */
+    private GameServer getGameServer() {
+        return GameServer.getInstance();
+    }
+
 
     // 🔹 Log với timestamp
     private void logWithTime(String message) {
@@ -347,7 +356,7 @@ public class ClientHandler implements Runnable {
         logWithTime("   ✅ GET_PROFILE_BY_ID response sent successfully");
     }
 
-    private void handleCheckFriendshipStatus(JsonObject jsonMessage) {
+    private void handleCheckFriendshipStatus(JsonObject jsonMessage) throws SQLException {
         logWithTime("🔍 CHECK_FRIENDSHIP_STATUS request received");
 
         if (currentUser == null) {
@@ -378,7 +387,7 @@ public class ClientHandler implements Runnable {
     }
 
 
-    private void handleSearchUsers(JsonObject jsonMessage) {
+    private void handleSearchUsers(JsonObject jsonMessage) throws SQLException {
         logWithTime("🔍 SEARCH_USERS request received");
 
         if (currentUser == null) {
@@ -447,7 +456,7 @@ public class ClientHandler implements Runnable {
     /**
      * Gửi lời mời kết bạn
      */
-    private void handleAddFriend(JsonObject jsonMessage) {
+    private void handleAddFriend(JsonObject jsonMessage) throws SQLException {
         logWithTime("🤝 ADD_FRIEND request received");
 
         if (currentUser == null) {
@@ -518,7 +527,7 @@ public class ClientHandler implements Runnable {
     /**
      * Chấp nhận lời mời kết bạn
      */
-    private void handleAcceptFriend(JsonObject jsonMessage) {
+    private void handleAcceptFriend(JsonObject jsonMessage) throws SQLException {
         logWithTime("✅ ACCEPT_FRIEND request received");
 
         if (currentUser == null) {
@@ -554,7 +563,7 @@ public class ClientHandler implements Runnable {
     /**
      * Từ chối lời mời kết bạn
      */
-    private void handleRejectFriend(JsonObject jsonMessage) {
+    private void handleRejectFriend(JsonObject jsonMessage) throws SQLException {
         logWithTime("❌ REJECT_FRIEND request received");
 
         if (currentUser == null) {
@@ -590,7 +599,7 @@ public class ClientHandler implements Runnable {
     /**
      * Xóa bạn bè
      */
-    private void handleRemoveFriend(JsonObject jsonMessage) {
+    private void handleRemoveFriend(JsonObject jsonMessage) throws SQLException {
         logWithTime("🗑️ REMOVE_FRIEND request received");
 
         if (currentUser == null) {
@@ -626,7 +635,7 @@ public class ClientHandler implements Runnable {
     /**
      * Lấy danh sách bạn bè
      */
-    private void handleGetFriendsList(JsonObject jsonMessage) {
+    private void handleGetFriendsList(JsonObject jsonMessage) throws SQLException {
         logWithTime("📋 GET_FRIENDS_LIST request received");
 
         if (currentUser == null) {
@@ -673,7 +682,7 @@ public class ClientHandler implements Runnable {
     /**
      * Lấy danh sách lời mời kết bạn đang chờ
      */
-    private void handleGetPendingRequests(JsonObject jsonMessage) {
+    private void handleGetPendingRequests(JsonObject jsonMessage) throws SQLException {
         logWithTime("📬 GET_PENDING_REQUESTS request received");
 
         if (currentUser == null) {
@@ -2102,19 +2111,16 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
-            // ✅ Check if requester is host
             if (room.getHost().getUserId() != currentUser.getUserId()) {
                 sendError("Chỉ chủ phòng mới có thể bắt đầu game!");
                 return;
             }
 
-            // ✅ Check minimum players
             if (room.getPlayerCount() < 2) {
                 sendError("Cần ít nhất 2 người chơi!");
                 return;
             }
 
-            // ✅ Check all players ready (except host)
             if (!room.areAllPlayersReady()) {
                 sendError("Chưa tất cả người chơi sẵn sàng!");
                 return;
@@ -2134,13 +2140,50 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
-            // ✅ Setup broadcast callback
+            // ✅ Setup callbacks
             GameSession session = gameManager.getSession(roomId);
             if (session != null) {
-                session.setResultBroadcaster(rid -> {
-                    broadcastQuestionResults(rid, players);
+                // ✅ FIXED: Send individual questions - tìm đúng handler cho mỗi userId
+                session.setQuestionSender((rid, userId, questionIndex) -> {
+                    GameServer server = GameServer.getInstance();
+                    if (server != null) {
+                        for (ClientHandler handler : server.getConnectedClients()) {
+                            if (handler.getCurrentUser() != null &&
+                                    handler.getCurrentUser().getUserId() == userId) {
+                                handler.sendQuestionToPlayerDirect(rid, userId, questionIndex);
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                // Broadcast positions every second
+                session.setPositionBroadcaster((rid) -> {
+                    broadcastPositions(rid, players);
+                });
+
+                // ✅ NEW: Broadcast when someone answers
+                session.setAnswerBroadcaster((rid, userId, isCorrect, timeTaken, position, score, gotNitro) -> {
+                    broadcastAnswerResult(rid, userId, isCorrect, timeTaken, position, score, gotNitro, players);
+                });
+
+                // ✅ NEW: Broadcast question progress
+                session.setProgressBroadcaster((rid, userId, questionIndex) -> {
+                    broadcastQuestionProgress(rid, userId, questionIndex, players);
+                });
+
+                // Notify when player finishes
+                session.setPlayerFinishNotifier((rid, userId, rank) -> {
+                    notifyPlayerFinish(rid, userId, rank);
+                });
+
+                // Notify game end
+                session.setGameEndNotifier((rid, reason) -> {
+                    endGameAndSendResults(rid, players, reason);
                 });
             }
+
+
 
             // ✅ Broadcast START_GAME to all players
             Map<String, Object> startNotification = new HashMap<>();
@@ -2151,8 +2194,9 @@ public class ClientHandler implements Runnable {
             startNotification.put("difficulty", room.getDifficulty());
             startNotification.put("message", "Game bắt đầu trong 10 giây!");
             startNotification.put("countdownSeconds", 10);
+            startNotification.put("mode", "async"); // ✅ Thông báo chế độ async
 
-            // ✅ Add player info
+            // Add player info
             List<Map<String, Object>> playerInfoList = new ArrayList<>();
             for (ClientHandler player : players) {
                 if (player.getCurrentUser() != null) {
@@ -2166,7 +2210,7 @@ public class ClientHandler implements Runnable {
             }
             startNotification.put("players", playerInfoList);
 
-            // ✅ Broadcast to all players
+            // Broadcast to all players
             for (ClientHandler player : players) {
                 try {
                     player.sendMessage(startNotification);
@@ -2178,16 +2222,15 @@ public class ClientHandler implements Runnable {
 
             logWithTime("✅ [START_GAME] Game started successfully");
 
-            // ✅ Schedule first question after countdown (10 seconds)
+            // ✅ Schedule countdown and start
             new Thread(() -> {
                 try {
                     Thread.sleep(10000); // Wait for countdown
 
-                    // Start game
+                    // Start game (will send first question to all players)
                     gameManager.beginGameAfterCountdown(roomId);
 
-                    // Send first question
-                    sendNextQuestion(roomId, players);
+                    logWithTime("✅ [GAME] All players received their first question");
 
                 } catch (InterruptedException e) {
                     logWithTime("❌ [START_GAME] Countdown interrupted");
@@ -2201,35 +2244,289 @@ public class ClientHandler implements Runnable {
         }
     }
 
+
     /**
-     * Gửi câu hỏi tiếp theo cho tất cả players
+     * ✅ Gửi câu hỏi trực tiếp cho một player cụ thể
+     * Called by GameSession via questionSender callback
      */
-    private void sendNextQuestion(String roomId, List<ClientHandler> players) {
+    public void sendQuestionToPlayerDirect(String roomId, int userId, int questionIndex) {
         try {
+            logWithTime("🎯 [SEND_QUESTION] ========== START ==========");
+
+            // Validate connection
+            if (writer == null || writer.checkError()) {
+                logWithTime("❌ [SEND_QUESTION] Writer is closed for userId=" + userId);
+                return;
+            }
+
+            // Validate user
+            if (currentUser == null || currentUser.getUserId() != userId) {
+                logWithTime("⚠️ [SEND_QUESTION] User mismatch! Expected=" + userId +
+                        ", Current=" + (currentUser != null ? currentUser.getUserId() : "null"));
+                return;
+            }
+
+            logWithTime("🎯 [SEND_QUESTION] Sending Q" + (questionIndex + 1) +
+                    " to user: " + currentUser.getUsername());
+
+            // Get question from GameSession
             GameSession session = gameManager.getSession(roomId);
             if (session == null) {
-                logWithTime("❌ [NEXT_QUESTION] Session not found: " + roomId);
+                logWithTime("❌ [SEND_QUESTION] Session not found: " + roomId);
                 return;
             }
 
-            Question question = session.getCurrentQuestion();
+            Question question = session.getQuestionForPlayer(userId);
             if (question == null) {
-                logWithTime("⚠️ [NEXT_QUESTION] No more questions, ending game");
-                endGameAndSendResults(roomId, players);
+                logWithTime("❌ [SEND_QUESTION] No question for player " + userId +
+                        " at index " + questionIndex);
                 return;
             }
 
-            // ✅ Prepare question data
+            logWithTime("   Question ID: " + question.getQuestionId());
+            logWithTime("   Question Text: " + question.getQuestionText().substring(0,
+                    Math.min(50, question.getQuestionText().length())) + "...");
+
+            // ✅ FIX: Build complete question data with proper structure
+            Map<String, Object> questionData = new HashMap<>();
+            questionData.put("questionId", question.getQuestionId());
+            questionData.put("questionText", question.getQuestionText());
+            questionData.put("timeLimit", Protocol.QUESTION_TIME_LIMIT);
+
+            // ✅ CRITICAL: Add options array
+            List<String> options = Arrays.asList(
+                    question.getOptionA(),
+                    question.getOptionB(),
+                    question.getOptionC(),
+                    question.getOptionD()
+            );
+            questionData.put("options", options);
+
+            // ✅ Build response packet with proper structure
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.GAME_QUESTION);
+            response.put("roomId", roomId);
+            response.put("questionNumber", questionIndex + 1);
+            response.put("totalQuestions", Protocol.QUESTIONS_PER_GAME);
+            response.put("question", questionData); // Nested structure
+            response.put("timestamp", System.currentTimeMillis());
+
+            // Send
+            sendMessage(response);
+
+            logWithTime("✅ [SEND_QUESTION] Successfully sent Q" + (questionIndex + 1) +
+                    "/" + Protocol.QUESTIONS_PER_GAME);
+            logWithTime("   Options: " + options.size() + " choices");
+            logWithTime("🎯 [SEND_QUESTION] ========== END ==========");
+
+        } catch (Exception e) {
+            logWithTime("❌ [SEND_QUESTION] Exception: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    public void broadcastQuestionProgress(String roomId, int userId, int questionIndex,
+                                          List<ClientHandler> players) {
+        try {
+            Map<String, Object> progressData = new HashMap<>();
+            progressData.put("type", "PLAYER_PROGRESS");
+            progressData.put("roomId", roomId);
+            progressData.put("userId", userId);
+            progressData.put("currentQuestion", questionIndex + 1);
+            progressData.put("totalQuestions", Protocol.QUESTIONS_PER_GAME);
+            progressData.put("timestamp", System.currentTimeMillis());
+
+            // ✅ Broadcast to ALL players EXCEPT the player themselves
+            for (ClientHandler player : players) {
+                if (player.getCurrentUser() != null &&
+                        player.getCurrentUser().getUserId() != userId) {
+                    try {
+                        player.sendMessage(progressData);
+                    } catch (Exception e) {
+                        // Ignore disconnected players
+                    }
+                }
+            }
+
+            logWithTime("📢 [PROGRESS] User " + userId + " -> Question " + (questionIndex + 1));
+
+        } catch (Exception e) {
+            logWithTime("❌ [BROADCAST_PROGRESS] Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * ✅ Broadcast vị trí của tất cả người chơi
+     * Called every 1 second by GameSession
+     */
+    public void broadcastPositions(String roomId, List<ClientHandler> players) {
+        try {
+            GameSession session = GameManager.getInstance().getSession(roomId);
+            if (session == null || session.isFinished()) {
+                return;
+            }
+
+            Map<String, Object> positionData = new HashMap<>();
+            positionData.put("type", "GAME_UPDATE");
+            positionData.put("roomId", roomId);
+            positionData.put("timestamp", System.currentTimeMillis());
+
+            List<Map<String, Object>> positions = new ArrayList<>();
+
+            for (Map.Entry<Integer, GameSession.PlayerGameState> entry :
+                    session.getPlayerStates().entrySet()) {
+
+                GameSession.PlayerGameState state = entry.getValue();
+                Map<String, Object> pos = new HashMap<>();
+                pos.put("userId", state.userId);
+                pos.put("position", state.position);
+                pos.put("score", state.score);
+                pos.put("correctStreak", state.correctStreak);
+                pos.put("wrongStreak", state.wrongStreak);
+                pos.put("gotNitro", state.gotNitro);
+                pos.put("currentQuestion", session.getQuestionIndexForPlayer(state.userId) + 1);
+                pos.put("totalQuestions", Protocol.QUESTIONS_PER_GAME);
+
+                // Add last answer info for UI feedback
+                pos.put("lastAnswerCorrect", state.lastAnswerCorrect);
+                pos.put("lastAnswerTime", state.lastAnswerTime);
+
+                positions.add(pos);
+            }
+            positionData.put("positions", positions);
+
+            // ✅ Broadcast to ALL players
+            for (ClientHandler player : players) {
+                if (player.getCurrentUser() == null) continue;
+
+                try {
+                    player.sendMessage(positionData);
+                } catch (Exception e) {
+                    // Ignore disconnected players
+                }
+            }
+
+            // RESET gotNitro flags after broadcast
+            for (GameSession.PlayerGameState state : session.getPlayerStates().values()) {
+                state.gotNitro = false;
+            }
+
+            logWithTime("📢 [BROADCAST_POSITIONS] Sent to " + players.size() + " players");
+
+        } catch (Exception e) {
+            logWithTime("❌ [BROADCAST_POSITIONS] Error: " + e.getMessage());
+        }
+    }
+
+
+
+    /**
+     * ✅ Broadcast answer result to all players
+     */
+    public void broadcastAnswerResult(String roomId, int userId, boolean isCorrect,
+                                      long timeTaken, double position, int score,
+                                      boolean gotNitro, List<ClientHandler> players) {
+        try {
+            Map<String, Object> answerData = new HashMap<>();
+            answerData.put("type", "PLAYER_ANSWERED");
+            answerData.put("roomId", roomId);
+            answerData.put("userId", userId);
+            answerData.put("isCorrect", isCorrect);
+            answerData.put("timeTaken", timeTaken);
+            answerData.put("position", position);
+            answerData.put("score", score);
+            answerData.put("gotNitro", gotNitro);
+            answerData.put("timestamp", System.currentTimeMillis());
+
+            // ✅ Broadcast to ALL players (including the answerer)
+            for (ClientHandler player : players) {
+                if (player.getCurrentUser() != null) {
+                    try {
+                        player.sendMessage(answerData);
+                    } catch (Exception e) {
+                        // Ignore disconnected players
+                    }
+                }
+            }
+
+            logWithTime("📢 [ANSWER] Broadcasted: User " + userId + " - " +
+                    (isCorrect ? "✅ Correct" : "❌ Wrong") +
+                    (gotNitro ? " 🚀 NITRO!" : ""));
+
+        } catch (Exception e) {
+            logWithTime("❌ [BROADCAST_ANSWER] Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * ✅ Thông báo player đã hoàn thành
+     */
+    public void notifyPlayerFinish(String roomId, int userId, int rank) {
+        try {
+            // Find the specific player's handler
+            for (ClientHandler handler : GameServer.getInstance().getConnectedClients()) {
+                if (handler.getCurrentUser() != null &&
+                        handler.getCurrentUser().getUserId() == userId) {
+
+                    Map<String, Object> finishData = new HashMap<>();
+                    finishData.put("type", "PLAYER_FINISHED");
+                    finishData.put("roomId", roomId);
+                    finishData.put("userId", userId);
+                    finishData.put("rank", rank);
+                    finishData.put("message", "You finished! Rank: " + rank);
+                    finishData.put("timestamp", System.currentTimeMillis());
+
+                    handler.sendMessage(finishData);
+
+                    logWithTime("🏁 [NOTIFY_FINISH] Player " + userId + " finished, rank " + rank);
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            logWithTime("❌ [NOTIFY_FINISH] Error: " + e.getMessage());
+        }
+    }
+
+
+    /**
+     * ✅ Gửi câu hỏi cho một người chơi cụ thể
+     */
+    public void sendQuestionToPlayer(String roomId, int userId, int questionIndex) {
+        try {
+            if (currentUser == null || currentUser.getUserId() != userId) {
+                logWithTime("⚠️ [QUESTION] User mismatch");
+                return;
+            }
+
+            GameSession session = GameManager.getInstance().getSession(roomId);
+            if (session == null) {
+                logWithTime("❌ [QUESTION] Session not found");
+                return;
+            }
+
+            Question question = session.getQuestionForPlayer(userId);
+            if (question == null) {
+                logWithTime("⚠️ [QUESTION] No question for player " + userId);
+                return;
+            }
+
+            // ✅ Log chi tiết
+            logWithTime("📤 [QUESTION] Sending to player " + userId + ":");
+            logWithTime("   Question Index: " + questionIndex);
+            logWithTime("   Question ID: " + question.getQuestionId());
+            logWithTime("   Question Text: " + question.getQuestionText().substring(0,
+                    Math.min(50, question.getQuestionText().length())) + "...");
+
             Map<String, Object> questionData = new HashMap<>();
             questionData.put("type", Protocol.GAME_QUESTION);
             questionData.put("roomId", roomId);
-            questionData.put("questionNumber", session.getCurrentQuestionIndex() + 1);
+            questionData.put("questionNumber", questionIndex + 1);
             questionData.put("totalQuestions", Protocol.QUESTIONS_PER_GAME);
             questionData.put("questionId", question.getQuestionId());
             questionData.put("questionText", question.getQuestionText());
             questionData.put("timeLimit", Protocol.QUESTION_TIME_LIMIT);
 
-            // ✅ Add options (A, B, C, D)
             List<String> options = new ArrayList<>();
             options.add(question.getOptionA());
             options.add(question.getOptionB());
@@ -2237,31 +2534,158 @@ public class ClientHandler implements Runnable {
             options.add(question.getOptionD());
             questionData.put("options", options);
 
-            // ✅ Broadcast to all players
-            for (ClientHandler player : players) {
-                try {
-                    player.sendMessage(questionData);
-                } catch (Exception e) {
-                    logWithTime("   ⚠️ Failed to send question to " + player.getCurrentUser().getUsername());
-                }
-            }
-
-            logWithTime("✅ [NEXT_QUESTION] Sent question " + (session.getCurrentQuestionIndex() + 1));
+            sendMessage(questionData);
+            logWithTime("✅ [QUESTION] Sent successfully");
 
         } catch (Exception e) {
-            logWithTime("❌ [NEXT_QUESTION] Error: " + e.getMessage());
+            logWithTime("❌ [SEND_QUESTION] Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
 
     /**
+     * ✅ Kết thúc game và gửi kết quả cuối cùng
+     */
+    public void endGameAndSendResults(String roomId, List<ClientHandler> players, String reason) {
+        try {
+            logWithTime("🏁 [END_GAME] Ending game: " + roomId + " (" + reason + ")");
+
+            GameSession session = GameManager.getInstance().getSession(roomId);
+            if (session == null) {
+                logWithTime("⚠️ [END_GAME] Session not found");
+                return;
+            }
+
+            // Get final rankings
+            List<Map<String, Object>> rankings = new ArrayList<>();
+            List<GameSession.PlayerGameState> playerStates = new ArrayList<>(session.getPlayerStates().values());
+
+            // Sort by position (descending), then by score (descending)
+            playerStates.sort((a, b) -> {
+                int posCompare = Double.compare(b.position, a.position);
+                if (posCompare != 0) return posCompare;
+                return Integer.compare(b.score, a.score);
+            });
+
+            // Build rankings
+            for (int i = 0; i < playerStates.size(); i++) {
+                GameSession.PlayerGameState state = playerStates.get(i);
+
+                Map<String, Object> rankData = new HashMap<>();
+                rankData.put("rank", i + 1);
+                rankData.put("userId", state.userId);
+                rankData.put("position", state.position);
+                rankData.put("score", state.score);
+
+                // Get player name
+                for (ClientHandler handler : players) {
+                    if (handler.getCurrentUser() != null &&
+                            handler.getCurrentUser().getUserId() == state.userId) {
+                        rankData.put("username", handler.getCurrentUser().getUsername());
+                        rankData.put("fullName", handler.getCurrentUser().getFullName());
+                        break;
+                    }
+                }
+
+                rankings.add(rankData);
+            }
+
+            // Build end game packet
+            Map<String, Object> endGameData = new HashMap<>();
+            endGameData.put("type", Protocol.GAME_END);
+            endGameData.put("roomId", roomId);
+            endGameData.put("reason", reason);
+            endGameData.put("rankings", rankings);
+            endGameData.put("timestamp", System.currentTimeMillis());
+
+            // Broadcast to all players
+            for (ClientHandler player : players) {
+                if (player.getCurrentUser() != null) {
+                    try {
+                        player.sendMessage(endGameData);
+                        logWithTime("   📤 Sent results to: " + player.getCurrentUser().getUsername());
+                    } catch (Exception e) {
+                        logWithTime("   ⚠️ Failed to send to: " + e.getMessage());
+                    }
+                }
+            }
+
+            logWithTime("✅ [END_GAME] Results sent to all players");
+
+        } catch (Exception e) {
+            logWithTime("❌ [END_GAME] Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * ✅ Handler: GET_GAME_STATE - Player request current game state (reconnect)
+     */
+    private void handleGetGameState(JsonObject request) {
+        try {
+            if (currentUser == null) {
+                sendError("Bạn chưa đăng nhập!");
+                return;
+            }
+
+            String roomId = request.has("roomId")
+                    ? request.get("roomId").getAsString()
+                    : request.get("room_id").getAsString();
+
+            GameSession session = gameManager.getSession(roomId);
+            if (session == null) {
+                sendError("Game không tồn tại!");
+                return;
+            }
+
+            int userId = currentUser.getUserId();
+
+            // ✅ Prepare state data
+            Map<String, Object> stateData = new HashMap<>();
+            stateData.put("type", "GAME_STATE");
+            stateData.put("roomId", roomId);
+            stateData.put("gameState", session.getGameState().toString());
+
+            // Current question for this player
+            int questionIndex = session.getQuestionIndexForPlayer(userId);
+            stateData.put("currentQuestion", questionIndex + 1);
+            stateData.put("totalQuestions", Protocol.QUESTIONS_PER_GAME);
+
+            // All player positions
+            List<Map<String, Object>> positions = new ArrayList<>();
+            for (Map.Entry<Integer, GameSession.PlayerGameState> entry :
+                    session.getPlayerStates().entrySet()) {
+
+                GameSession.PlayerGameState state = entry.getValue();
+                Map<String, Object> pos = new HashMap<>();
+                pos.put("userId", state.userId);
+                pos.put("position", state.position);
+                pos.put("score", state.score);
+                pos.put("currentQuestion", session.getQuestionIndexForPlayer(state.userId) + 1);
+                positions.add(pos);
+            }
+            stateData.put("positions", positions);
+
+            sendMessage(stateData);
+
+            logWithTime("✅ [GET_GAME_STATE] Sent state to player " + userId);
+
+        } catch (Exception e) {
+            logWithTime("❌ [GET_GAME_STATE] Error: " + e.getMessage());
+            sendError("Lỗi khi lấy trạng thái game!");
+        }
+    }
+
+
+    /**
      * Handler: SUBMIT_ANSWER - Player gửi câu trả lời
-     * ✅ IMPROVED VERSION
+     * ✅ IMPROVED VERSION with proper question flow
      */
     private void handleSubmitAnswer(JsonObject request) {
         try {
-            logWithTime("📝 [SUBMIT_ANSWER] Processing answer...");
+            logWithTime("📝 [SUBMIT_ANSWER] ========== START ==========");
 
             if (currentUser == null) {
                 logWithTime("❌ [SUBMIT_ANSWER] User not logged in");
@@ -2269,12 +2693,11 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
-            String roomId = request.get("roomId").getAsString();
-            int answerIndex = request.get("answer").getAsInt(); // 0-3 for A-D
-
-            // Convert index to letter (A, B, C, D)
+            String roomId = request.has("roomId")
+                    ? request.get("roomId").getAsString()
+                    : request.get("room_id").getAsString();
+            int answerIndex = request.get("answer").getAsInt();
             String answer = String.valueOf((char)('A' + answerIndex));
-
             int userId = currentUser.getUserId();
 
             logWithTime("📝 [SUBMIT_ANSWER] User: " + currentUser.getUsername() +
@@ -2285,95 +2708,38 @@ public class ClientHandler implements Runnable {
             GameSession.AnswerResult result = gameManager.submitAnswer(roomId, userId, answer);
 
             if (!result.success) {
+                logWithTime("❌ [SUBMIT_ANSWER] Failed: " + result.message);
                 sendError(result.message);
                 return;
             }
 
-            // ✅ Send immediate feedback to player
+            // ✅ Send immediate feedback to THIS player only
             Map<String, Object> feedback = new HashMap<>();
             feedback.put("type", Protocol.ANSWER_RESULT);
             feedback.put("success", true);
-            feedback.put("isCorrect", result.message.equals("Correct!"));
+            feedback.put("isCorrect", result.message.contains("Correct") ||
+                    result.message.contains("finished") ||
+                    result.message.contains("reached"));
             feedback.put("timeTaken", result.timeTaken);
             feedback.put("correctStreak", result.correctStreak);
             feedback.put("message", result.message);
 
             sendMessage(feedback);
 
-            logWithTime("✅ [SUBMIT_ANSWER] Answer recorded: " +
-                    (result.message.equals("Correct!") ? "✅ CORRECT" : "❌ WRONG"));
+            logWithTime("✅ [SUBMIT_ANSWER] Feedback sent: " + result.message);
+            logWithTime("   Time: " + result.timeTaken + "ms | Streak: " + result.correctStreak);
 
-            // ✅ Check if all players answered (will be handled by GameSession)
-            // GameSession will automatically call processQuestionResults()
+            // ✅ NOTE: Next question will be sent automatically by GameSession
+            // after 2 seconds delay via questionSender callback
+
+            logWithTime("📝 [SUBMIT_ANSWER] ========== END ==========");
 
         } catch (Exception e) {
-            logWithTime("❌ [SUBMIT_ANSWER] Error: " + e.getMessage());
+            logWithTime("❌ [SUBMIT_ANSWER] Exception: " + e.getMessage());
             e.printStackTrace();
             sendError("Lỗi khi nộp câu trả lời!");
         }
     }
-
-    /**
-     * Broadcast kết quả câu hỏi và cập nhật vị trí xe
-     * ✅ Gọi từ GameSession sau khi xử lý xong answers
-     */
-    public void broadcastQuestionResults(String roomId, List<ClientHandler> players) {
-        try {
-            GameSession session = gameManager.getSession(roomId);
-            if (session == null) return;
-
-            Map<String, Object> resultsData = new HashMap<>();
-            resultsData.put("type", Protocol.QUESTION_RESULT);
-            resultsData.put("roomId", roomId);
-
-            // ✅ Add player positions
-            List<Map<String, Object>> positions = new ArrayList<>();
-            for (Map.Entry<Integer, GameSession.PlayerGameState> entry :
-                    session.getPlayerStates().entrySet()) {
-
-                GameSession.PlayerGameState state = entry.getValue();
-                Map<String, Object> pos = new HashMap<>();
-                pos.put("userId", state.userId);
-                pos.put("position", state.position);
-                pos.put("score", state.score);
-                pos.put("gotNitro", state.gotNitro);
-                pos.put("correctStreak", state.correctStreak);
-                positions.add(pos);
-            }
-            resultsData.put("positions", positions);
-
-            // ✅ Broadcast to all players
-            for (ClientHandler player : players) {
-                try {
-                    player.sendMessage(resultsData);
-                } catch (Exception e) {
-                    logWithTime("   ⚠️ Failed to send results to player");
-                }
-            }
-
-            logWithTime("✅ [GAME_UPDATE] Broadcast positions to all players");
-
-            // ✅ Check if game finished
-            if (session.isFinished()) {
-                endGameAndSendResults(roomId, players);
-            } else {
-                // ✅ Send next question after 2 seconds
-                new Thread(() -> {
-                    try {
-                        Thread.sleep(2000);
-                        sendNextQuestion(roomId, players);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }, "NextQuestion-" + roomId).start();
-            }
-
-        } catch (Exception e) {
-            logWithTime("❌ [BROADCAST_RESULTS] Error: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
     /**
      * Kết thúc game và gửi kết quả cuối cùng
      */

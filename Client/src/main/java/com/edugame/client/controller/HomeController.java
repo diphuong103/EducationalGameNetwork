@@ -120,6 +120,7 @@ public class HomeController {
         System.out.println("✅ HomeController initialized");
     }
 
+
     /**
      * Load data in proper sequence with delays
      */

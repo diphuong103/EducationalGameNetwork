@@ -1,6 +1,7 @@
 package com.edugame.client.util;
 
 import com.edugame.client.controller.HomeController;
+import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -86,12 +87,32 @@ public class SceneManager {
     /**
      * 🔹 Notify controller when scene is shown (for auto-refresh)
      */
+//    private void notifySceneShown() {
+//        if (currentController instanceof HomeController) {
+//            ((HomeController) currentController).onSceneShown();
+//            System.out.println("🔄 HomeController auto-refreshed");
+//        }
+//    }
+
     private void notifySceneShown() {
-        if (currentController instanceof HomeController) {
-            ((HomeController) currentController).onSceneShown();
-            System.out.println("🔄 HomeController auto-refreshed");
+        if (currentController == null) {
+            System.err.println("⚠️ notifySceneShown() called but controller is null");
+            return;
+        }
+
+        try {
+            // Chạy sau 1 tick để đảm bảo scene đã hiển thị xong
+            Platform.runLater(() -> {
+                if (currentController instanceof HomeController home) {
+                    home.onSceneShown();
+                    System.out.println("🔄 HomeController auto-refreshed");
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("❌ Error in notifySceneShown(): " + e.getMessage());
         }
     }
+
 
     /**
      * Get scene from cache or load it

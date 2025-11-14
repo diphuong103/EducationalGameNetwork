@@ -10,7 +10,7 @@ import java.util.List;
 public class FriendDAO {
     private Connection connection;
 
-    public FriendDAO() {
+    public FriendDAO() throws SQLException {
         this.connection = DatabaseConnection.getConnection();
     }
 

@@ -8,7 +8,9 @@ import com.edugame.server.model.GameSession;
 import com.edugame.server.model.Question;
 import com.edugame.server.model.User;
 import com.edugame.server.network.ClientHandler;
+import com.edugame.server.network.GameServer;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -36,7 +38,7 @@ public class GameManager {
     private final UserDAO userDAO;
     private final GameResultDAO gameResultDAO;
 
-    private GameManager() {
+    private GameManager() throws SQLException {
         this.activeSessions = new ConcurrentHashMap<>();
         this.questionDAO = new QuestionDAO();
         this.userDAO = new UserDAO();
@@ -44,15 +46,27 @@ public class GameManager {
         logWithTime("✅ GameManager initialized");
     }
 
-    public static synchronized GameManager getInstance() {
+    public static synchronized GameManager getInstance() throws SQLException {
         if (instance == null) {
             instance = new GameManager();
         }
         return instance;
     }
+    @FunctionalInterface
+    public interface ResultBroadcaster {
+        void broadcastResults(String roomId);
+    }
 
+    private ResultBroadcaster resultBroadcaster;
+
+    public void setResultBroadcaster(ResultBroadcaster broadcaster) {
+        this.resultBroadcaster = broadcaster;
+    }
     // ==================== GAME LIFECYCLE ====================
 
+    /**
+     * Tạo game session mới và bắt đầu countdown
+     */
     /**
      * Tạo game session mới và bắt đầu countdown
      */
@@ -72,12 +86,18 @@ public class GameManager {
                 return false;
             }
 
-            // Load questions
+            // ✅ Load questions
             List<Question> questions = loadQuestions(subject, difficulty);
             if (questions.isEmpty()) {
                 logWithTime("❌ No questions found for " + subject + "/" + difficulty);
                 return false;
             }
+
+            // ✅ SHUFFLE questions once
+            Collections.shuffle(questions);
+
+            logWithTime("🎲 [GameManager] Questions shuffled for room: " + roomId);
+            logWithTime("   Total questions: " + questions.size());
 
             // Get player IDs
             List<Integer> playerIds = new ArrayList<>();
@@ -88,13 +108,79 @@ public class GameManager {
                 }
             }
 
-            // Create game session
+            // ✅ Create session
             GameSession session = new GameSession(roomId, subject, difficulty, questions, playerIds);
+
+            // ✅ Setup callbacks
+
+            // 1. Question Sender - Send individual questions
+            session.setQuestionSender((rid, userId, questionIndex) -> {
+                logWithTime("📤 [QuestionSender] Sending Q" + (questionIndex + 1) +
+                        " to userId=" + userId);
+
+                for (ClientHandler handler : players) {
+                    if (handler.getCurrentUser() != null &&
+                            handler.getCurrentUser().getUserId() == userId) {
+                        handler.sendQuestionToPlayerDirect(rid, userId, questionIndex);
+                        break;
+                    }
+                }
+            });
+
+            // 2. Position Broadcaster - Broadcast positions every second
+            session.setPositionBroadcaster((rid) -> {
+                if (!players.isEmpty()) {
+                    players.get(0).broadcastPositions(rid, players);
+                }
+            });
+
+            // 3. Answer Broadcaster - Broadcast answer results
+            session.setAnswerBroadcaster((rid, userId, isCorrect, timeTaken, position, score, gotNitro) -> {
+                logWithTime("📢 [AnswerBroadcaster] Player " + userId + " answered: " +
+                        (isCorrect ? "✅" : "❌"));
+
+                for (ClientHandler handler : players) {
+                    if (handler.getCurrentUser() != null) {
+                        handler.broadcastAnswerResult(rid, userId, isCorrect, timeTaken,
+                                position, score, gotNitro, players);
+                        break;
+                    }
+                }
+            });
+
+            // 4. Progress Broadcaster - Broadcast question progress
+            session.setProgressBroadcaster((rid, userId, questionIndex) -> {
+                logWithTime("📢 [ProgressBroadcaster] Player " + userId + " -> Q" + (questionIndex + 1));
+
+                for (ClientHandler handler : players) {
+                    if (handler.getCurrentUser() != null) {
+                        handler.broadcastQuestionProgress(rid, userId, questionIndex, players);
+                        break;
+                    }
+                }
+            });
+
+            // 5. Player Finish Notifier
+            session.setPlayerFinishNotifier((rid, userId, rank) -> {
+                for (ClientHandler handler : players) {
+                    if (handler.getCurrentUser() != null &&
+                            handler.getCurrentUser().getUserId() == userId) {
+                        handler.notifyPlayerFinish(rid, userId, rank);
+                        break;
+                    }
+                }
+            });
+
+            // 6. Game End Notifier
+            session.setGameEndNotifier((rid, reason) -> {
+                endGameAndSendResults(rid, players, reason);
+            });
+
             activeSessions.put(roomId, session);
 
             logWithTime("✅ [GameManager] Game session created successfully");
             logWithTime("   Players: " + playerIds);
-            logWithTime("   Questions loaded: " + questions.size());
+            logWithTime("   Questions: " + questions.size());
 
             // Start countdown
             session.startCountdown();
@@ -106,6 +192,58 @@ public class GameManager {
             e.printStackTrace();
             return false;
         }
+    }
+
+    private void endGameAndSendResults(String roomId, List<ClientHandler> players, String reason) {
+        GameSession session = activeSessions.get(roomId);
+        if (session == null) return;
+
+        try {
+            logWithTime("🏁 [GameManager] Ending game: " + roomId + " (" + reason + ")");
+
+            // Save to database
+            endGame(roomId, players);
+
+            // Broadcast results through any player handler
+            if (!players.isEmpty()) {
+                players.get(0).endGameAndSendResults(roomId, players, reason);
+            }
+
+        } catch (Exception e) {
+            logWithTime("❌ [GameManager] Error in endGameAndSendResults: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * Helper method - Get active players in a room by roomId
+     * (Alternative approach if you need to look up players dynamically)
+     */
+    private List<ClientHandler> getPlayersInRoom(String roomId) {
+        GameSession session = activeSessions.get(roomId);
+        if (session == null) {
+            return new ArrayList<>();
+        }
+
+        List<ClientHandler> roomPlayers = new ArrayList<>();
+
+        // You'll need to maintain a reference to all handlers
+        // Either through GameServer.getInstance() or pass it to GameManager
+        GameServer server = GameServer.getInstance();
+        if (server != null) {
+            // Iterate through connected clients
+            for (ClientHandler handler : server.getConnectedClients()) {
+                if (handler.getCurrentUser() != null) {
+                    int userId = handler.getCurrentUser().getUserId();
+                    if (session.hasPlayer(userId)) {
+                        roomPlayers.add(handler);
+                    }
+                }
+            }
+        }
+
+        return roomPlayers;
     }
 
     /**

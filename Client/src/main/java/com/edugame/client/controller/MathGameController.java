@@ -2,49 +2,69 @@ package com.edugame.client.controller;
 
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.SceneManager;
+import com.edugame.common.Protocol;
 import javafx.animation.*;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Bounds;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 import javafx.util.Duration;
 
 import java.io.IOException;
 import java.util.*;
 
 /**
- * MathGameController - Compact Version
+ * MathGameController - Fixed Version with Real-time Broadcasting
  */
 public class MathGameController {
 
-    @FXML private BorderPane mainPane;
-    @FXML private ImageView trackBackground;
-    @FXML private Pane finishLine;
+    @FXML
+    private BorderPane mainPane;
+    @FXML
+    private ImageView trackBackground;
+    @FXML
+    private Pane finishLine;
 
     // Cars
-    @FXML private ImageView car1, car2, car3, car4;
+    @FXML
+    private ImageView car1, car2, car3, car4;
 
     // Player Names
-    @FXML private Label player1Name, player2Name, player3Name, player4Name;
+    @FXML
+    private Label player1Name, player2Name, player3Name, player4Name;
 
     // Timer
-    @FXML private Label timerLabel;
+    @FXML
+    private Label timerLabel;
 
     // Question Panel
-    @FXML private VBox questionPanel;
-    @FXML private Label questionLabel;
-    @FXML private ProgressBar timeProgressBar;
-    @FXML private Button btnA, btnB, btnC, btnD;
+    @FXML
+    private VBox questionPanel;
+    @FXML
+    private Label questionLabel;
+    @FXML
+    private ProgressBar timeProgressBar;
+    @FXML
+    private Button btnA, btnB, btnC, btnD;
 
     // Overlays
-    @FXML private StackPane countdownOverlay;
-    @FXML private Label countdownLabel;
-    @FXML private StackPane resultOverlay;
-    @FXML private Label resultTitle, resultMessage;
-    @FXML private Button btnBackToLobby;
+    @FXML
+    private StackPane countdownOverlay;
+    @FXML
+    private Label countdownLabel;
+    @FXML
+    private StackPane resultOverlay;
+    @FXML
+    private Label resultTitle, resultMessage;
+    @FXML
+    private Button btnBackToLobby;
 
     // Game State
     private ServerConnection connection;
@@ -59,9 +79,16 @@ public class MathGameController {
     private Map<Integer, Double> playerPositions = new HashMap<>();
     private Map<Integer, Integer> playerScores = new HashMap<>();
     private Map<Integer, Integer> userIdToSlot = new HashMap<>();
+    private Map<Integer, ImageView> playerCars = new HashMap<>();
+    private Map<Integer, Label> playerNameLabels = new HashMap<>();
     private List<ImageView> cars = new ArrayList<>();
     private List<Label> playerLabels = new ArrayList<>();
     private int currentUserId;
+
+    // Track player progress
+    private Map<Integer, Integer> playerQuestionNumbers = new HashMap<>();
+    private Map<Integer, Label> playerProgressLabels = new HashMap<>();
+    private Map<Integer, Label> playerStreakLabels = new HashMap<>();
 
     // Question Data
     private int currentQuestionId;
@@ -71,8 +98,8 @@ public class MathGameController {
     private boolean answered = false;
     private int correctAnswerIndex = -1;
 
-    // Constants - Giảm kích thước track
-    private static final double FINISH_LINE_X = 1050.0;  // Giảm từ 1450 → 1050
+    // Constants
+    private static final double FINISH_LINE_X = 1050.0;
     private static final double START_X = 0.0;
 
     @FXML
@@ -92,7 +119,7 @@ public class MathGameController {
         resultOverlay.setVisible(false);
         questionPanel.setVisible(false);
 
-        System.out.println("✅ [MathGameController] Initialized (Compact)");
+        System.out.println("✅ [MathGameController] Initialized");
     }
 
     public void initializeGame(Map<String, Object> gameData) {
@@ -111,11 +138,35 @@ public class MathGameController {
                 userIdToSlot.put(userId, slot);
                 playerPositions.put(userId, START_X);
                 playerScores.put(userId, 0);
+                playerQuestionNumbers.put(userId, 0);
 
-                playerLabels.get(i).setText(fullName);
-                playerLabels.get(i).setVisible(true);
-                cars.get(i).setVisible(true);
-                cars.get(i).setTranslateX(START_X);
+                // Map cars and labels
+                ImageView car = cars.get(i);
+                Label label = playerLabels.get(i);
+
+                playerCars.put(userId, car);
+                playerNameLabels.put(userId, label);
+
+                // ✅ FIX: Hiển thị "Me" cho người chơi hiện tại
+                if (userId == currentUserId) {
+                    label.setText("Me (" + fullName + ")");
+                    label.setStyle("-fx-font-weight: bold; -fx-text-fill: #FFD700;"); // Gold color
+                } else {
+                    label.setText(fullName);
+                    label.setStyle("-fx-text-fill: white;");
+                }
+
+                label.setVisible(true);
+                car.setVisible(true);
+                car.setTranslateX(START_X);
+
+                // Create progress label for each player
+                Label progressLabel = createProgressLabel(fullName, i, userId == currentUserId);
+                playerProgressLabels.put(userId, progressLabel);
+
+                // Create streak label for each player
+                Label streakLabel = createStreakLabel(i);
+                playerStreakLabels.put(userId, streakLabel);
             }
 
             for (int i = players.size(); i < 4; i++) {
@@ -130,6 +181,41 @@ public class MathGameController {
             System.err.println("❌ [MathGameController] Error initializing: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    // ✅ FIX: Create progress label with "Me" highlight
+    private Label createProgressLabel(String playerName, int slot, boolean isCurrentUser) {
+        String displayName = isCurrentUser ? "Me (" + playerName + ")" : playerName;
+        Label label = new Label(displayName + ": 0/" + Protocol.QUESTIONS_PER_GAME);
+
+        if (isCurrentUser) {
+            label.setStyle("-fx-font-size: 12px; -fx-text-fill: #FFD700; -fx-font-weight: bold;");
+        } else {
+            label.setStyle("-fx-font-size: 12px; -fx-text-fill: white;");
+        }
+
+        label.setLayoutX(20);
+        label.setLayoutY(100 + (slot * 25));
+
+        if (mainPane != null) {
+            mainPane.getChildren().add(label);
+        }
+
+        return label;
+    }
+
+    private Label createStreakLabel(int slot) {
+        Label label = new Label("");
+        label.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+        label.setVisible(false);
+        label.setLayoutX(200 + (slot * 150));
+        label.setLayoutY(50);
+
+        if (mainPane != null) {
+            mainPane.getChildren().add(label);
+        }
+
+        return label;
     }
 
     private void startCountdown() {
@@ -185,35 +271,80 @@ public class MathGameController {
         }
     }
 
+    // ✅ FIX: Handle null options properly
     private void showQuestion(Map<String, Object> questionData) {
         Platform.runLater(() -> {
-            answered = false;
-            questionTimeRemaining = questionTimeLimit;
+            try {
+                answered = false;
+                questionTimeRemaining = questionTimeLimit;
 
-            currentQuestionId = getIntValue(questionData.get("questionId"));
-            currentQuestionNumber = getIntValue(questionData.get("questionNumber"));
-            totalQuestions = getIntValue(questionData.get("totalQuestions"));
-            String questionText = getStringValue(questionData.get("questionText"));
+                currentQuestionId = getIntValue(questionData.get("questionId"));
+                currentQuestionNumber = getIntValue(questionData.get("questionNumber"));
+                totalQuestions = getIntValue(questionData.get("totalQuestions"));
 
-            @SuppressWarnings("unchecked")
-            List<String> options = (List<String>) questionData.get("options");
+                // ✅ FIX: Extract question from nested structure
+                Object questionObj = questionData.get("question");
+                String questionText = "";
+                List<String> options = new ArrayList<>();
 
-            questionLabel.setText(questionText);
+                if (questionObj instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> questionMap = (Map<String, Object>) questionObj;
+                    questionText = getStringValue(questionMap.get("questionText"));
 
-            List<Button> buttons = Arrays.asList(btnA, btnB, btnC, btnD);
-            char[] letters = {'A', 'B', 'C', 'D'};
+                    @SuppressWarnings("unchecked")
+                    List<String> optionsList = (List<String>) questionMap.get("options");
+                    if (optionsList != null) {
+                        options = optionsList;
+                    }
+                } else {
+                    // Fallback: try direct fields
+                    questionText = getStringValue(questionData.get("questionText"));
 
-            for (int i = 0; i < buttons.size() && i < options.size(); i++) {
-                Button btn = buttons.get(i);
-                btn.setText(letters[i] + ") " + options.get(i));
-                btn.setDisable(false);
-                btn.getStyleClass().removeAll("answer-btn-correct", "answer-btn-wrong");
+                    @SuppressWarnings("unchecked")
+                    List<String> optionsList = (List<String>) questionData.get("options");
+                    if (optionsList != null) {
+                        options = optionsList;
+                    }
+                }
+
+                // ✅ FIX: Validate options before using
+                if (options.isEmpty()) {
+                    System.err.println("❌ [showQuestion] No options received!");
+                    System.err.println("   Question data: " + questionData);
+                    return;
+                }
+
+                questionLabel.setText("Q" + currentQuestionNumber + "/" + totalQuestions + ": " + questionText);
+
+                List<Button> buttons = Arrays.asList(btnA, btnB, btnC, btnD);
+                char[] letters = {'A', 'B', 'C', 'D'};
+
+                for (int i = 0; i < buttons.size() && i < options.size(); i++) {
+                    Button btn = buttons.get(i);
+                    btn.setText(letters[i] + ") " + options.get(i));
+                    btn.setDisable(false);
+                    btn.getStyleClass().removeAll("answer-btn-correct", "answer-btn-wrong");
+                }
+
+                // Hide unused buttons
+                for (int i = options.size(); i < buttons.size(); i++) {
+                    buttons.get(i).setVisible(false);
+                }
+
+                // Update own progress
+                playerQuestionNumbers.put(currentUserId, currentQuestionNumber);
+                updateProgressLabel(currentUserId, currentQuestionNumber, totalQuestions);
+
+                startQuestionTimer();
+                questionStartTime = System.currentTimeMillis();
+
+                System.out.println("❓ [MathGameController] Question " + currentQuestionNumber + "/" + totalQuestions);
+
+            } catch (Exception e) {
+                System.err.println("❌ [showQuestion] Error: " + e.getMessage());
+                e.printStackTrace();
             }
-
-            startQuestionTimer();
-            questionStartTime = System.currentTimeMillis();
-
-            System.out.println("❓ [MathGameController] Question " + currentQuestionNumber + "/" + totalQuestions);
         });
     }
 
@@ -232,7 +363,7 @@ public class MathGameController {
                 handleTimeout();
             }
         }));
-        questionTimer.setCycleCount((int)(questionTimeLimit * 10));
+        questionTimer.setCycleCount((int) (questionTimeLimit * 10));
         questionTimer.play();
     }
 
@@ -269,7 +400,7 @@ public class MathGameController {
 
         connection.submitAnswer(roomId, answerIndex);
 
-        System.out.println("📝 [MathGameController] Submitted answer: " + (char)('A' + answerIndex));
+        System.out.println("📝 [MathGameController] Submitted answer: " + (char) ('A' + answerIndex));
     }
 
     private void handleTimeout() {
@@ -299,6 +430,7 @@ public class MathGameController {
         });
     }
 
+    // ✅ IMPROVED: Animate positions with synchronized updates
     private void animatePositions(List<Map<String, Object>> positions) {
         Platform.runLater(() -> {
             ParallelTransition parallel = new ParallelTransition();
@@ -307,11 +439,12 @@ public class MathGameController {
                 int userId = getIntValue(pos.get("userId"));
                 double newPosition = getDoubleValue(pos.get("position"));
                 boolean gotNitro = getBooleanValue(pos.get("gotNitro"));
+                int currentQ = getIntValue(pos.get("currentQuestion"));
+                int correctStreak = getIntValue(pos.get("correctStreak"));
 
-                Integer slot = userIdToSlot.get(userId);
-                if (slot == null || slot < 1 || slot > 4) continue;
+                ImageView car = playerCars.get(userId);
+                if (car == null) continue;
 
-                ImageView car = cars.get(slot - 1);
                 double oldPos = playerPositions.getOrDefault(userId, START_X);
 
                 TranslateTransition tt = new TranslateTransition(Duration.seconds(1), car);
@@ -323,6 +456,13 @@ public class MathGameController {
 
                 playerPositions.put(userId, newPosition);
 
+                // Update progress
+                playerQuestionNumbers.put(userId, currentQ);
+                updateProgressLabel(userId, currentQ, totalQuestions);
+
+                // Update streak
+                updateStreakLabel(userId, correctStreak);
+
                 if (gotNitro) {
                     animateNitro(car);
                 }
@@ -330,8 +470,37 @@ public class MathGameController {
 
             parallel.play();
 
-            System.out.println("🏎️ [MathGameController] Animated positions");
+            System.out.println("🏎️ [MathGameController] Animated positions for all players");
         });
+    }
+
+    // ✅ FIX: Update progress label with "Me" highlight
+    private void updateProgressLabel(int userId, int currentQ, int total) {
+        Label progressLabel = playerProgressLabels.get(userId);
+        if (progressLabel != null) {
+            Label nameLabel = playerNameLabels.get(userId);
+            String name = nameLabel != null ? nameLabel.getText() : "Player";
+
+            // Keep "Me" prefix for current user
+            if (userId == currentUserId && !name.startsWith("Me")) {
+                name = "Me (" + name + ")";
+            }
+
+            progressLabel.setText(name + ": " + currentQ + "/" + total);
+        }
+    }
+
+    private void updateStreakLabel(int userId, int streak) {
+        Label streakLabel = playerStreakLabels.get(userId);
+        if (streakLabel != null) {
+            if (streak > 0) {
+                streakLabel.setText("🔥 " + streak);
+                streakLabel.setVisible(true);
+                streakLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: orange;");
+            } else {
+                streakLabel.setVisible(false);
+            }
+        }
     }
 
     private void animateNitro(ImageView car) {
@@ -341,6 +510,16 @@ public class MathGameController {
         st.setCycleCount(2);
         st.setAutoReverse(true);
         st.play();
+
+        DropShadow nitroGlow = new DropShadow();
+        nitroGlow.setColor(Color.CYAN);
+        nitroGlow.setRadius(30);
+        nitroGlow.setSpread(0.7);
+        car.setEffect(nitroGlow);
+
+        PauseTransition pause = new PauseTransition(Duration.millis(600));
+        pause.setOnFinished(e -> car.setEffect(null));
+        pause.play();
 
         System.out.println("🚀 [MathGameController] Nitro boost!");
     }
@@ -369,9 +548,8 @@ public class MathGameController {
                 int winnerId = getIntValue(winner.get("userId"));
                 int winnerScore = getIntValue(winner.get("score"));
 
-                Integer winnerSlot = userIdToSlot.get(winnerId);
-                String winnerName = winnerSlot != null && winnerSlot > 0 ?
-                        playerLabels.get(winnerSlot - 1).getText() : "Unknown";
+                Label winnerLabel = playerNameLabels.get(winnerId);
+                String winnerName = winnerLabel != null ? winnerLabel.getText() : "Unknown";
 
                 resultTitle.setText("🏆 WINNER 🏆");
                 resultMessage.setText(winnerName + " Wins!\nScore: " + winnerScore);
@@ -403,6 +581,12 @@ public class MathGameController {
     }
 
     private void setupGameCallbacks() {
+        connection.setGameStartCallback(data -> {
+            Platform.runLater(() -> {
+                System.out.println("🎮 Game starting...");
+            });
+        });
+
         connection.setGameQuestionCallback(this::showQuestion);
 
         connection.setAnswerResultCallback(data -> {
@@ -410,17 +594,177 @@ public class MathGameController {
             showAnswerFeedback(isCorrect, -1);
         });
 
+        // Position updates - SYNCHRONIZED for all players
         connection.setGameUpdateCallback(data -> {
             @SuppressWarnings("unchecked")
-            List<Map<String, Object>> positions = (List<Map<String, Object>>) data.get("positions");
+            List<Map<String, Object>> positions =
+                    (List<Map<String, Object>>) data.get("positions");
             if (positions != null) {
                 animatePositions(positions);
             }
         });
 
+        // Handle when OTHER players answer
+        connection.setPlayerAnsweredCallback(data -> {
+            Platform.runLater(() -> {
+                try {
+                    int userId = getIntValue(data.get("userId"));
+
+                    // Skip if it's the current user
+                    if (userId == currentUserId) return;
+
+                    boolean isCorrect = getBooleanValue(data.get("isCorrect"));
+                    double position = getDoubleValue(data.get("position"));
+                    int score = getIntValue(data.get("score"));
+                    boolean gotNitro = getBooleanValue(data.get("gotNitro"));
+                    long timeTaken = getLongValue(data.get("timeTaken"));
+
+                    // Show visual feedback
+                    ImageView playerCar = playerCars.get(userId);
+                    if (playerCar != null) {
+                        if (gotNitro) {
+                            showNitroEffect(playerCar);
+                        } else if (isCorrect) {
+                            showCorrectEffect(playerCar);
+                        } else {
+                            showWrongEffect(playerCar);
+                        }
+
+                        if (isCorrect) {
+                            showTimePopup(playerCar, timeTaken);
+                        }
+                    }
+
+                    // Update position immediately
+                    updateSinglePlayerPosition(userId, position, score);
+
+                    System.out.println("📢 Player " + userId + " answered: " +
+                            (isCorrect ? "✅" : "❌") +
+                            (gotNitro ? " 🚀 NITRO!" : ""));
+
+                } catch (Exception e) {
+                    System.err.println("❌ Error handling player answered: " + e.getMessage());
+                }
+            });
+        });
+
+        // Handle when OTHER players progress
+        connection.setPlayerProgressCallback(data -> {
+            Platform.runLater(() -> {
+                try {
+                    int userId = getIntValue(data.get("userId"));
+
+                    // Skip if it's the current user
+                    if (userId == currentUserId) return;
+
+                    int currentQuestion = getIntValue(data.get("currentQuestion"));
+                    int totalQuestions = getIntValue(data.get("totalQuestions"));
+
+                    // Update progress
+                    playerQuestionNumbers.put(userId, currentQuestion);
+                    updateProgressLabel(userId, currentQuestion, totalQuestions);
+
+                    System.out.println("📢 Player " + userId + " -> Question " +
+                            currentQuestion + "/" + totalQuestions);
+
+                } catch (Exception e) {
+                    System.err.println("❌ Error handling player progress: " + e.getMessage());
+                }
+            });
+        });
+
         connection.setGameEndCallback(this::showGameResults);
 
         System.out.println("✅ [MathGameController] Callbacks registered");
+    }
+
+    private void updateSinglePlayerPosition(int userId, double position, int score) {
+        ImageView car = playerCars.get(userId);
+        if (car == null) return;
+
+        double oldPos = playerPositions.getOrDefault(userId, START_X);
+        playerPositions.put(userId, position);
+        playerScores.put(userId, score);
+
+        TranslateTransition tt = new TranslateTransition(Duration.millis(800), car);
+        tt.setFromX(oldPos);
+        tt.setToX(Math.min(position, FINISH_LINE_X));
+        tt.setInterpolator(Interpolator.EASE_OUT);
+        tt.play();
+    }
+
+    // Visual effects
+    private void showNitroEffect(Node node) {
+        ScaleTransition scale = new ScaleTransition(Duration.millis(300), node);
+        scale.setToX(1.3);
+        scale.setToY(1.3);
+        scale.setAutoReverse(true);
+        scale.setCycleCount(2);
+        scale.play();
+
+        DropShadow nitroGlow = new DropShadow();
+        nitroGlow.setColor(Color.CYAN);
+        nitroGlow.setRadius(30);
+        nitroGlow.setSpread(0.7);
+        node.setEffect(nitroGlow);
+
+        PauseTransition pause = new PauseTransition(Duration.millis(600));
+        pause.setOnFinished(e -> node.setEffect(null));
+        pause.play();
+    }
+
+    private void showCorrectEffect(Node node) {
+        DropShadow correctGlow = new DropShadow();
+        correctGlow.setColor(Color.LIGHTGREEN);
+        correctGlow.setRadius(20);
+        correctGlow.setSpread(0.5);
+        node.setEffect(correctGlow);
+
+        PauseTransition pause = new PauseTransition(Duration.millis(400));
+        pause.setOnFinished(e -> node.setEffect(null));
+        pause.play();
+    }
+
+    private void showWrongEffect(Node node) {
+        DropShadow wrongGlow = new DropShadow();
+        wrongGlow.setColor(Color.RED);
+        wrongGlow.setRadius(15);
+        node.setEffect(wrongGlow);
+
+        TranslateTransition shake = new TranslateTransition(Duration.millis(50), node);
+        shake.setFromX(0);
+        shake.setToX(5);
+        shake.setCycleCount(6);
+        shake.setAutoReverse(true);
+        shake.play();
+
+        PauseTransition pause = new PauseTransition(Duration.millis(400));
+        pause.setOnFinished(e -> node.setEffect(null));
+        pause.play();
+    }
+
+    private void showTimePopup(Node node, long timeTaken) {
+        Label timeLabel = new Label(String.format("%.1fs", timeTaken / 1000.0));
+        timeLabel.setStyle("-fx-background-color: rgba(0,0,0,0.7); " +
+                "-fx-text-fill: white; " +
+                "-fx-padding: 5px 10px; " +
+                "-fx-font-size: 12px; " +
+                "-fx-border-radius: 5px; " +
+                "-fx-background-radius: 5px;");
+
+        Bounds bounds = node.localToScene(node.getBoundsInLocal());
+        timeLabel.setLayoutX(bounds.getMinX());
+        timeLabel.setLayoutY(bounds.getMinY() - 30);
+
+        if (mainPane != null) {
+            mainPane.getChildren().add(timeLabel);
+
+            FadeTransition fade = new FadeTransition(Duration.seconds(2), timeLabel);
+            fade.setFromValue(1.0);
+            fade.setToValue(0.0);
+            fade.setOnFinished(e -> mainPane.getChildren().remove(timeLabel));
+            fade.play();
+        }
     }
 
     private void cleanup() {
@@ -432,6 +776,7 @@ public class MathGameController {
         System.out.println("🧹 [MathGameController] Cleaned up");
     }
 
+    // Helper methods
     private int getIntValue(Object obj) {
         if (obj == null) return 0;
         if (obj instanceof Number) return ((Number) obj).intValue();
@@ -439,6 +784,16 @@ public class MathGameController {
             return Integer.parseInt(obj.toString());
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+
+    private long getLongValue(Object obj) {
+        if (obj == null) return 0L;
+        if (obj instanceof Number) return ((Number) obj).longValue();
+        try {
+            return Long.parseLong(obj.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
         }
     }
 
@@ -462,9 +817,23 @@ public class MathGameController {
         return Boolean.parseBoolean(obj.toString());
     }
 
+    @FXML
     public void handleHelp(ActionEvent actionEvent) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Game Help");
+        alert.setHeaderText("How to Play");
+        alert.setContentText(
+                "🎯 Goal: Answer questions correctly to move your car forward!\n\n" +
+                        "⚡ Nitro Boost: Be the fastest to answer correctly!\n" +
+                        "🔥 Streak Bonus: Get extra points for consecutive correct answers!\n" +
+                        "💥 Wrong Streak: Too many wrong answers will push you back!\n\n" +
+                        "Good luck! 🏁"
+        );
+        alert.showAndWait();
     }
 
+    @FXML
     public void handleSettings(ActionEvent actionEvent) {
+        // Settings implementation
     }
 }

@@ -8,8 +8,8 @@ import java.util.concurrent.*;
 /**
  * GameSession - Quản lý trạng thái của một trận game
  *
- * Lifecycle:
- * COUNTDOWN (10s) → PLAYING (câu hỏi) → QUESTION_RESULT (2s) → Next question → FINISHED
+ * ✅ ASYNC MODE: Mỗi người chơi có câu hỏi riêng, không cần chờ nhau
+ * ✅ Position broadcasting: Tất cả thấy vị trí của nhau real-time
  */
 public class GameSession {
 
@@ -21,22 +21,24 @@ public class GameSession {
 
     // ==================== QUESTIONS ====================
     private final List<Question> questions;
-    private int currentQuestionIndex;
-    private long questionStartTime;
     private final int questionTimeLimit = Protocol.QUESTION_TIME_LIMIT; // 10s
 
     // ==================== PLAYERS ====================
     private final Map<Integer, PlayerGameState> playerStates; // userId -> state
-    private final Map<Integer, Boolean> playerAnswered; // userId -> has answered this question
-    private final Map<Integer, Long> answerTimes; // userId -> timestamp when answered
+
+    // ✅ Mỗi người có câu hỏi riêng
+    private final Map<Integer, Integer> playerQuestionIndex; // userId -> current question index
+    private final Map<Integer, Long> playerQuestionStartTime; // userId -> question start time
+    private final Map<Integer, ScheduledFuture<?>> playerQuestionTimers; // userId -> timeout timer
+
     private final Set<Integer> disconnectedPlayers;
+    private final Set<Integer> finishedPlayers; // Người chơi đã hoàn thành
 
     // ==================== GAME STATE ====================
     private GameState gameState;
     private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> questionTimer;
     private long gameStartTime;
-    private final long gameDuration = Protocol.GAME_DURATION * 1000L; // 5 minutes in ms
+    private final long gameDuration = Protocol.GAME_DURATION * 1000L; // 5 minutes
 
     // ==================== CONSTANTS ====================
     private static final double FINISH_LINE = Protocol.FINISH_LINE;
@@ -44,38 +46,47 @@ public class GameSession {
 
     public enum GameState {
         COUNTDOWN,       // Đếm ngược 10s trước khi bắt đầu
-        PLAYING,         // Đang chơi (hiện câu hỏi)
-        QUESTION_RESULT, // Hiện kết quả câu hỏi (2s)
+        PLAYING,         // Đang chơi
         FINISHED         // Game kết thúc
     }
 
     /**
      * Constructor
      */
-    public GameSession(String roomId, String subject, String difficulty, List<Question> questions, List<Integer> playerIds) {
+    public GameSession(String roomId, String subject, String difficulty,
+                       List<Question> questions, List<Integer> playerIds) {
         this.roomId = roomId;
         this.subject = subject;
         this.difficulty = difficulty;
-        this.questions = questions;
-        this.currentQuestionIndex = 0;
+
+        // ✅ KHÔNG shuffle ở đây - nhận câu hỏi đã shuffle từ GameManager
+        this.questions = new ArrayList<>(questions); // Copy để đảm bảo immutable
+
         this.startTime = LocalDateTime.now();
 
         this.playerStates = new ConcurrentHashMap<>();
-        this.playerAnswered = new ConcurrentHashMap<>();
-        this.answerTimes = new ConcurrentHashMap<>();
+        this.playerQuestionIndex = new ConcurrentHashMap<>();
+        this.playerQuestionStartTime = new ConcurrentHashMap<>();
+        this.playerQuestionTimers = new ConcurrentHashMap<>();
         this.disconnectedPlayers = ConcurrentHashMap.newKeySet();
+        this.finishedPlayers = ConcurrentHashMap.newKeySet();
 
         // Initialize player states
         for (Integer userId : playerIds) {
             playerStates.put(userId, new PlayerGameState(userId));
+            playerQuestionIndex.put(userId, 0); // ✅ TẤT CẢ bắt đầu từ câu 0
         }
 
         this.gameState = GameState.COUNTDOWN;
-        this.scheduler = Executors.newScheduledThreadPool(1);
+        this.scheduler = Executors.newScheduledThreadPool(playerIds.size() + 1);
 
-        System.out.println("✅ [GameSession] Created for room " + roomId);
+        System.out.println("✅ [GameSession] Created ASYNC mode for room " + roomId);
         System.out.println("   Subject: " + subject + " | Difficulty: " + difficulty);
         System.out.println("   Players: " + playerIds.size() + " | Questions: " + questions.size());
+        System.out.println("   📋 Question order (first 3):");
+        for (int i = 0; i < Math.min(3, questions.size()); i++) {
+            System.out.println("      Q" + (i+1) + ": ID=" + questions.get(i).getQuestionId());
+        }
     }
 
     // ==================== GAME FLOW ====================
@@ -94,39 +105,115 @@ public class GameSession {
     public void startGame() {
         gameState = GameState.PLAYING;
         gameStartTime = System.currentTimeMillis();
-        System.out.println("🎮 [GameSession] Game started!");
+        System.out.println("🎮 [GameSession] Game started in ASYNC mode!");
 
-        // Start first question
-        startQuestion();
+        // ✅ Gửi câu hỏi đầu tiên cho TẤT CẢ người chơi
+        for (Integer userId : playerStates.keySet()) {
+            if (!disconnectedPlayers.contains(userId)) {
+                startQuestionForPlayer(userId);
+            }
+        }
+
+        // ✅ Start position broadcasting (mỗi 1s)
+        scheduler.scheduleAtFixedRate(() -> {
+            if (gameState == GameState.PLAYING && positionBroadcaster != null) {
+                positionBroadcaster.broadcastPositions(roomId);
+            }
+        }, 1, 1, TimeUnit.SECONDS);
+
+        // ✅ Check time limit
+        scheduler.schedule(() -> {
+            if (gameState == GameState.PLAYING) {
+                System.out.println("⏰ [GameSession] Time limit reached!");
+                endGame("TIME_UP");
+            }
+        }, gameDuration, TimeUnit.MILLISECONDS);
     }
 
     /**
-     * Bắt đầu câu hỏi mới
+     * ✅ Bắt đầu câu hỏi cho một người chơi cụ thể
      */
-    public void startQuestion() {
-        if (currentQuestionIndex >= questions.size()) {
-            endGame("ALL_QUESTIONS_COMPLETED");
+    private void startQuestionForPlayer(int userId) {
+        Integer currentIndex = playerQuestionIndex.get(userId);
+
+        if (currentIndex == null || currentIndex >= questions.size()) {
+            // Người này đã hết câu hỏi
+            finishPlayer(userId);
             return;
         }
 
-        gameState = GameState.PLAYING;
-        questionStartTime = System.currentTimeMillis();
+        // Record start time
+        playerQuestionStartTime.put(userId, System.currentTimeMillis());
 
-        // Reset answer tracking
-        playerAnswered.clear();
-        answerTimes.clear();
+        System.out.println("❓ [GameSession] Player " + userId +
+                " started question " + (currentIndex + 1) + "/" + questions.size());
 
-        System.out.println("❓ [GameSession] Question " + (currentQuestionIndex + 1) + "/" + questions.size());
-
-        // Set timeout for question (10s)
-        questionTimer = scheduler.schedule(() -> {
-            System.out.println("⏰ [GameSession] Question timeout!");
-            processQuestionResults();
+        // ✅ Set timeout cho người chơi này (10s)
+        ScheduledFuture<?> timer = scheduler.schedule(() -> {
+            handlePlayerTimeout(userId);
         }, questionTimeLimit, TimeUnit.SECONDS);
+
+        playerQuestionTimers.put(userId, timer);
+
+        // ✅ Notify broadcaster to send question
+        if (questionSender != null) {
+            questionSender.sendQuestion(roomId, userId, currentIndex);
+        }
     }
 
     /**
-     * Xử lý câu trả lời của player
+     * ✅ Xử lý timeout cho một người chơi
+     */
+    private void handlePlayerTimeout(int userId) {
+        if (finishedPlayers.contains(userId) || disconnectedPlayers.contains(userId)) {
+            return;
+        }
+
+        System.out.println("⏰ [GameSession] Player " + userId + " timeout!");
+
+        PlayerGameState state = playerStates.get(userId);
+        if (state != null) {
+            // Penalty for timeout
+            state.position += Protocol.PENALTY_DISTANCE;
+            state.position = Math.max(START_POSITION, state.position);
+            state.score += Protocol.POINTS_TIMEOUT;
+            state.wrongStreak++;
+            state.correctStreak = 0;
+
+            // Wrong streak penalty
+            if (state.wrongStreak == 3) {
+                state.position -= 30;
+                System.out.println("   💥 Player " + userId + " 3 wrong streak penalty!");
+            } else if (state.wrongStreak == 5) {
+                state.position -= 50;
+                System.out.println("   💥💥 Player " + userId + " 5 wrong streak penalty!");
+            }
+
+            state.position = Math.max(START_POSITION, state.position);
+        }
+
+        // ✅ Move to next question
+        moveToNextQuestion(userId);
+    }
+
+
+    @FunctionalInterface
+    public interface AnswerBroadcaster {
+        void broadcastAnswer(String roomId, int userId, boolean isCorrect, long timeTaken,
+                             double position, int score, boolean gotNitro);
+    }
+
+    private AnswerBroadcaster answerBroadcaster;
+
+    public void setAnswerBroadcaster(AnswerBroadcaster broadcaster) {
+        this.answerBroadcaster = broadcaster;
+    }
+
+    /**
+     * ✅ Xử lý câu trả lời của một người chơi
+     */
+    /**
+     * ✅ Xử lý câu trả lời của một người chơi
      */
     public synchronized AnswerResult submitAnswer(int userId, String answer) {
         // Validate
@@ -134,18 +221,24 @@ public class GameSession {
             return new AnswerResult(false, "Game not in playing state", 0, 0);
         }
 
-        if (playerAnswered.containsKey(userId)) {
-            return new AnswerResult(false, "Already answered", 0, 0);
+        if (finishedPlayers.contains(userId)) {
+            return new AnswerResult(false, "You already finished", 0, 0);
         }
 
         if (disconnectedPlayers.contains(userId)) {
             return new AnswerResult(false, "Player disconnected", 0, 0);
         }
 
-        // Record answer
-        long answerTime = System.currentTimeMillis();
-        playerAnswered.put(userId, true);
-        answerTimes.put(userId, answerTime);
+        Integer currentIndex = playerQuestionIndex.get(userId);
+        if (currentIndex == null || currentIndex >= questions.size()) {
+            return new AnswerResult(false, "No active question", 0, 0);
+        }
+
+        // Cancel timeout timer
+        ScheduledFuture<?> timer = playerQuestionTimers.remove(userId);
+        if (timer != null) {
+            timer.cancel(false);
+        }
 
         PlayerGameState state = playerStates.get(userId);
         if (state == null) {
@@ -153,185 +246,266 @@ public class GameSession {
         }
 
         // Check correct answer
-        Question currentQuestion = questions.get(currentQuestionIndex);
+        Question currentQuestion = questions.get(currentIndex);
         boolean isCorrect = answer.equalsIgnoreCase(currentQuestion.getCorrectAnswer());
 
-        long timeTaken = answerTime - questionStartTime;
+        Long startTime = playerQuestionStartTime.get(userId);
+        long timeTaken = startTime != null ?
+                (System.currentTimeMillis() - startTime) : 0;
 
         // Update player state
         state.lastAnswer = answer;
         state.lastAnswerCorrect = isCorrect;
         state.lastAnswerTime = timeTaken;
 
-        // Update streak
+        // ✅ RESET gotNitro TRƯỚC KHI tính toán
+        state.gotNitro = false;
+
+        // Calculate movement and points
+        double movement = 0;
+        int points = 0;
+
         if (isCorrect) {
+            boolean isFastest = checkIfFastest(userId, timeTaken);
+
+            if (isFastest) {
+                movement = Protocol.NITRO_DISTANCE;
+                points = Protocol.POINTS_NITRO;
+                state.gotNitro = true;
+                System.out.println("   🚀 Player " + userId + " NITRO: " + movement);
+            } else {
+                movement = Protocol.NORMAL_DISTANCE;
+                points = Protocol.POINTS_CORRECT;
+                System.out.println("   ✅ Player " + userId + " correct: " + movement);
+            }
+
             state.correctStreak++;
             state.wrongStreak = 0;
+
+            if (state.correctStreak == 3) {
+                movement += 20;
+                points += 20;
+                System.out.println("   🔥 Player " + userId + " 3-streak bonus!");
+            } else if (state.correctStreak == 5) {
+                movement += 50;
+                points += 50;
+                System.out.println("   🔥🔥 Player " + userId + " 5-streak bonus!");
+            }
+
         } else {
+            movement = 0;
+            points = Protocol.POINTS_WRONG;
             state.wrongStreak++;
             state.correctStreak = 0;
-        }
+            System.out.println("   ❌ Player " + userId + " wrong: no movement");
 
-        System.out.println("📝 [GameSession] Player " + userId + " answered: " + answer +
-                " (" + (isCorrect ? "✅ CORRECT" : "❌ WRONG") + ") in " + timeTaken + "ms");
-
-        // Check if all players answered
-        if (playerAnswered.size() == getActivePlayers().size()) {
-            System.out.println("✅ [GameSession] All players answered!");
-            if (questionTimer != null) {
-                questionTimer.cancel(false);
+            if (state.wrongStreak == 3) {
+                movement = -30;
+                System.out.println("   💥 Player " + userId + " 3 wrong streak penalty!");
+            } else if (state.wrongStreak == 5) {
+                movement = -50;
+                System.out.println("   💥💥 Player " + userId + " 5 wrong streak penalty!");
             }
-            processQuestionResults();
         }
 
-        return new AnswerResult(true, isCorrect ? "Correct!" : "Wrong!", timeTaken, state.correctStreak);
+        // Update position
+        state.position += movement;
+        state.position = Math.max(START_POSITION, state.position);
+        state.position = Math.min(FINISH_LINE, state.position);
+        state.score += points;
+
+        System.out.println("   📍 Player " + userId + " position: " + state.position +
+                " (score: " + state.score + ")");
+
+        // ✅ Broadcast answer result to ALL players immediately
+        if (answerBroadcaster != null) {
+            answerBroadcaster.broadcastAnswer(roomId, userId, isCorrect, timeTaken,
+                    state.position, state.score, state.gotNitro);
+        }
+
+        // ✅ Move to next question TRONG playerQuestionIndex
+        int nextIndex = currentIndex + 1;
+        playerQuestionIndex.put(userId, nextIndex);
+
+        // ✅ Check if player finished all questions
+        if (nextIndex >= questions.size()) {
+            handlePlayerFinished(userId);
+            return new AnswerResult(true,
+                    "You finished all questions!",
+                    timeTaken,
+                    state.correctStreak);
+        }
+
+        // Check if reached finish line
+        if (state.position >= FINISH_LINE) {
+            finishPlayer(userId);
+            return new AnswerResult(true,
+                    "You reached the finish line! 🏆",
+                    timeTaken,
+                    state.correctStreak);
+        }
+
+        // ✅ Broadcast progress to OTHER players
+        if (progressBroadcaster != null) {
+            progressBroadcaster.broadcastProgress(roomId, userId, nextIndex);
+        }
+
+        // ✅ Schedule next question after 2s delay
+        scheduler.schedule(() -> {
+            if (gameState == GameState.PLAYING &&
+                    !finishedPlayers.contains(userId) &&
+                    !disconnectedPlayers.contains(userId)) {
+                startQuestionForPlayer(userId);
+            }
+        }, 2, TimeUnit.SECONDS);
+
+        return new AnswerResult(true,
+                isCorrect ? "Correct!" : "Wrong!",
+                timeTaken,
+                state.correctStreak);
     }
 
     /**
-     * Xử lý kết quả câu hỏi và cập nhật vị trí
-     * ✅ ADD: Callback to notify server to broadcast results
+     * ✅ Xử lý khi player hoàn thành tất cả câu hỏi hoặc đạt finish line
+     * Called from submitAnswer() when player completes all questions or reaches finish line
      */
-    private ResultBroadcaster resultBroadcaster;
+    private synchronized void handlePlayerFinished(int userId) {
+        // ✅ Check if already finished to avoid duplicate processing
+        if (finishedPlayers.contains(userId)) {
+            System.out.println("⚠️ [handlePlayerFinished] Player " + userId + " already finished");
+            return;
+        }
 
-    public void setResultBroadcaster(ResultBroadcaster broadcaster) {
-        this.resultBroadcaster = broadcaster;
+        // ✅ Mark as finished
+        finishedPlayers.add(userId);
+
+        // ✅ Update player state
+        PlayerGameState state = playerStates.get(userId);
+        if (state != null) {
+            state.finalRank = finishedPlayers.size();
+
+            System.out.println("🏁 [GameSession] Player " + userId +
+                    " (" + state.userId + ") FINISHED!");
+            System.out.println("   Final Rank: " + state.finalRank);
+            System.out.println("   Final Position: " + state.position);
+            System.out.println("   Final Score: " + state.score);
+            System.out.println("   Questions Completed: " + playerQuestionIndex.get(userId) +
+                    "/" + questions.size());
+        }
+
+        // ✅ Cancel any pending question timer for this player
+        ScheduledFuture<?> timer = playerQuestionTimers.remove(userId);
+        if (timer != null && !timer.isDone()) {
+            timer.cancel(false);
+            System.out.println("   ⏹️ Cancelled pending timer for player " + userId);
+        }
+
+        // ✅ Remove question start time
+        playerQuestionStartTime.remove(userId);
+
+        // ✅ Notify THIS player they finished
+        if (playerFinishNotifier != null) {
+            System.out.println("   📤 Sending finish notification to player " + userId);
+            playerFinishNotifier.notifyFinish(roomId, userId, finishedPlayers.size());
+        }
+
+        // ✅ Check if all active players have finished
+        int totalActivePlayers = getActivePlayers().size();
+        int finishedCount = finishedPlayers.size();
+
+        System.out.println("   📊 Progress: " + finishedCount + "/" + totalActivePlayers + " players finished");
+
+        if (finishedCount >= totalActivePlayers) {
+            System.out.println("🏆 [GameSession] ALL PLAYERS FINISHED!");
+
+            // ✅ Delay 3 seconds before ending game to let players see final results
+            scheduler.schedule(() -> {
+                if (gameState == GameState.PLAYING) {
+                    System.out.println("   🏁 Ending game after delay...");
+                    endGame("ALL_FINISHED");
+                }
+            }, 3, TimeUnit.SECONDS);
+        }
+    }
+
+    /**
+     * ✅ Check if this answer is fastest among all active players
+     */
+    private boolean checkIfFastest(int userId, long timeTaken) {
+        // Check if any other player answered faster in the last 1 second
+        long now = System.currentTimeMillis();
+
+        for (Map.Entry<Integer, PlayerGameState> entry : playerStates.entrySet()) {
+            int otherId = entry.getKey();
+            if (otherId == userId) continue;
+            if (disconnectedPlayers.contains(otherId)) continue;
+            if (finishedPlayers.contains(otherId)) continue;
+
+            PlayerGameState otherState = entry.getValue();
+            if (otherState.lastAnswerTime > 0 &&
+                    otherState.lastAnswerCorrect &&
+                    otherState.lastAnswerTime < timeTaken) {
+
+                Long otherStartTime = playerQuestionStartTime.get(otherId);
+                if (otherStartTime != null && (now - otherStartTime) < 1000) {
+                    return false; // Someone was faster
+                }
+            }
+        }
+
+        return true;
     }
 
     @FunctionalInterface
-    public interface ResultBroadcaster {
-        void broadcastResults(String roomId);
+    public interface ProgressBroadcaster {
+        void broadcastProgress(String roomId, int userId, int questionIndex);
     }
 
-    private synchronized void processQuestionResults() {
-        if (gameState != GameState.PLAYING) return;
+    private ProgressBroadcaster progressBroadcaster;
 
-        gameState = GameState.QUESTION_RESULT;
-
-        Question currentQuestion = questions.get(currentQuestionIndex);
-
-        // Find fastest correct answer
-        long fastestTime = Long.MAX_VALUE;
-        Integer fastestPlayer = null;
-
-        for (Map.Entry<Integer, PlayerGameState> entry : playerStates.entrySet()) {
-            int userId = entry.getKey();
-            PlayerGameState state = entry.getValue();
-
-            if (playerAnswered.containsKey(userId) && state.lastAnswerCorrect) {
-                long time = answerTimes.getOrDefault(userId, Long.MAX_VALUE);
-                if (time < fastestTime) {
-                    fastestTime = time;
-                    fastestPlayer = userId;
-                }
-            }
-        }
-
-        // Calculate new positions
-        for (Map.Entry<Integer, PlayerGameState> entry : playerStates.entrySet()) {
-            int userId = entry.getKey();
-            PlayerGameState state = entry.getValue();
-
-            if (disconnectedPlayers.contains(userId)) {
-                continue;
-            }
-
-            double movement = 0;
-            int points = 0;
-            boolean gotNitro = false;
-
-            if (!playerAnswered.containsKey(userId)) {
-                // Timeout - penalty
-                movement = Protocol.PENALTY_DISTANCE;
-                points = Protocol.POINTS_TIMEOUT;
-                System.out.println("   ⏰ Player " + userId + " timeout: " + movement);
-
-            } else if (state.lastAnswerCorrect) {
-                // Correct answer
-                if (userId == fastestPlayer) {
-                    // NITRO BOOST
-                    movement = Protocol.NITRO_DISTANCE;
-                    points = Protocol.POINTS_NITRO;
-                    gotNitro = true;
-                    System.out.println("   🚀 Player " + userId + " NITRO: " + movement);
-                } else {
-                    // Normal correct
-                    movement = Protocol.NORMAL_DISTANCE;
-                    points = Protocol.POINTS_CORRECT;
-                    System.out.println("   ✅ Player " + userId + " correct: " + movement);
-                }
-
-                // Bonus for streaks
-                if (state.correctStreak == 3) {
-                    movement += 20; // Bonus for 3 streak
-                    points += 20;
-                    System.out.println("   🔥 Player " + userId + " 3-streak bonus!");
-                } else if (state.correctStreak == 5) {
-                    movement += 50; // Bigger bonus for 5 streak
-                    points += 50;
-                    System.out.println("   🔥🔥 Player " + userId + " 5-streak bonus!");
-                }
-
-            } else {
-                // Wrong answer - no movement
-                movement = 0;
-                points = Protocol.POINTS_WRONG;
-                System.out.println("   ❌ Player " + userId + " wrong: no movement");
-
-                // Penalty for wrong streaks
-                if (state.wrongStreak == 3) {
-                    movement = -30;
-                    System.out.println("   💥 Player " + userId + " 3 wrong streak penalty!");
-                } else if (state.wrongStreak == 5) {
-                    movement = -50;
-                    System.out.println("   💥💥 Player " + userId + " 5 wrong streak penalty!");
-                }
-            }
-
-            // Update position
-            state.position += movement;
-            state.position = Math.max(START_POSITION, state.position); // Don't go below start
-            state.position = Math.min(FINISH_LINE, state.position); // Don't exceed finish
-            state.score += points;
-            state.gotNitro = gotNitro;
-
-            System.out.println("   📍 Player " + userId + " position: " + state.position + " (score: " + state.score + ")");
-        }
-
-        // Check for winners
-        checkWinners();
-
-        // Move to next question after 2s
-        currentQuestionIndex++;
-
-        if (gameState != GameState.FINISHED) {
-            scheduler.schedule(() -> {
-                startQuestion();
-            }, 2, TimeUnit.SECONDS);
-        }
+    public void setProgressBroadcaster(ProgressBroadcaster broadcaster) {
+        this.progressBroadcaster = broadcaster;
     }
 
     /**
-     * Kiểm tra người thắng
+     * ✅ Move player to next question
      */
-    private void checkWinners() {
-        List<Integer> winners = new ArrayList<>();
+    @Deprecated
+    private void moveToNextQuestion(int userId) {
+        System.out.println("⚠️ [moveToNextQuestion] This method is deprecated");
+    }
 
-        for (Map.Entry<Integer, PlayerGameState> entry : playerStates.entrySet()) {
-            if (entry.getValue().position >= FINISH_LINE) {
-                winners.add(entry.getKey());
-            }
+    /**
+     * ✅ Mark player as finished
+     */
+    private synchronized void finishPlayer(int userId) {
+        if (finishedPlayers.contains(userId)) return;
+
+        finishedPlayers.add(userId);
+
+        PlayerGameState state = playerStates.get(userId);
+        if (state != null) {
+            state.finalRank = finishedPlayers.size();
         }
 
-        if (!winners.isEmpty()) {
-            System.out.println("🏆 [GameSession] Winners found: " + winners);
-            endGame("FINISH_LINE");
+        System.out.println("🏁 [GameSession] Player " + userId + " finished! Rank: " + finishedPlayers.size());
+
+        // Cancel any pending timer
+        ScheduledFuture<?> timer = playerQuestionTimers.remove(userId);
+        if (timer != null) {
+            timer.cancel(false);
         }
 
-        // Check time limit
-        long elapsed = System.currentTimeMillis() - gameStartTime;
-        if (elapsed >= gameDuration) {
-            System.out.println("⏰ [GameSession] Time limit reached!");
-            endGame("TIME_UP");
+        // ✅ Notify player they finished
+        if (playerFinishNotifier != null) {
+            playerFinishNotifier.notifyFinish(roomId, userId, finishedPlayers.size());
+        }
+
+        // ✅ Check if all players finished
+        int activePlayers = getActivePlayers().size();
+        if (finishedPlayers.size() >= activePlayers) {
+            System.out.println("🏆 [GameSession] All players finished!");
+            endGame("ALL_FINISHED");
         }
     }
 
@@ -339,11 +513,17 @@ public class GameSession {
      * Kết thúc game
      */
     public void endGame(String reason) {
+        if (gameState == GameState.FINISHED) return;
+
         gameState = GameState.FINISHED;
 
-        if (questionTimer != null) {
-            questionTimer.cancel(false);
+        // Cancel all timers
+        for (ScheduledFuture<?> timer : playerQuestionTimers.values()) {
+            if (timer != null) {
+                timer.cancel(false);
+            }
         }
+        playerQuestionTimers.clear();
 
         System.out.println("🏁 [GameSession] Game ended! Reason: " + reason);
 
@@ -359,9 +539,16 @@ public class GameSession {
         System.out.println("📊 [GameSession] Final Rankings:");
         for (int i = 0; i < rankings.size(); i++) {
             PlayerGameState state = rankings.get(i);
-            state.finalRank = i + 1;
-            System.out.println("   " + (i + 1) + ". Player " + state.userId +
+            if (state.finalRank == 0) {
+                state.finalRank = i + 1;
+            }
+            System.out.println("   " + state.finalRank + ". Player " + state.userId +
                     " - Position: " + state.position + " - Score: " + state.score);
+        }
+
+        // Notify end game
+        if (gameEndNotifier != null) {
+            gameEndNotifier.notifyGameEnd(roomId, reason);
         }
     }
 
@@ -370,6 +557,13 @@ public class GameSession {
      */
     public void playerDisconnected(int userId) {
         disconnectedPlayers.add(userId);
+
+        // Cancel timer
+        ScheduledFuture<?> timer = playerQuestionTimers.remove(userId);
+        if (timer != null) {
+            timer.cancel(false);
+        }
+
         System.out.println("💔 [GameSession] Player " + userId + " disconnected");
 
         // Check if all players disconnected
@@ -385,7 +579,51 @@ public class GameSession {
         if (scheduler != null && !scheduler.isShutdown()) {
             scheduler.shutdownNow();
         }
+        playerQuestionTimers.clear();
         System.out.println("🧹 [GameSession] Cleaned up");
+    }
+
+    // ==================== CALLBACK INTERFACES ====================
+
+    @FunctionalInterface
+    public interface QuestionSender {
+        void sendQuestion(String roomId, int userId, int questionIndex);
+    }
+
+    @FunctionalInterface
+    public interface PositionBroadcaster {
+        void broadcastPositions(String roomId);
+    }
+
+    @FunctionalInterface
+    public interface PlayerFinishNotifier {
+        void notifyFinish(String roomId, int userId, int rank);
+    }
+
+    @FunctionalInterface
+    public interface GameEndNotifier {
+        void notifyGameEnd(String roomId, String reason);
+    }
+
+    private QuestionSender questionSender;
+    private PositionBroadcaster positionBroadcaster;
+    private PlayerFinishNotifier playerFinishNotifier;
+    private GameEndNotifier gameEndNotifier;
+
+    public void setQuestionSender(QuestionSender sender) {
+        this.questionSender = sender;
+    }
+
+    public void setPositionBroadcaster(PositionBroadcaster broadcaster) {
+        this.positionBroadcaster = broadcaster;
+    }
+
+    public void setPlayerFinishNotifier(PlayerFinishNotifier notifier) {
+        this.playerFinishNotifier = notifier;
+    }
+
+    public void setGameEndNotifier(GameEndNotifier notifier) {
+        this.gameEndNotifier = notifier;
     }
 
     // ==================== GETTERS ====================
@@ -394,13 +632,34 @@ public class GameSession {
     public String getSubject() { return subject; }
     public String getDifficulty() { return difficulty; }
     public GameState getGameState() { return gameState; }
-    public int getCurrentQuestionIndex() { return currentQuestionIndex; }
-    public Question getCurrentQuestion() {
-        if (currentQuestionIndex < questions.size()) {
-            return questions.get(currentQuestionIndex);
+
+    public Question getQuestionForPlayer(int userId) {
+        Integer index = playerQuestionIndex.get(userId);
+
+        if (index == null) {
+            System.out.println("⚠️ [getQuestion] Player " + userId + " has null index");
+            return null;
         }
-        return null;
+
+        if (index < 0 || index >= questions.size()) {
+            System.out.println("⚠️ [getQuestion] Player " + userId + " index out of bounds: " + index);
+            return null;
+        }
+
+        Question q = questions.get(index);
+
+        // ✅ Log để debug
+        System.out.println("📖 [getQuestion] Player " + userId +
+                " -> Q" + (index + 1) + " (ID: " +
+                (q != null ? q.getQuestionId() : "null") + ")");
+
+        return q;
     }
+
+    public int getQuestionIndexForPlayer(int userId) {
+        return playerQuestionIndex.getOrDefault(userId, 0);
+    }
+
     public Map<Integer, PlayerGameState> getPlayerStates() { return playerStates; }
     public PlayerGameState getPlayerState(int userId) { return playerStates.get(userId); }
 
@@ -415,6 +674,7 @@ public class GameSession {
     }
 
     public boolean isFinished() { return gameState == GameState.FINISHED; }
+    public boolean hasPlayer(int userId) { return playerStates.containsKey(userId); }
 
     // ==================== INNER CLASSES ====================
 
@@ -461,4 +721,17 @@ public class GameSession {
         }
     }
 
+    /**
+     * Get current question index for tracking
+     */
+    public int getCurrentQuestionIndex() {
+        // Return the maximum question index any player has reached
+        int maxIndex = 0;
+        for (Integer index : playerQuestionIndex.values()) {
+            if (index != null && index > maxIndex) {
+                maxIndex = index;
+            }
+        }
+        return maxIndex;
+    }
 }

@@ -78,6 +78,9 @@ public class ServerConnection {
     private Consumer<Map<String, Object>> kickPlayerCallback;
     private Consumer<Map<String, Object>> questionResultCallback;
 
+    private Consumer<Map<String, Object>> playerAnsweredCallback;
+    private Consumer<Map<String, Object>> playerProgressCallback;
+
     public void setQuestionResultCallback(Consumer<Map<String, Object>> callback) {
         this.questionResultCallback = callback;
     }
@@ -129,6 +132,19 @@ public class ServerConnection {
     }
 
 
+    /**
+     * Set callback khi có người chơi trả lời
+     */
+    public void setPlayerAnsweredCallback(Consumer<Map<String, Object>> callback) {
+        this.playerAnsweredCallback = callback;
+    }
+
+    /**
+     * Set callback khi có người chơi chuyển câu hỏi
+     */
+    public void setPlayerProgressCallback(Consumer<Map<String, Object>> callback) {
+        this.playerProgressCallback = callback;
+    }
 
     private Map<String, Consumer<User>> profileByIdCallbacks = new HashMap<>();
 
@@ -206,6 +222,8 @@ public class ServerConnection {
         questionResultCallback = null;
         gameEndCallback = null;
         nitroBoostCallback = null;
+        playerAnsweredCallback = null;
+        playerProgressCallback = null;
     }
 
     // Loading states
@@ -445,6 +463,22 @@ public class ServerConnection {
                     questionResultCallback.accept(data);
                 }
                 break;
+
+            case Protocol.PLAYER_ANSWERED:
+                System.out.println("📢 [CLIENT] Another player answered");
+                if (playerAnsweredCallback != null) {
+                    playerAnsweredCallback.accept(data);
+                }
+                break;
+
+            case Protocol.PLAYER_PROGRESS:
+                System.out.println("📢 [CLIENT] Player progress update");
+                if (playerProgressCallback != null) {
+                    playerProgressCallback.accept(data);
+                }
+                break;
+
+
             case Protocol.GAME_UPDATE:
                 System.out.println("🔄 [CLIENT] Received game state update");
                 if (gameUpdateCallback != null) {

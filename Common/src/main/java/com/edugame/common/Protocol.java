@@ -54,6 +54,34 @@ public class Protocol {
     public static final String UPDATE_PASSWORD = "UPDATE_PASSWORD";
     public static final String GET_STATISTICS = "GET_STATISTICS";
     public static final String GET_TRAINING_QUESTIONS = "GET_TRAINING_QUESTIONS";
+    public static final String PLAYER_ANSWERED = "PLAYER_ANSWERED";
+    public static final String PLAYER_PROGRESS = "PLAYER_PROGRESS";
+
+    // ==================== SUBJECTS ====================
+
+    public static final String SUBJECT_MATH = "MATH";
+    public static final String SUBJECT_ENGLISH = "ENGLISH";
+    public static final String SUBJECT_LITERATURE = "LITERATURE";
+
+
+    public static final String[] SUBJECTS = {
+            SUBJECT_MATH,
+            SUBJECT_ENGLISH,
+            SUBJECT_LITERATURE,
+    };
+
+    // ==================== DIFFICULTY LEVELS ====================
+
+    public static final String DIFFICULTY_EASY = "EASY";
+    public static final String DIFFICULTY_MEDIUM = "MEDIUM";
+    public static final String DIFFICULTY_HARD = "HARD";
+
+    public static final String[] DIFFICULTIES = {
+            DIFFICULTY_EASY,
+            DIFFICULTY_MEDIUM,
+            DIFFICULTY_HARD
+    };
+
 
     public static final Object TRAINING_MODE = "TRAINING_MODE" ;
     // ============================================
@@ -190,6 +218,14 @@ public class Protocol {
     public static final int MAX_PLAYERS_PER_ROOM = 4;
     public static final int QUESTIONS_PER_GAME = 10;
 
+
+    // Matchmaking
+    public static final int MIN_PLAYERS = 2;
+    public static final int MAX_PLAYERS = 4;
+    public static final int MATCHMAKING_TIMEOUT = 60;         // 60 seconds
+
+    // Position & Movement (Race Track)
+    public static final double START_POSITION = 0.0;
 
 
 }

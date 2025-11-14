@@ -9,6 +9,7 @@ import com.edugame.server.model.User;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -94,6 +95,8 @@ public class GameServer {
                     if (running) {
                         System.err.println("✗ Error accepting client: " + e.getMessage());
                     }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
                 }
             }
 
@@ -104,6 +107,8 @@ public class GameServer {
             stop();
         }
     }
+
+
 
     /**
      * Stop the server
@@ -128,7 +133,7 @@ public class GameServer {
             }
 
             // Close database connection
-            DatabaseConnection.getInstance().closeConnection();
+//            DatabaseConnection.getInstance().closeConnection();
 
             System.out.println("========================================");
             System.out.println("✓ Server stopped");
@@ -193,6 +198,14 @@ public class GameServer {
                 client.sendMessage(message);
             }
         }
+    }
+
+    /**
+     * Get list of connected client handlers (for internal use)
+     */
+    public List<ClientHandler> getConnectedClients() {
+        connectedClients.removeIf(client -> !client.isRunning());
+        return new ArrayList<>(connectedClients);
     }
 
     /**
