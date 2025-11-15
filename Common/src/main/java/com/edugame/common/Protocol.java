@@ -195,7 +195,7 @@ public class Protocol {
     public static final int FINISH_LINE = 1450;      // Finish line position
 
     // Timing
-    public static final int QUESTION_TIME_LIMIT = 10;  // Seconds per question
+    public static final int QUESTION_TIME_LIMIT = 15;  // Seconds per question
     public static final int GAME_DURATION = 300;       // Seconds (5 minutes)
     public static final int MAX_QUESTIONS = 20;        // Per game
 

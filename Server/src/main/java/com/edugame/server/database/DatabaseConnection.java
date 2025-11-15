@@ -7,6 +7,7 @@ import java.sql.SQLException;
 public class DatabaseConnection {
     private static DatabaseConnection instance;
 
+
     // Database configuration
     private static final String DB_HOST = "localhost";
     private static final String DB_PORT = "3306";
@@ -40,6 +41,7 @@ public class DatabaseConnection {
      */
     public static Connection getConnection() throws SQLException {
         Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+        conn.setAutoCommit(true);
         if (conn != null && !conn.isClosed()) {
             System.out.println("✓ Database connection established");
         }

@@ -28,7 +28,7 @@ public class UserDAO {
             pstmt.setString(2, hashedPassword);
             pstmt.setString(3, email);
             pstmt.setString(4, fullName);
-            pstmt.setString(4, age);
+            pstmt.setString(5, age);
             pstmt.setString(6, avatarUrl);
 
             int rowsAffected = pstmt.executeUpdate();
@@ -50,7 +50,7 @@ public class UserDAO {
         return false;
     }
 
-    
+
     /**
      * Login user - validate credentials
      */
@@ -204,37 +204,40 @@ public class UserDAO {
      * Get user by ID
      */
     public User getUserById(int userId) {
-        String sql = "SELECT * FROM users WHERE user_id = ?";
+        String query = "SELECT * FROM users WHERE user_id = ?";
 
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, userId);
-            ResultSet rs = pstmt.executeQuery();
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
 
-            if (rs.next()) {
-                User user = new User();
-                user.setUserId(rs.getInt("user_id"));
-                user.setUsername(rs.getString("username"));
-                user.setEmail(rs.getString("email"));
-                user.setFullName(rs.getString("full_name"));
-                user.setAge(rs.getInt("age"));
-                user.setAvatarUrl(rs.getString("avatar_url"));
-                user.setTotalScore(rs.getInt("total_score"));
-                user.setMathScore(rs.getInt("math_score"));
-                user.setEnglishScore(rs.getInt("english_score"));
-                user.setLiteratureScore(rs.getInt("literature_score"));
-                user.setTotalGames(rs.getInt("total_games"));
-                user.setWins(rs.getInt("wins"));
-                user.setOnline(rs.getBoolean("is_online"));
+            stmt.setInt(1, userId);
 
-                return user;
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    User user = new User();
+                    user.setUserId(rs.getInt("user_id"));
+                    user.setUsername(rs.getString("username"));
+                    user.setFullName(rs.getString("full_name"));
+                    user.setEmail(rs.getString("email"));
+                    user.setAvatarUrl(rs.getString("avatar_url"));
+                    user.setTotalScore(rs.getInt("total_score"));
+                    user.setMathScore(rs.getInt("math_score"));
+                    user.setEnglishScore(rs.getInt("english_score"));
+                    user.setLiteratureScore(rs.getInt("literature_score"));
+                    user.setTotalGames(rs.getInt("total_games"));
+                    user.setWins(rs.getInt("wins"));
+                    user.setCreatedAt(rs.getTimestamp("created_at"));
+                    return user;
+                }
             }
 
         } catch (SQLException e) {
-            System.err.println("✗ Error getting user: " + e.getMessage());
+            System.err.println("❌ [UserDAO] Error getting user: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return null;
     }
+
 
     public boolean updateUserProfile(int userId, String newName, String newAvatar) {
         String sql = "UPDATE users SET " +
@@ -400,7 +403,7 @@ public class UserDAO {
     public boolean updateTotalScore(int userId, int scoreToAdd) {
         String query = """
             UPDATE users 
-            SET total_score = total_score + ? 
+            SET total_score = total_score + ?
             WHERE user_id = ?
         """;
 
@@ -413,75 +416,77 @@ public class UserDAO {
             int rows = stmt.executeUpdate();
 
             if (rows > 0) {
-                System.out.println("✅ [UserDAO] Updated score for user " + userId + " (+$" + scoreToAdd + ")");
+                System.out.println("✅ [UserDAO] Updated total score for user " + userId + " (+" + scoreToAdd + ")");
                 return true;
             }
 
         } catch (SQLException e) {
-            System.err.println("❌ [UserDAO] Error updating score: " + e.getMessage());
+            System.err.println("❌ [UserDAO] Error updating total score: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return false;
     }
 
+
     /**
      * Cập nhật thống kê win/loss
      */
-    public boolean updateGameStats(int userId, boolean isWin) {
-        String query;
-
-        if (isWin) {
-            query = """
-                UPDATE users 
-                SET total_games = total_games + 1,
-                    wins = wins + 1
-                WHERE user_id = ?
-            """;
-        } else {
-            query = """
-                UPDATE users 
-                SET total_games = total_games + 1,
-                    losses = losses + 1
-                WHERE user_id = ?
-            """;
-        }
+    public boolean updateGameStats(int userId, boolean isWinner) {
+        String query = """
+            UPDATE users 
+            SET total_games = total_games + 1,
+                wins = wins + ?
+            WHERE user_id = ?
+        """;
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
-            stmt.setInt(1, userId);
+            stmt.setInt(1, isWinner ? 1 : 0);
+            stmt.setInt(2, userId);
+
             int rows = stmt.executeUpdate();
 
             if (rows > 0) {
                 System.out.println("✅ [UserDAO] Updated game stats for user " + userId +
-                        " (" + (isWin ? "WIN" : "LOSS") + ")");
+                        " (" + (isWinner ? "WIN" : "LOSS") + ")");
                 return true;
             }
 
         } catch (SQLException e) {
             System.err.println("❌ [UserDAO] Error updating game stats: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return false;
     }
 
+
     /**
      * Cập nhật điểm theo môn học
      */
     public boolean updateSubjectScore(int userId, String subject, int scoreToAdd) {
-        String column = switch (subject.toLowerCase()) {
-            case "math" -> "math_score";
-            case "english" -> "english_score";
-            case "literature" -> "literature_score";
-            default -> null;
-        };
-
-        if (column == null) {
-            System.err.println("❌ [UserDAO] Invalid subject: " + subject);
-            return false;
+        String columnName;
+        switch (subject.toLowerCase()) {
+            case "math":
+            case "toán":
+                columnName = "math_score";
+                break;
+            case "english":
+            case "tiếng anh":
+                columnName = "english_score";
+                break;
+            case "literature":
+            case "văn":
+                columnName = "literature_score";
+                break;
+            default:
+                System.out.println("⚠️ [UserDAO] Unknown subject: " + subject);
+                return false;
         }
 
-        String query = "UPDATE users SET " + column + " = " + column + " + ? WHERE user_id = ?";
+        String query = "UPDATE users SET " + columnName + " = " + columnName + " + ? WHERE user_id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -492,14 +497,14 @@ public class UserDAO {
             int rows = stmt.executeUpdate();
 
             if (rows > 0) {
-                System.out.println("✅ [UserDAO] Updated " + subject + " score for user " + userId);
+                System.out.println("✅ [UserDAO] Updated " + subject + " score for user " + userId + " (+" + scoreToAdd + ")");
                 return true;
             }
 
         } catch (SQLException e) {
             System.err.println("❌ [UserDAO] Error updating subject score: " + e.getMessage());
+            e.printStackTrace();
         }
-
         return false;
     }
 }

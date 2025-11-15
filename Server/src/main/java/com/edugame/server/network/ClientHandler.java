@@ -28,6 +28,7 @@ public class ClientHandler implements Runnable {
     private Gson gson;
     private UserDAO userDAO;
     private LeaderboardDAO leaderboardDAO;
+    private GameSessionDAO gameSessionDAO;
     private MessageDAO messageDAO;
     private User currentUser;
     private boolean running;
@@ -2094,6 +2095,7 @@ public class ClientHandler implements Runnable {
     /**
      * Handler: START_GAME - Host bắt đầu game
      */
+
     private void handleStartGame(JsonObject request) {
         try {
             logWithTime("🎮 [START_GAME] Processing request...");
@@ -2104,6 +2106,8 @@ public class ClientHandler implements Runnable {
             }
 
             String roomId = request.get("roomId").getAsString().trim();
+
+            // ✅ Get room info
             GameRoomManager.GameRoom room = gameRoomManager.getRoom(roomId);
 
             if (room == null) {
@@ -2111,11 +2115,13 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
+            // ✅ Validate host
             if (room.getHost().getUserId() != currentUser.getUserId()) {
                 sendError("Chỉ chủ phòng mới có thể bắt đầu game!");
                 return;
             }
 
+            // ✅ Validate players
             if (room.getPlayerCount() < 2) {
                 sendError("Cần ít nhất 2 người chơi!");
                 return;
@@ -2126,12 +2132,36 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
+            // ✅ Get subject/difficulty from ROOM (not from request)
+            String subject = room.getSubject();
+            String difficulty = room.getDifficulty();
+
+            logWithTime("   Room: " + roomId);
+            logWithTime("   Subject: " + subject);
+            logWithTime("   Difficulty: " + difficulty);
+            logWithTime("   Players: " + room.getPlayerCount());
+
+            // ✅ Create database session record
+            try {
+                GameSessionDAO gameSessionDAO = new GameSessionDAO();
+                int sessionId = gameSessionDAO.createSession(
+                        roomId,
+                        subject,
+                        difficulty,
+                        Protocol.QUESTIONS_PER_GAME
+                );
+                logWithTime("   ✅ Database session created: ID=" + sessionId);
+            } catch (Exception e) {
+                logWithTime("   ⚠️ Could not create DB session: " + e.getMessage());
+                // Continue anyway - game can still work
+            }
+
             // ✅ Start game session
             List<ClientHandler> players = room.getPlayers();
             boolean success = gameManager.startGame(
                     roomId,
-                    room.getSubject(),
-                    room.getDifficulty(),
+                    subject,
+                    difficulty,
                     players
             );
 
@@ -2140,61 +2170,22 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
-            // ✅ Setup callbacks
-            GameSession session = gameManager.getSession(roomId);
-            if (session != null) {
-                // ✅ FIXED: Send individual questions - tìm đúng handler cho mỗi userId
-                session.setQuestionSender((rid, userId, questionIndex) -> {
-                    GameServer server = GameServer.getInstance();
-                    if (server != null) {
-                        for (ClientHandler handler : server.getConnectedClients()) {
-                            if (handler.getCurrentUser() != null &&
-                                    handler.getCurrentUser().getUserId() == userId) {
-                                handler.sendQuestionToPlayerDirect(rid, userId, questionIndex);
-                                break;
-                            }
-                        }
-                    }
-                });
+            // ✅ REMOVED: Callback setup đã được làm trong GameManager.startGame()
+            // Không cần setup lại ở đây!
 
-                // Broadcast positions every second
-                session.setPositionBroadcaster((rid) -> {
-                    broadcastPositions(rid, players);
-                });
-
-                // ✅ NEW: Broadcast when someone answers
-                session.setAnswerBroadcaster((rid, userId, isCorrect, timeTaken, position, score, gotNitro) -> {
-                    broadcastAnswerResult(rid, userId, isCorrect, timeTaken, position, score, gotNitro, players);
-                });
-
-                // ✅ NEW: Broadcast question progress
-                session.setProgressBroadcaster((rid, userId, questionIndex) -> {
-                    broadcastQuestionProgress(rid, userId, questionIndex, players);
-                });
-
-                // Notify when player finishes
-                session.setPlayerFinishNotifier((rid, userId, rank) -> {
-                    notifyPlayerFinish(rid, userId, rank);
-                });
-
-                // Notify game end
-                session.setGameEndNotifier((rid, reason) -> {
-                    endGameAndSendResults(rid, players, reason);
-                });
-            }
-
-
+            logWithTime("✅ [START_GAME] Game session created with callbacks");
 
             // ✅ Broadcast START_GAME to all players
             Map<String, Object> startNotification = new HashMap<>();
             startNotification.put("type", Protocol.START_GAME);
             startNotification.put("success", true);
             startNotification.put("roomId", roomId);
-            startNotification.put("subject", room.getSubject());
-            startNotification.put("difficulty", room.getDifficulty());
+            startNotification.put("subject", subject);
+            startNotification.put("difficulty", difficulty);
+            startNotification.put("totalQuestions", Protocol.QUESTIONS_PER_GAME);
             startNotification.put("message", "Game bắt đầu trong 10 giây!");
             startNotification.put("countdownSeconds", 10);
-            startNotification.put("mode", "async"); // ✅ Thông báo chế độ async
+            startNotification.put("mode", "async"); // ✅ Async mode
 
             // Add player info
             List<Map<String, Object>> playerInfoList = new ArrayList<>();
@@ -2211,29 +2202,35 @@ public class ClientHandler implements Runnable {
             startNotification.put("players", playerInfoList);
 
             // Broadcast to all players
+            int notifiedCount = 0;
             for (ClientHandler player : players) {
                 try {
                     player.sendMessage(startNotification);
                     logWithTime("   📤 Notified: " + player.getCurrentUser().getUsername());
+                    notifiedCount++;
                 } catch (Exception e) {
                     logWithTime("   ⚠️ Failed to notify: " + e.getMessage());
                 }
             }
 
-            logWithTime("✅ [START_GAME] Game started successfully");
+            logWithTime("✅ [START_GAME] Notified " + notifiedCount + "/" + players.size() + " players");
 
             // ✅ Schedule countdown and start
             new Thread(() -> {
                 try {
+                    logWithTime("⏳ [COUNTDOWN] Starting 10 second countdown...");
                     Thread.sleep(10000); // Wait for countdown
 
                     // Start game (will send first question to all players)
                     gameManager.beginGameAfterCountdown(roomId);
 
-                    logWithTime("✅ [GAME] All players received their first question");
+                    logWithTime("✅ [GAME] Game started! All players received first question");
 
                 } catch (InterruptedException e) {
-                    logWithTime("❌ [START_GAME] Countdown interrupted");
+                    logWithTime("❌ [START_GAME] Countdown interrupted: " + e.getMessage());
+                } catch (Exception e) {
+                    logWithTime("❌ [START_GAME] Error starting game: " + e.getMessage());
+                    e.printStackTrace();
                 }
             }, "GameCountdown-" + roomId).start();
 
@@ -2545,9 +2542,9 @@ public class ClientHandler implements Runnable {
 
 
     /**
-     * ✅ Kết thúc game và gửi kết quả cuối cùng
+     * 🏁 Kết thúc game: gửi kết quả + lưu DB
      */
-    public void endGameAndSendResults(String roomId, List<ClientHandler> players, String reason) {
+    public void endGameAndSaveResults(String roomId, List<ClientHandler> players, String reason) {
         try {
             logWithTime("🏁 [END_GAME] Ending game: " + roomId + " (" + reason + ")");
 
@@ -2557,67 +2554,169 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
-            // Get final rankings
-            List<Map<String, Object>> rankings = new ArrayList<>();
-            List<GameSession.PlayerGameState> playerStates = new ArrayList<>(session.getPlayerStates().values());
+            // ✅ Lấy sessionId từ GameSession (đã được tạo trong database)
+            int sessionId = session.getSessionId();
 
-            // Sort by position (descending), then by score (descending)
+            // ✅ Tính thời gian chơi (giây)
+            long startTime = session.getStartTimeMillis();
+            long endTime = System.currentTimeMillis();
+            int timeTaken = (int)((endTime - startTime) / 1000); // Convert to seconds
+
+            // Get player states
+            List<GameSession.PlayerGameState> playerStates =
+                    new ArrayList<>(session.getPlayerStates().values());
+
+            // Sort by: position DESC → score DESC
             playerStates.sort((a, b) -> {
                 int posCompare = Double.compare(b.position, a.position);
                 if (posCompare != 0) return posCompare;
                 return Integer.compare(b.score, a.score);
             });
 
-            // Build rankings
+            List<Map<String, Object>> rankings = new ArrayList<>();
+
+            // DAO để lưu điểm
+            GameResultDAO dao = new GameResultDAO();
+
+            logWithTime("📊 [END_GAME] Saving results for " + playerStates.size() + " players...");
+
             for (int i = 0; i < playerStates.size(); i++) {
                 GameSession.PlayerGameState state = playerStates.get(i);
 
+                int rank = i + 1;
+                state.finalRank = rank; // ✅ Update finalRank
+
+                // Lấy username + fullname
+                String username = "";
+                String fullName = "";
+                ClientHandler handler = players.stream()
+                        .filter(p -> p.getCurrentUser() != null &&
+                                p.getCurrentUser().getUserId() == state.userId)
+                        .findFirst().orElse(null);
+
+                if (handler != null && handler.getCurrentUser() != null) {
+                    username = handler.getCurrentUser().getUsername();
+                    fullName = handler.getCurrentUser().getFullName();
+                }
+
+                // Build ranking entry for broadcast
                 Map<String, Object> rankData = new HashMap<>();
-                rankData.put("rank", i + 1);
+                rankData.put("rank", rank);
                 rankData.put("userId", state.userId);
                 rankData.put("position", state.position);
                 rankData.put("score", state.score);
-
-                // Get player name
-                for (ClientHandler handler : players) {
-                    if (handler.getCurrentUser() != null &&
-                            handler.getCurrentUser().getUserId() == state.userId) {
-                        rankData.put("username", handler.getCurrentUser().getUsername());
-                        rankData.put("fullName", handler.getCurrentUser().getFullName());
-                        break;
-                    }
-                }
+                rankData.put("correctAnswers", state.totalCorrectAnswers);
+                rankData.put("wrongAnswers", state.totalWrongAnswers);
+                rankData.put("totalQuestions", state.totalQuestionsAttempted);
+                rankData.put("username", username);
+                rankData.put("fullName", fullName);
 
                 rankings.add(rankData);
+
+                // -------------------------
+                // ✅ LƯU DATABASE - ĐỂ METHOD SIGNATURE
+                // -------------------------
+                try {
+                    boolean saved = dao.saveGameResult(
+                            sessionId,                      // 1. session_id (int)
+                            state.userId,                   // 2. user_id (int)
+                            state.score,                    // 3. score (int)
+                            state.totalCorrectAnswers,      // 4. correct_answers (int)
+                            state.totalWrongAnswers,        // 5. wrong_answers (int)
+                            timeTaken,                      // 6. time_taken (int) - seconds
+                            rank                            // 7. rank_position (int)
+                    );
+
+                    if (saved) {
+                        logWithTime("   💾 ✅ User " + state.userId + " (Rank " + rank +
+                                "): Score=" + state.score +
+                                ", Correct=" + state.totalCorrectAnswers +
+                                "/" + state.totalQuestionsAttempted);
+                    } else {
+                        logWithTime("   💾 ❌ Failed to save user " + state.userId);
+                    }
+                } catch (Exception e) {
+                    logWithTime("   💾 ❌ Error saving user " + state.userId + ": " + e.getMessage());
+                }
             }
 
-            // Build end game packet
+            // ✅ Mark session as finished in database
+            try {
+                GameSessionDAO sessionDAO = new GameSessionDAO();
+                sessionDAO.finishSession(sessionId);
+                logWithTime("   🏁 Session " + sessionId + " marked as finished");
+            } catch (Exception e) {
+                logWithTime("   ⚠️ Could not mark session finished: " + e.getMessage());
+            }
+
+            // -------------------------
+            // ✅ CẬP NHẬT THỐNG KÊ NGƯỜI CHƠI (users table)
+            // -------------------------
+            try {
+                UserDAO userDAO = new UserDAO();
+
+                for (GameSession.PlayerGameState state : playerStates) {
+                    try {
+                        // Update total score
+                        userDAO.updateTotalScore(state.userId, state.score);
+
+                        // Update subject score
+                        userDAO.updateSubjectScore(state.userId, session.getSubject(), state.score);
+
+                        // Update win/loss
+                        boolean isWinner = (state.finalRank == 1);
+                        userDAO.updateGameStats(state.userId, isWinner);
+
+                        logWithTime("   📊 Updated stats for user " + state.userId +
+                                " (" + (isWinner ? "WIN" : "LOSS") + ")");
+
+                    } catch (Exception e) {
+                        logWithTime("   ⚠️ Could not update stats for user " + state.userId);
+                    }
+                }
+            } catch (Exception e) {
+                logWithTime("   ⚠️ Error updating player stats: " + e.getMessage());
+            }
+
+            // -------------------------
+            // 📤 GỬI GÓI TIN GAME_END CHO TOÀN BỘ CLIENT
+            // -------------------------
+
             Map<String, Object> endGameData = new HashMap<>();
             endGameData.put("type", Protocol.GAME_END);
             endGameData.put("roomId", roomId);
             endGameData.put("reason", reason);
             endGameData.put("rankings", rankings);
+            endGameData.put("sessionId", sessionId);
+            endGameData.put("subject", session.getSubject());
+            endGameData.put("difficulty", session.getDifficulty());
+            endGameData.put("totalTime", timeTaken);
             endGameData.put("timestamp", System.currentTimeMillis());
 
-            // Broadcast to all players
+            int sentCount = 0;
             for (ClientHandler player : players) {
                 if (player.getCurrentUser() != null) {
                     try {
                         player.sendMessage(endGameData);
-                        logWithTime("   📤 Sent results to: " + player.getCurrentUser().getUsername());
+                        sentCount++;
+                        logWithTime("   📤 Sent to: " + player.getCurrentUser().getUsername());
                     } catch (Exception e) {
-                        logWithTime("   ⚠️ Failed to send to: " + e.getMessage());
+                        logWithTime("   ⚠️ Failed to send to " +
+                                player.getCurrentUser().getUsername() + ": " + e.getMessage());
                     }
                 }
             }
 
-            logWithTime("✅ [END_GAME] Results sent to all players");
+            logWithTime("✅ [END_GAME] Completed!");
+            logWithTime("   Results saved: " + playerStates.size() + " players");
+            logWithTime("   Notifications sent: " + sentCount + "/" + players.size());
 
         } catch (Exception e) {
-            logWithTime("❌ [END_GAME] Error: " + e.getMessage());
+            logWithTime("❌ [END_GAME] Critical error: " + e.getMessage());
             e.printStackTrace();
         }
     }
+
 
 
     /**
@@ -2738,69 +2837,6 @@ public class ClientHandler implements Runnable {
             logWithTime("❌ [SUBMIT_ANSWER] Exception: " + e.getMessage());
             e.printStackTrace();
             sendError("Lỗi khi nộp câu trả lời!");
-        }
-    }
-    /**
-     * Kết thúc game và gửi kết quả cuối cùng
-     */
-    private void endGameAndSendResults(String roomId, List<ClientHandler> players) {
-        try {
-            logWithTime("🏁 [GAME_END] Ending game: " + roomId);
-
-            GameSession session = gameManager.getSession(roomId);
-            if (session == null) return;
-
-            // ✅ End game (will save to database)
-            gameManager.endGame(roomId, players);
-
-            // ✅ Prepare final results
-            Map<String, Object> endData = new HashMap<>();
-            endData.put("type", Protocol.GAME_END);
-            endData.put("roomId", roomId);
-            endData.put("message", "Game kết thúc!");
-
-            // ✅ Add rankings
-            List<Map<String, Object>> rankings = new ArrayList<>();
-            List<GameSession.PlayerGameState> sortedStates = new ArrayList<>(
-                    session.getPlayerStates().values()
-            );
-            sortedStates.sort((a, b) -> {
-                int posCompare = Double.compare(b.position, a.position);
-                if (posCompare != 0) return posCompare;
-                return Integer.compare(b.score, a.score);
-            });
-
-            for (GameSession.PlayerGameState state : sortedStates) {
-                Map<String, Object> ranking = new HashMap<>();
-                ranking.put("userId", state.userId);
-                ranking.put("rank", state.finalRank);
-                ranking.put("position", state.position);
-                ranking.put("score", state.score);
-                rankings.add(ranking);
-            }
-            endData.put("rankings", rankings);
-
-            // ✅ Winner info
-            if (!sortedStates.isEmpty()) {
-                GameSession.PlayerGameState winner = sortedStates.get(0);
-                endData.put("winnerId", winner.userId);
-                endData.put("winnerScore", winner.score);
-            }
-
-            // ✅ Broadcast to all players
-            for (ClientHandler player : players) {
-                try {
-                    player.sendMessage(endData);
-                } catch (Exception e) {
-                    logWithTime("   ⚠️ Failed to send end data to player");
-                }
-            }
-
-            logWithTime("✅ [GAME_END] Results sent to all players");
-
-        } catch (Exception e) {
-            logWithTime("❌ [GAME_END] Error: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 

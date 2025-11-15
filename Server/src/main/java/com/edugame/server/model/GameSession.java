@@ -1,6 +1,8 @@
 package com.edugame.server.model;
 
 import com.edugame.common.Protocol;
+import com.edugame.server.database.GameSessionDAO;
+
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -18,10 +20,21 @@ public class GameSession {
     private final String subject;
     private final String difficulty;
     private final LocalDateTime startTime;
+    private final long startTimeMillis;
+
+    private int sessionId;
+
+    public void setSessionId(int id) {
+        this.sessionId = id;
+    }
+
+    public int getSessionId() {
+        return this.sessionId;
+    }
 
     // ==================== QUESTIONS ====================
     private final List<Question> questions;
-    private final int questionTimeLimit = Protocol.QUESTION_TIME_LIMIT; // 10s
+    private final int questionTimeLimit = Protocol.QUESTION_TIME_LIMIT;
 
     // ==================== PLAYERS ====================
     private final Map<Integer, PlayerGameState> playerStates; // userId -> state
@@ -44,6 +57,10 @@ public class GameSession {
     private static final double FINISH_LINE = Protocol.FINISH_LINE;
     private static final double START_POSITION = 0.0;
 
+    public long getStartTimeMillis() {
+        return startTimeMillis;
+    }
+
     public enum GameState {
         COUNTDOWN,       // Đếm ngược 10s trước khi bắt đầu
         PLAYING,         // Đang chơi
@@ -53,11 +70,14 @@ public class GameSession {
     /**
      * Constructor
      */
-    public GameSession(String roomId, String subject, String difficulty,
+    public GameSession(String roomId, int sessionId, String subject, String difficulty, long startTimeMillis,
                        List<Question> questions, List<Integer> playerIds) {
         this.roomId = roomId;
         this.subject = subject;
         this.difficulty = difficulty;
+        this.sessionId = sessionId;
+        this.startTimeMillis = startTimeMillis;
+
 
         // ✅ KHÔNG shuffle ở đây - nhận câu hỏi đã shuffle từ GameManager
         this.questions = new ArrayList<>(questions); // Copy để đảm bảo immutable
@@ -173,6 +193,9 @@ public class GameSession {
 
         PlayerGameState state = playerStates.get(userId);
         if (state != null) {
+            state.totalQuestionsAttempted++;
+            state.totalWrongAnswers++;
+
             // Penalty for timeout
             state.position += Protocol.PENALTY_DISTANCE;
             state.position = Math.max(START_POSITION, state.position);
@@ -192,7 +215,7 @@ public class GameSession {
             state.position = Math.max(START_POSITION, state.position);
         }
 
-        // ✅ Move to next question
+        // Move to next question
         moveToNextQuestion(userId);
     }
 
@@ -209,9 +232,7 @@ public class GameSession {
         this.answerBroadcaster = broadcaster;
     }
 
-    /**
-     * ✅ Xử lý câu trả lời của một người chơi
-     */
+
     /**
      * ✅ Xử lý câu trả lời của một người chơi
      */
@@ -258,6 +279,13 @@ public class GameSession {
         state.lastAnswerCorrect = isCorrect;
         state.lastAnswerTime = timeTaken;
 
+        state.totalQuestionsAttempted++;
+        if (isCorrect) {
+            state.totalCorrectAnswers++;
+        } else {
+            state.totalWrongAnswers++;
+        }
+
         // ✅ RESET gotNitro TRƯỚC KHI tính toán
         state.gotNitro = false;
 
@@ -292,7 +320,7 @@ public class GameSession {
                 System.out.println("   🔥🔥 Player " + userId + " 5-streak bonus!");
             }
 
-        } else {
+        }else {
             movement = 0;
             points = Protocol.POINTS_WRONG;
             state.wrongStreak++;
@@ -685,6 +713,8 @@ public class GameSession {
         public int userId;
         public double position;
         public int score;
+        public int correctAnswers;
+        public int wrongAnswers;
         public int correctStreak;
         public int wrongStreak;
         public String lastAnswer;
@@ -692,6 +722,10 @@ public class GameSession {
         public long lastAnswerTime;
         public boolean gotNitro;
         public int finalRank;
+
+        public int totalCorrectAnswers = 0;
+        public int totalWrongAnswers = 0;
+        public int totalQuestionsAttempted = 0;
 
         public PlayerGameState(int userId) {
             this.userId = userId;

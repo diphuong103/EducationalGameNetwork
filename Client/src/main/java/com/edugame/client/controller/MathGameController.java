@@ -72,8 +72,8 @@ public class MathGameController {
     private Timeline gameTimer;
     private Timeline questionTimer;
     private int remainingSeconds = 300;
-    private int questionTimeLimit = 10;
-    private double questionTimeRemaining = 10.0;
+    private int questionTimeLimit = 15;
+    private double questionTimeRemaining = 15.0;
 
     // Player Data
     private Map<Integer, Double> playerPositions = new HashMap<>();
@@ -147,9 +147,8 @@ public class MathGameController {
                 playerCars.put(userId, car);
                 playerNameLabels.put(userId, label);
 
-                // ✅ FIX: Hiển thị "Me" cho người chơi hiện tại
                 if (userId == currentUserId) {
-                    label.setText("Me (" + fullName + ")");
+                    label.setText("#Me|" + fullName);
                     label.setStyle("-fx-font-weight: bold; -fx-text-fill: #FFD700;"); // Gold color
                 } else {
                     label.setText(fullName);
@@ -356,7 +355,7 @@ public class MathGameController {
         }
 
         questionTimer = new Timeline(new KeyFrame(Duration.millis(100), e -> {
-            questionTimeRemaining -= 0.1;
+            questionTimeRemaining -= 0.15;
             timeProgressBar.setProgress(questionTimeRemaining / questionTimeLimit);
 
             if (questionTimeRemaining <= 0 && !answered) {
@@ -416,7 +415,19 @@ public class MathGameController {
         System.out.println("⏰ [MathGameController] Question timeout");
 
         connection.submitAnswer(roomId, -1);
+
+        showWrongAnswerVisual();
     }
+
+    private void showWrongAnswerVisual() {
+        // Tô đỏ toàn bộ (vì timeout không có lựa chọn)
+        btnA.getStyleClass().add("answer-btn-wrong");
+        btnB.getStyleClass().add("answer-btn-wrong");
+        btnC.getStyleClass().add("answer-btn-wrong");
+        btnD.getStyleClass().add("answer-btn-wrong");
+
+    }
+
 
     private void showAnswerFeedback(boolean isCorrect, int correctIndex) {
         Platform.runLater(() -> {
