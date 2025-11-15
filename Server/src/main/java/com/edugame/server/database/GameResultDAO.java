@@ -1,6 +1,7 @@
 package com.edugame.server.database;
 
 import java.sql.*;
+import java.util.List;
 
 /**
  * GameResultDAO - Lưu kết quả game vào game_results table
@@ -170,6 +171,49 @@ public class GameResultDAO {
         return new GameStats();
     }
 
+    public java.util.List<TopPlayer> getAllPlayers() {
+        java.util.List<TopPlayer> allPlayers = new java.util.ArrayList<>();
+
+        String query = """
+        SELECT 
+            u.user_id,
+            u.username,
+            u.full_name,
+            u.total_score,
+            u.total_games,
+            u.wins
+        FROM users u
+        WHERE u.total_games > 0
+        ORDER BY u.total_score DESC, u.wins DESC, u.username ASC
+    """;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    TopPlayer player = new TopPlayer();
+                    player.userId = rs.getInt("user_id");
+                    player.username = rs.getString("username");
+                    player.fullName = rs.getString("full_name");
+                    player.totalScore = rs.getInt("total_score");
+                    player.gamesPlayed = rs.getInt("total_games");
+                    player.wins = rs.getInt("wins");
+
+                    allPlayers.add(player);
+                }
+            }
+
+            System.out.println("✅ [GameResultDAO] Loaded all " + allPlayers.size() + " players");
+
+        } catch (SQLException e) {
+            System.err.println("❌ [GameResultDAO] Error getting all players: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return allPlayers;
+    }
+
     // ==================== INNER CLASSES ====================
 
     public static class GameResult {
@@ -201,4 +245,66 @@ public class GameResultDAO {
         public int avgTime = 0;
         public double winRate = 0;
     }
+
+    /**
+     * Lấy top players (leaderboard)
+     */
+    public java.util.List<TopPlayer> getTopPlayers(int limit) {
+        java.util.List<TopPlayer> topPlayers = new java.util.ArrayList<>();
+
+        String query = """
+        SELECT 
+            u.user_id,
+            u.username,
+            u.full_name,
+            u.total_score,
+            u.total_games,
+            u.wins
+        FROM users u
+        WHERE u.total_games > 0
+        ORDER BY u.total_score DESC, u.wins DESC
+        LIMIT ?
+    """;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, limit);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    TopPlayer player = new TopPlayer();
+                    player.userId = rs.getInt("user_id");
+                    player.username = rs.getString("username");
+                    player.fullName = rs.getString("full_name");
+                    player.totalScore = rs.getInt("total_score");
+                    player.gamesPlayed = rs.getInt("total_games");
+                    player.wins = rs.getInt("wins");
+
+                    topPlayers.add(player);
+                }
+            }
+
+            System.out.println("✅ [GameResultDAO] Loaded top " + topPlayers.size() + " players");
+
+        } catch (SQLException e) {
+            System.err.println("❌ [GameResultDAO] Error getting top players: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return topPlayers;
+    }
+
+    /**
+     * Inner class cho Top Player data
+     */
+    public static class TopPlayer {
+        public int userId;
+        public String username;
+        public String fullName;
+        public int totalScore;
+        public int gamesPlayed;
+        public int wins;
+    }
+
 }

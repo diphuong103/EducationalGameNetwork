@@ -191,6 +191,14 @@ public class GameManager {
     }
 
     /**
+     * Lấy danh sách tất cả các session đang hoạt động
+     * @return Collection of active game sessions
+     */
+    public Collection<GameSession> getAllSessions() {
+        return activeSessions.values();
+    }
+
+    /**
      * ✅ NEW: Save results and broadcast in ONE method - called BEFORE session cleanup
      */
     private void saveAndBroadcastResults(String roomId, GameSession session,

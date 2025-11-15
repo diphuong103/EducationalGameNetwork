@@ -5,6 +5,8 @@ import com.edugame.server.model.User;
 import java.sql.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserDAO {
     private Connection connection;
@@ -506,5 +508,221 @@ public class UserDAO {
             e.printStackTrace();
         }
         return false;
+    }
+
+
+    /**
+     * Get total number of registered users
+     */
+    public int getTotalUserCount() {
+        String query = "SELECT COUNT(*) as total FROM users";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt("total");
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ [UserDAO] Error getting user count: " + e.getMessage());
+        }
+
+        return 0;
+    }
+
+    /**
+     * Get total number of games played (from users table)
+     */
+    public int getTotalGamesPlayed() {
+        String query = "SELECT SUM(total_games) as total FROM users";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt("total");
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ [UserDAO] Error getting games count: " + e.getMessage());
+        }
+
+        return 0;
+    }
+    /**
+     * Lấy TẤT CẢ người chơi cho leaderboard
+     * Sắp xếp theo điểm cao nhất
+     * Bao gồm cả người chưa chơi game nào (total_games = 0)
+     */
+    public List<PlayerInfo> getAllPlayersForLeaderboard() {
+        List<PlayerInfo> players = new ArrayList<>();
+
+        String query = """
+        SELECT user_id, username, full_name, email, age, avatar_url,
+               total_score, math_score, english_score, literature_score,
+               total_games, wins, created_at
+        FROM users 
+        ORDER BY total_score DESC, wins DESC, username ASC
+    """;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                PlayerInfo player = new PlayerInfo();
+                player.userId = rs.getInt("user_id");
+                player.username = rs.getString("username");
+                player.fullName = rs.getString("full_name");
+                player.email = rs.getString("email");
+                player.age = rs.getInt("age");
+                player.avatarUrl = rs.getString("avatar_url");
+                player.totalScore = rs.getInt("total_score");
+                player.mathScore = rs.getInt("math_score");
+                player.englishScore = rs.getInt("english_score");
+                player.literatureScore = rs.getInt("literature_score");
+                player.totalGames = rs.getInt("total_games");
+                player.wins = rs.getInt("wins");
+                player.createdAt = rs.getTimestamp("created_at");
+
+                players.add(player);
+            }
+
+            System.out.println("✅ [UserDAO] Loaded " + players.size() + " players for leaderboard");
+
+        } catch (SQLException e) {
+            System.err.println("❌ [UserDAO] Error getting players: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return players;
+    }
+
+    /**
+     * Lấy top N người chơi
+     */
+    public java.util.List<PlayerInfo> getTopPlayers(int limit) {
+        java.util.List<PlayerInfo> topPlayers = new java.util.ArrayList<>();
+
+        String query = "SELECT " +
+                "user_id, username, full_name, email, age, avatar_url, " +
+                "total_score, math_score, english_score, literature_score, " +
+                "total_games, wins, created_at " +
+                "FROM users " +
+                "ORDER BY total_score DESC, wins DESC, total_games DESC " +
+                "LIMIT ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, limit);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    PlayerInfo player = new PlayerInfo();
+                    player.userId = rs.getInt("user_id");
+                    player.username = rs.getString("username");
+                    player.fullName = rs.getString("full_name");
+                    player.email = rs.getString("email");
+                    player.age = rs.getInt("age");
+                    player.avatarUrl = rs.getString("avatar_url");
+                    player.totalScore = rs.getInt("total_score");
+                    player.mathScore = rs.getInt("math_score");
+                    player.englishScore = rs.getInt("english_score");
+                    player.literatureScore = rs.getInt("literature_score");
+                    player.totalGames = rs.getInt("total_games");
+                    player.wins = rs.getInt("wins");
+                    player.createdAt = rs.getTimestamp("created_at");
+
+                    topPlayers.add(player);
+                }
+            }
+
+            System.out.println("✅ [UserDAO] Loaded top " + topPlayers.size() + " players");
+
+        } catch (SQLException e) {
+            System.err.println("❌ [UserDAO] Error getting top players: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return topPlayers;
+    }
+
+    /**
+     * Inner class cho Player Info
+     */
+    public static class PlayerInfo {
+        public int userId;
+        public String username;
+        public String fullName;
+        public String email;
+        public int age;
+        public String avatarUrl;
+        public int totalScore;
+        public int mathScore;
+        public int englishScore;
+        public int literatureScore;
+        public int totalGames;
+        public int wins;
+        public java.sql.Timestamp createdAt;
+
+        // Helper method
+        public double getWinRate() {
+            if (totalGames == 0) return 0;
+            return (wins * 100.0) / totalGames;
+        }
+    }
+    /**
+     * Lấy thông tin chi tiết của một player theo ID
+     * Trả về PlayerInfo object với đầy đủ thông tin
+     */
+    public PlayerInfo getPlayerInfoById(int userId) {
+        String query = """
+        SELECT user_id, username, full_name, email, age, avatar_url,
+               total_score, math_score, english_score, literature_score,
+               total_games, wins, created_at
+        FROM users 
+        WHERE user_id = ?
+    """;
+        //                                               ^^^^^^^^^^^ THÊM AVATAR_URL VÀO ĐÂY
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, userId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    PlayerInfo player = new PlayerInfo();
+                    player.userId = rs.getInt("user_id");
+                    player.username = rs.getString("username");
+                    player.fullName = rs.getString("full_name");
+                    player.email = rs.getString("email");
+                    player.age = rs.getInt("age");
+                    player.avatarUrl = rs.getString("avatar_url");
+                    player.totalScore = rs.getInt("total_score");
+                    player.mathScore = rs.getInt("math_score");
+                    player.englishScore = rs.getInt("english_score");
+                    player.literatureScore = rs.getInt("literature_score");
+                    player.totalGames = rs.getInt("total_games");
+                    player.wins = rs.getInt("wins");
+                    player.createdAt = rs.getTimestamp("created_at");
+
+                    System.out.println("✅ [UserDAO] Loaded player: " + player.username);
+                    System.out.println("   Avatar URL: " + player.avatarUrl);
+
+                    return player;
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ [UserDAO] Error getting player info: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return null;
     }
 }

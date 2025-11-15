@@ -5,6 +5,8 @@ module com.edugame.server {
     requires com.google.gson;
     requires java.sql;
     requires org.apache.poi.poi;
+    requires jdk.httpserver;
+    requires java.management;
 
 
     opens com.edugame.server to javafx.fxml;
