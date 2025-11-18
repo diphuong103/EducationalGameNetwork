@@ -146,6 +146,11 @@ public class ServerConnection {
         this.playerProgressCallback = callback;
     }
 
+
+    public void clearVoiceStatusCallback() {
+        this.voiceStatusCallback = null;
+        System.out.println("🗑️ Voice status callback cleared");
+    }
     private Map<String, Consumer<User>> profileByIdCallbacks = new HashMap<>();
 
     private Map<String, Consumer<JsonObject>> pendingRequests = new ConcurrentHashMap<>();
@@ -161,7 +166,7 @@ public class ServerConnection {
     private Consumer<Map<String, Object>> positionUpdateCallback;
     private Consumer<Map<String, Object>> gameEndCallback;
     private Consumer<Map<String, Object>> nitroBoostCallback;
-
+    private Consumer<JsonObject> voiceStatusCallback;
     /**
      * Set callback khi game bắt đầu
      */
@@ -204,6 +209,9 @@ public class ServerConnection {
         this.gameEndCallback = callback;
     }
 
+    public void setVoiceStatusCallback(Consumer<JsonObject> callback) {
+        this.voiceStatusCallback = callback;
+    }
     /**
      * Set callback khi có nitro boost
      */
@@ -366,7 +374,15 @@ public class ServerConnection {
                     playerJoinedCallback.accept(data);
                 }
                 break;
+            case Protocol.VOICE_STATUS_UPDATE:
+                System.out.println("🎤 [CLIENT] Received VOICE_STATUS_UPDATE");
+                handleVoiceStatusUpdate(json);
+                break;
 
+            case Protocol.GET_VOICE_STATUS_RESPONSE:
+                System.out.println("🎤 [CLIENT] Received GET_VOICE_STATUS_RESPONSE");
+                handleVoiceStatusResponse(json);
+                break;
             case Protocol.PLAYER_LEFT:
                 System.out.println("👋 [CLIENT] Received PLAYER_LEFT");
                 if (playerLeftCallback != null) {
@@ -1058,6 +1074,187 @@ public class ServerConnection {
 
         sendRequest(request);
         System.out.println("📤 [GAME] Start game request sent");
+    }
+    /**
+     * voice trong phòng
+     */
+
+    private void handleVoiceStatusUpdate(JsonObject json) {
+        try {
+            System.out.println("=".repeat(50));
+            System.out.println("🎤 VOICE STATUS UPDATE HANDLER");
+            System.out.println("   Raw JSON: " + json);
+            System.out.println("=".repeat(50));
+
+            // ✅ Check if it's a single user update (realtime)
+            if (json.has("userId") && json.has("isActive")) {
+                int userId = json.get("userId").getAsInt();
+                boolean isActive = json.get("isActive").getAsBoolean();
+                String roomId = json.has("roomId") ? json.get("roomId").getAsString() : "";
+
+                System.out.println("📢 Single user update:");
+                System.out.println("   Room: " + roomId);
+                System.out.println("   User: " + userId);
+                System.out.println("   Active: " + isActive);
+
+                // ✅ Trigger callback with full JSON
+                if (voiceStatusCallback != null) {
+                    Platform.runLater(() -> voiceStatusCallback.accept(json));
+                } else {
+                    System.out.println("⚠️ No voice status callback registered");
+                }
+                return;
+            }
+
+            // ✅ Check if it's a batch update (full status)
+            if (json.has("voiceStatus")) {
+                JsonObject statusObj = json.getAsJsonObject("voiceStatus");
+
+                // ✅ NULL safety: Check if voiceStatus is null or empty
+                if (statusObj == null || statusObj.size() == 0) {
+                    System.out.println("ℹ️ Voice status is empty (no active users)");
+
+                    // Still trigger callback to clear all indicators
+                    if (voiceStatusCallback != null) {
+                        Platform.runLater(() -> voiceStatusCallback.accept(json));
+                    }
+                    return;
+                }
+
+                System.out.println("📋 Batch update:");
+                for (String key : statusObj.keySet()) {
+                    try {
+                        int userId = Integer.parseInt(key);
+                        boolean isActive = statusObj.get(key).getAsBoolean();
+                        System.out.println("   User " + userId + ": " + (isActive ? "🎤 Active" : "🔇 Inactive"));
+                    } catch (NumberFormatException e) {
+                        System.err.println("⚠️ Invalid userId key: " + key);
+                    }
+                }
+
+                // ✅ Trigger callback
+                if (voiceStatusCallback != null) {
+                    Platform.runLater(() -> voiceStatusCallback.accept(json));
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Error handling voice status update: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * Request voice status for room
+     */
+    public void requestVoiceStatus(String roomId) {
+        try {
+            JsonObject request = new JsonObject();
+            request.addProperty("type", Protocol.GET_VOICE_STATUS);
+            request.addProperty("roomId", roomId);
+
+            sendRequest(request);
+
+        } catch (Exception e) {
+            System.err.println("❌ Error requesting voice status: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Send voice status change
+     */
+    public void sendVoiceStatusChange(String roomId, int userId, boolean isActive) {
+        try {
+            JsonObject message = new JsonObject();
+            message.addProperty("type", Protocol.VOICE_STATUS_CHANGE);
+            message.addProperty("roomId", roomId);
+            message.addProperty("userId", userId);
+            message.addProperty("isActive", isActive);
+            message.addProperty("timestamp", System.currentTimeMillis());
+
+            sendRequest(message);
+
+            System.out.println("=".repeat(50));
+            System.out.println("📤 VOICE STATUS CHANGE SENT");
+            System.out.println("   Room: " + roomId);
+            System.out.println("   User: " + userId);
+            System.out.println("   Active: " + isActive);
+            System.out.println("=".repeat(50));
+
+        } catch (Exception e) {
+            System.err.println("❌ Error sending voice status: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Enhanced voice status response handler
+     */
+    private void handleVoiceStatusResponse(JsonObject json) {
+        try {
+            System.out.println("=".repeat(50));
+            System.out.println("🎤 VOICE STATUS RESPONSE HANDLER");
+            System.out.println("   Raw JSON: " + json);
+            System.out.println("=".repeat(50));
+
+            boolean success = json.has("success") && json.get("success").getAsBoolean();
+
+            if (!success) {
+                System.err.println("⚠️ Voice status request failed");
+                return;
+            }
+
+            String roomId = json.has("roomId") ? json.get("roomId").getAsString() : "";
+            System.out.println("   Room: " + roomId);
+
+            // ✅ NULL safety: Check voiceStatus exists and is not null
+            if (!json.has("voiceStatus")) {
+                System.out.println("⚠️ voiceStatus field missing");
+                return;
+            }
+
+            JsonObject voiceStatusObj = json.getAsJsonObject("voiceStatus");
+
+            // ✅ NULL safety: Check if voiceStatus is null or empty
+            if (voiceStatusObj == null) {
+                System.out.println("⚠️ voiceStatus is null");
+                return;
+            }
+
+            if (voiceStatusObj.size() == 0) {
+                System.out.println("ℹ️ No active voice users in room");
+
+                // ✅ Still trigger callback to clear all indicators
+                if (voiceStatusCallback != null) {
+                    Platform.runLater(() -> voiceStatusCallback.accept(json));
+                }
+                return;
+            }
+
+            // ✅ Parse voice status
+            System.out.println("📋 Active voice users:");
+            for (String key : voiceStatusObj.keySet()) {
+                try {
+                    int userId = Integer.parseInt(key);
+                    boolean isActive = voiceStatusObj.get(key).getAsBoolean();
+                    System.out.println("   User " + userId + ": " + (isActive ? "🎤 Active" : "🔇 Inactive"));
+                } catch (NumberFormatException e) {
+                    System.err.println("⚠️ Invalid userId key: " + key);
+                }
+            }
+
+            // ✅ Trigger callback
+            if (voiceStatusCallback != null) {
+                Platform.runLater(() -> voiceStatusCallback.accept(json));
+            } else {
+                System.out.println("⚠️ No voice status callback registered");
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Error handling voice status response: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
 

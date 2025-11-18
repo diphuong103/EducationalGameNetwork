@@ -72,7 +72,11 @@
                         <Circle centerX="45" centerY="45" radius="45" />
                     </clip>
                 </ImageView>
-
+                <Label fx:id="voiceIndicator1" text="🎤"
+                       style="-fx-font-size: 14; -fx-text-fill: #4caf50;"
+                       StackPane.alignment="BOTTOM_LEFT"
+                       translateX="-10" translateY="8"
+                       visible="false"/>
                 <!-- Crown Icon for Host -->
                 <Label style="-fx-font-size: 18;" text="👑" translateY="-8" StackPane.alignment="TOP_CENTER" />
                 <!-- Ready Status -->
@@ -95,7 +99,11 @@
                         <Circle centerX="45" centerY="45" radius="45" />
                     </clip>
                 </ImageView>
-
+                <Label fx:id="voiceIndicator2" text="🎤"
+                       style="-fx-font-size: 14; -fx-text-fill: #4caf50;"
+                       StackPane.alignment="BOTTOM_LEFT"
+                       translateX="-10" translateY="8"
+                       visible="false"/>
                 <!-- Kick icon (ẩn mặc định, chỉ hiện với host) -->
                 <Label fx:id="kickIcon2" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;" text="❌" translateX="-6" translateY="6" visible="false" StackPane.alignment="TOP_RIGHT" />
 
@@ -119,7 +127,11 @@
                         <Circle centerX="45" centerY="45" radius="45" />
                     </clip>
                 </ImageView>
-
+                <Label fx:id="voiceIndicator3" text="🎤"
+                       style="-fx-font-size: 14; -fx-text-fill: #4caf50;"
+                       StackPane.alignment="BOTTOM_LEFT"
+                       translateX="-10" translateY="8"
+                       visible="false"/>
                 <!-- Kick icon -->
                 <Label fx:id="kickIcon3" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;" text="❌" translateX="-6" translateY="6" visible="false" StackPane.alignment="TOP_RIGHT" />
 
@@ -143,7 +155,11 @@
                         <Circle centerX="45" centerY="45" radius="45" />
                     </clip>
                 </ImageView>
-
+                <Label fx:id="voiceIndicator4" text="🎤"
+                       style="-fx-font-size: 14; -fx-text-fill: #4caf50;"
+                       StackPane.alignment="BOTTOM_LEFT"
+                       translateX="-10" translateY="8"
+                       visible="false"/>
                 <!-- Kick icon -->
                 <Label fx:id="kickIcon4" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;" text="❌" translateX="-6" translateY="6" visible="false" StackPane.alignment="TOP_RIGHT" />
 

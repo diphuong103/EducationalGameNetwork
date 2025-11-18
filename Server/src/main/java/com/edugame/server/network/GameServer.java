@@ -27,6 +27,7 @@ public class GameServer {
     private final GameRoomManager roomManager;
     private static GameServer instance;
 
+
     public GameServer(int port) {
         this.port = port;
         this.connectedClients = new CopyOnWriteArrayList<>(); // Thread-safe
@@ -75,7 +76,15 @@ public class GameServer {
             }
 
             serverSocket = new ServerSocket(port);
+            serverSocket.setReuseAddress(true);
             running = true;
+
+
+            System.out.println("========================================");
+            System.out.println("🎮 MATH ADVENTURE SERVER");
+            System.out.println("========================================");
+            System.out.println("✓ Server started on port: " + port + " (TCP)");
+            System.out.println("✓ Database connected");
 
             // Start Voice Chat UDP Server
             System.out.println("🎙️ Starting Voice Chat Server...");
@@ -397,4 +406,6 @@ public class GameServer {
         System.out.println("[SERVER] ⚠️⚠️⚠️ User NOT FOUND or OFFLINE (userId=" + userId + ")");
         return false;
     }
+
+
 }

@@ -102,6 +102,23 @@ public class Protocol {
     public static final String GET_UNREAD_COUNT_RESPONSE = "GET_UNREAD_COUNT_RESPONSE";
 
     // ============================================
+    // VOICE CHAT
+    // ============================================
+    public static final String VOICE_STATUS_CHANGE = "VOICE_STATUS_CHANGE";
+    public static final String VOICE_STATUS_UPDATE = "VOICE_STATUS_UPDATE";
+    public static final String GET_VOICE_STATUS = "GET_VOICE_STATUS";
+    public static final String GET_VOICE_STATUS_RESPONSE = "GET_VOICE_STATUS_RESPONSE";
+
+    // UDP Voice Chat Messages
+    public static final String JOIN_VOICE = "JOIN_VOICE";    // UDP: JOIN_VOICE:userId:roomId
+    public static final String LEAVE_VOICE = "LEAVE_VOICE";  // UDP: LEAVE_VOICE:userId:roomId
+    public static final String VOICE_JOINED = "VOICE_JOINED";
+    public static final String VOICE_LEFT = "VOICE_LEFT";
+
+    // Voice Chat Port
+    public static final int VOICE_CHAT_UDP_PORT = 9999;
+
+    // ============================================
     // FRIEND SYSTEM
     // ============================================
     public static final String SEARCH_USERS = "SEARCH_USERS";

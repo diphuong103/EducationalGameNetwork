@@ -7,6 +7,7 @@ module com.edugame.client {
     requires com.edugame.common;
     requires javafx.fxml;
     requires java.desktop;
+    requires jdk.compiler;
 
 
     opens com.edugame.client.model to com.google.gson;

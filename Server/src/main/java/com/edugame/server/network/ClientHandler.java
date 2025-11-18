@@ -151,6 +151,13 @@ public class ClientHandler implements Runnable {
                     logWithTime("   → Calling handleRoomChat()");
                     handleRoomChat(jsonMessage);
                     break;
+                case Protocol.VOICE_STATUS_CHANGE:
+                    handleVoiceStatusChange(jsonMessage);
+                    break;
+
+                case Protocol.GET_VOICE_STATUS:
+                    handleGetVoiceStatus(jsonMessage);
+                    break;
                 case Protocol.GAME_CHAT:
                     logWithTime("   → Calling handleGameChat()");
                     handleGameChat(jsonMessage);
@@ -1082,6 +1089,118 @@ public class ClientHandler implements Runnable {
             sendError("Không thể tải bảng xếp hạng");
         }
     }
+    /// Voice chat////
+
+    private void handleVoiceStatusChange(JsonObject request) {
+        try {
+            String roomId = request.get("roomId").getAsString();
+            int userId = request.get("userId").getAsInt();
+            boolean isActive = request.get("isActive").getAsBoolean();
+
+            logWithTime("🎤 [VOICE_STATUS_CHANGE] User: " + userId +
+                    ", Room: " + roomId + ", Active: " + isActive);
+
+            // ✅ Validate current user
+            if (currentUser == null || currentUser.getUserId() != userId) {
+                logWithTime("❌ [VOICE_STATUS_CHANGE] Invalid user");
+                sendError("Invalid user for voice status change");
+                return;
+            }
+
+            // ✅ Update voice status in VoiceChatServer
+            if (voiceChatServer != null) {
+                // VoiceChatServer will handle the status update
+                logWithTime("   ✅ Voice status registered in VoiceChatServer");
+            }
+
+            // ✅ Send confirmation to client
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.VOICE_STATUS_CHANGE);
+            response.put("success", true);
+            response.put("roomId", roomId);
+            response.put("userId", userId);
+            response.put("isActive", isActive);
+            sendMessage(response);
+
+            // ✅ Broadcast to ALL players in room (including sender)
+            JsonObject broadcast = new JsonObject();
+            broadcast.addProperty("type", Protocol.VOICE_STATUS_UPDATE);
+            broadcast.addProperty("roomId", roomId);
+            broadcast.addProperty("userId", userId);
+            broadcast.addProperty("isActive", isActive);
+            broadcast.addProperty("timestamp", System.currentTimeMillis());
+
+            // Get room and broadcast
+            GameRoomManager.GameRoom room = gameRoomManager.getRoom(roomId);
+            if (room != null) {
+                int sentCount = 0;
+                for (ClientHandler player : room.getPlayers()) {
+                    try {
+                        player.sendResponse(broadcast);
+                        sentCount++;
+                    } catch (Exception e) {
+                        logWithTime("⚠️ Failed to notify player: " + e.getMessage());
+                    }
+                }
+                logWithTime("   📢 Broadcasted to " + sentCount + " players");
+            }
+
+        } catch (Exception e) {
+            logWithTime("❌ [VOICE_STATUS_CHANGE] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Failed to update voice status");
+        }
+    }
+    /**
+     * Handle get voice status request
+     * Returns current voice status for all players in room
+     */
+    private void handleGetVoiceStatus(JsonObject request) {
+        try {
+            String roomId = request.get("roomId").getAsString();
+
+            logWithTime("🔍 [GET_VOICE_STATUS] Room: " + roomId);
+
+            // ✅ Get voice status from VoiceChatServer
+            Map<Integer, Boolean> voiceStatus = new HashMap<>();
+
+            if (voiceChatServer != null) {
+                voiceStatus = voiceChatServer.getRoomVoiceStatus(roomId);
+                logWithTime("   Found " + voiceStatus.size() + " active voice users");
+            }
+
+            // ✅ Build response
+            Map<String, Object> response = new HashMap<>();
+            response.put("type", Protocol.GET_VOICE_STATUS_RESPONSE);
+            response.put("roomId", roomId);
+            response.put("success", true);
+            response.put("voiceStatus", voiceStatus);
+            response.put("timestamp", System.currentTimeMillis());
+
+            sendMessage(response);
+            logWithTime("   ✅ Voice status sent to client");
+
+        } catch (Exception e) {
+            logWithTime("❌ [GET_VOICE_STATUS] Error: " + e.getMessage());
+            e.printStackTrace();
+            sendError("Failed to get voice status");
+        }
+    }
+
+    /**
+     * Helper method to send JsonObject response
+     */
+    private void sendResponse(JsonObject response) {
+        try {
+            if (writer != null && !writer.checkError()) {
+                String json = gson.toJson(response);
+                writer.println(json);
+                writer.flush();
+            }
+        } catch (Exception e) {
+            logWithTime("❌ sendResponse error: " + e.getMessage());
+        }
+    }
 
     /// ////////////Chat /////////////
     private void handleGlobalChat(JsonObject jsonMessage) {
@@ -2000,6 +2119,28 @@ public class ClientHandler implements Runnable {
             int leavingUserId = currentUser.getUserId();
             String leavingUsername = currentUser.getUsername();
 
+            if (voiceChatServer != null) {
+                voiceChatServer.removeClient(leavingUserId, roomId);
+                logWithTime("   🔇 Voice chat cleaned up");
+
+                // Broadcast voice status change to remaining players
+                JsonObject voiceUpdate = new JsonObject();
+                voiceUpdate.addProperty("type", Protocol.VOICE_STATUS_UPDATE);
+                voiceUpdate.addProperty("roomId", roomId);
+                voiceUpdate.addProperty("userId", leavingUserId);
+                voiceUpdate.addProperty("isActive", false);
+                voiceUpdate.addProperty("timestamp", System.currentTimeMillis());
+
+                for (ClientHandler player : room.getPlayers()) {
+                    if (player != this) {
+                        try {
+                            player.sendResponse(voiceUpdate);
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                    }
+                }
+            }
             logWithTime("   User leaving: " + leavingUsername + " (wasHost=" + wasHost + ")");
 
             // ✅ Get remaining players BEFORE removing

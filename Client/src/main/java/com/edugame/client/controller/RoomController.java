@@ -61,6 +61,10 @@ public class RoomController {
     @FXML private Label kickIcon2;
     @FXML private Label kickIcon3;
     @FXML private Label kickIcon4;
+    @FXML private Label voiceIndicator1;
+    @FXML private Label voiceIndicator2;
+    @FXML private Label voiceIndicator3;
+    @FXML private Label voiceIndicator4;
 
 
     @FXML private Button btnVoiceChat;
@@ -83,6 +87,8 @@ public class RoomController {
     private Consumer<JsonObject> kickPlayerCallback;
     private VoiceChatManager voiceChatManager;
     private boolean isVoiceChatActive = false;
+    // Map để track voice status
+    private Map<Integer, Boolean> playerVoiceStatus = new HashMap<>();
 
     @FXML
     private void initialize() {
@@ -92,7 +98,7 @@ public class RoomController {
         setupFriendsList();
         setupEventHandlers();
         loadFriendsList();
-
+        setupVoiceIndicators();
         setupKickIcons();
 
         // Register callbacks
@@ -102,7 +108,7 @@ public class RoomController {
         connection.setRoomChatCallback(this::handleRoomChatMessage);
         connection.setKickPlayerCallback(this::handleKickPlayer);
         connection.setGameStartCallback(this::handleGameStartResponse);
-
+        connection.setVoiceStatusCallback(this::handleVoiceStatusUpdate);
 
 
         System.out.println("✅ RoomController initialized");
@@ -123,6 +129,51 @@ public class RoomController {
 
         System.out.println("✅ Voice chat button setup complete");
     }
+
+    /**
+     * Setup voice indicators
+     */
+    private void setupVoiceIndicators() {
+        if (voiceIndicator1 != null) voiceIndicator1.setVisible(false);
+        if (voiceIndicator2 != null) voiceIndicator2.setVisible(false);
+        if (voiceIndicator3 != null) voiceIndicator3.setVisible(false);
+        if (voiceIndicator4 != null) voiceIndicator4.setVisible(false);
+    }
+
+    /**
+     * Update voice indicator for slot
+     */
+    private void updateVoiceIndicator(int slot, boolean isActive) {
+        Platform.runLater(() -> {
+            Label indicator = getVoiceIndicatorBySlot(slot);
+            if (indicator != null) {
+                indicator.setVisible(isActive);
+
+                // Animate when speaking
+                if (isActive) {
+                    indicator.setStyle(
+                            "-fx-font-size: 14; " +
+                                    "-fx-text-fill: #4caf50; " +
+                                    "-fx-effect: dropshadow(gaussian, rgba(76,175,80,0.8), 10, 0, 0, 0);"
+                    );
+                }
+            }
+        });
+    }
+
+    /**
+     * Get voice indicator by slot
+     */
+    private Label getVoiceIndicatorBySlot(int slot) {
+        switch (slot) {
+            case 1: return voiceIndicator1;
+            case 2: return voiceIndicator2;
+            case 3: return voiceIndicator3;
+            case 4: return voiceIndicator4;
+            default: return null;
+        }
+    }
+
 
     /**
      * Setup kick icons - chỉ hiện khi là host
@@ -168,7 +219,11 @@ public class RoomController {
         this.roomId = getStringValue(roomData.get("roomId"));
         this.subject = getStringValue(roomData.get("subject"));
         this.difficulty = getStringValue(roomData.get("difficulty"));
-        lblRoomId.setText("Phòng #" + roomId);
+        // Update UI with room data
+        if (lblRoomId != null) {
+            lblRoomId.setText("Room: " + roomId);
+        }
+        connection.requestVoiceStatus(roomId);
 
         players.clear();
         userIdToSlot.clear();
@@ -419,6 +474,11 @@ public class RoomController {
                 userIdToSlot.put(userId, emptySlot);
                 updatePlayer(emptySlot, userId, fullName, avatarUrl, score, false);
                 addSystemMessage(fullName + " đã tham gia phòng");
+
+                if (isVoiceChatActive) {
+                    addSystemMessage("💡 " + fullName + " có thể bật mic để nói chuyện!");
+                }
+
 
                 if (isHost) {
                     checkStartButtonState();
@@ -1160,43 +1220,329 @@ public class RoomController {
      */
     private void startVoiceChat() {
         try {
-            System.out.println("🎤 Starting voice chat...");
+            System.out.println("=".repeat(50));
+            System.out.println("🎤 STARTING VOICE CHAT");
+            System.out.println("=".repeat(50));
 
-            // Get server host from connection
-            String serverHost = "localhost"; // Hoặc lấy từ ServerConnection
+            // ✅ CHECK: Có đủ người trong phòng không?
+            int playerCount = players.size();
+            System.out.println("👥 Players in room: " + playerCount);
 
-            // Initialize voice chat manager
+            if (playerCount < 2) {
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.WARNING);
+                    alert.setTitle("⚠️ Voice Chat");
+                    alert.setHeaderText("Không đủ người chơi");
+                    alert.setContentText(
+                            "Voice chat cần tối thiểu 2 người!\n\n" +
+                                    "Hiện tại: " + playerCount + " người\n" +
+                                    "Cần thêm: " + (2 - playerCount) + " người\n\n" +
+                                    "Bạn có thể bật mic, nhưng sẽ không nghe được ai."
+                    );
+
+                    ButtonType continueBtn = new ButtonType("Bật mic");
+                    ButtonType cancelBtn = new ButtonType("Hủy", ButtonBar.ButtonData.CANCEL_CLOSE);
+                    alert.getButtonTypes().setAll(continueBtn, cancelBtn);
+
+                    alert.showAndWait().ifPresent(response -> {
+                        if (response == continueBtn) {
+                            continueStartVoiceChat();
+                        }
+                    });
+                });
+                return;
+            }
+
+            // ✅ Đủ người - tiếp tục bật mic
+            continueStartVoiceChat();
+
+        } catch (Exception e) {
+            System.err.println("❌ Error starting voice chat: " + e.getMessage());
+            e.printStackTrace();
+            showError("Lỗi khi bật voice chat:\n" + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle voice status change from server
+     */
+//    private void handleVoiceStatusUpdate(JsonObject message) {
+//        System.out.println("📩 VoiceStatusUpdate JSON: " + message);
+//
+//        try {
+//            String roomId = message.get("roomId").getAsString();
+//            int userId = message.get("userId").getAsInt();
+//            boolean isActive = message.get("isActive").getAsBoolean();
+//
+//            System.out.println("=".repeat(50));
+//            System.out.println("🔔 VOICE STATUS UPDATE");
+//            System.out.println("   Room: " + roomId);
+//            System.out.println("   User: " + userId);
+//            System.out.println("   Active: " + isActive);
+//            System.out.println("   My Room: " + this.roomId);
+//            System.out.println("   My User: " + connection.getCurrentUserId());
+//            System.out.println("=".repeat(50));
+//
+//            // Only process if it's for our room
+//            if (!roomId.equals(this.roomId)) {
+//                System.out.println("⚠️ Different room, ignoring");
+//                return;
+//            }
+//
+//            // Don't process our own status (already updated locally)
+//            if (userId == connection.getCurrentUserId()) {
+//                System.out.println("⚠️ Own status, ignoring");
+//                return;
+//            }
+//
+//            Platform.runLater(() -> {
+//                // Update voice status map
+//                if (isActive) {
+//                    playerVoiceStatus.put(userId, true);
+//                } else {
+//                    playerVoiceStatus.remove(userId);
+//                }
+//
+//                // Find player slot
+//                Integer slot = userIdToSlot.get(userId);
+//                System.out.println("   Slot found: " + slot);
+//
+//                if (slot != null) {
+//                    updateVoiceIndicator(slot, isActive);
+//
+//                    // Show chat message
+//                    PlayerInfo player = players.get(slot);
+//                    if (player != null) {
+//                        String msg = isActive ?
+//                                "🎤 " + player.name + " đã bật mic" :
+//                                "🔇 " + player.name + " đã tắt mic";
+//                        addSystemMessage(msg);
+//                        System.out.println("   ✅ Updated UI for: " + player.name);
+//                    }
+//                } else {
+//                    System.out.println("   ⚠️ Slot not found for userId: " + userId);
+//                }
+//            });
+//
+//        } catch (Exception e) {
+//            System.err.println("❌ Error handling voice status update: " + e.getMessage());
+//            e.printStackTrace();
+//        }
+//    }
+
+    private void handleVoiceStatusUpdate(JsonObject message) {
+        try {
+            System.out.println("=".repeat(50));
+            System.out.println("🎤 [ROOM] VOICE STATUS UPDATE");
+            System.out.println("   JSON: " + message);
+            System.out.println("=".repeat(50));
+
+            // ============================================
+            // FORMAT 1: GET_VOICE_STATUS_RESPONSE (batch)
+            // ============================================
+            if (message.has("type") && "GET_VOICE_STATUS_RESPONSE".equals(message.get("type").getAsString())) {
+                System.out.println("📋 Processing batch status response");
+
+                if (!message.has("voiceStatus")) {
+                    System.out.println("⚠️ No voiceStatus field");
+                    return;
+                }
+
+                JsonObject voiceStatus = message.getAsJsonObject("voiceStatus");
+
+                // ✅ NULL safety
+                if (voiceStatus == null) {
+                    System.out.println("⚠️ voiceStatus is null");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    // ✅ Clear all indicators first
+                    playerVoiceStatus.clear();
+                    for (int slot = 1; slot <= 4; slot++) {
+                        updateVoiceIndicator(slot, false);
+                    }
+
+                    // ✅ If empty, stop here
+                    if (voiceStatus.size() == 0) {
+                        System.out.println("ℹ️ No active voice users");
+                        return;
+                    }
+
+                    // ✅ Update indicators for active users
+                    for (String key : voiceStatus.keySet()) {
+                        try {
+                            boolean active = voiceStatus.get(key).getAsBoolean();
+                            int userId = Integer.parseInt(key);
+
+                            playerVoiceStatus.put(userId, active);
+
+                            Integer slot = userIdToSlot.get(userId);
+                            if (slot != null) {
+                                updateVoiceIndicator(slot, active);
+                                System.out.println("   ✅ User " + userId + " in slot " + slot + ": " + active);
+                            }
+                        } catch (NumberFormatException e) {
+                            System.err.println("⚠️ Invalid userId key: " + key);
+                        }
+                    }
+                });
+
+                return;
+            }
+
+            // ============================================
+            // FORMAT 2: VOICE_STATUS_UPDATE (realtime single user)
+            // ============================================
+            if (message.has("type") && "VOICE_STATUS_UPDATE".equals(message.get("type").getAsString())) {
+                System.out.println("📢 Processing realtime update");
+
+                if (!message.has("userId") || !message.has("isActive")) {
+                    System.out.println("⚠️ Missing userId or isActive");
+                    return;
+                }
+
+                int userId = message.get("userId").getAsInt();
+                boolean isActive = message.get("isActive").getAsBoolean();
+                String roomId = message.has("roomId") ? message.get("roomId").getAsString() : "";
+
+                System.out.println("   Room: " + roomId);
+                System.out.println("   User: " + userId);
+                System.out.println("   Active: " + isActive);
+                System.out.println("   My Room: " + this.roomId);
+                System.out.println("   My User: " + connection.getCurrentUserId());
+
+                // ✅ Only process if it's for our room
+                if (!roomId.equals(this.roomId)) {
+                    System.out.println("⚠️ Different room, ignoring");
+                    return;
+                }
+
+                // ✅ Don't process our own status (already updated locally)
+                if (userId == connection.getCurrentUserId()) {
+                    System.out.println("⚠️ Own status, ignoring");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    // ✅ Update voice status map
+                    if (isActive) {
+                        playerVoiceStatus.put(userId, true);
+                    } else {
+                        playerVoiceStatus.remove(userId);
+                    }
+
+                    // ✅ Find player slot
+                    Integer slot = userIdToSlot.get(userId);
+                    System.out.println("   Slot found: " + slot);
+
+                    if (slot != null) {
+                        updateVoiceIndicator(slot, isActive);
+
+                        // ✅ Show chat message
+                        PlayerInfo player = players.get(slot);
+                        if (player != null) {
+                            String msg = isActive ?
+                                    "🎤 " + player.name + " đã bật mic" :
+                                    "🔇 " + player.name + " đã tắt mic";
+                            addSystemMessage(msg);
+                            System.out.println("   ✅ Updated UI for: " + player.name);
+                        }
+                    } else {
+                        System.out.println("   ⚠️ Slot not found for userId: " + userId);
+                    }
+                });
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Error handling voice status update: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * Continue starting voice chat (extracted from startVoiceChat)
+     */
+    /**
+     * Enhanced voice chat start with better error handling
+     */
+    private void continueStartVoiceChat() {
+        try {
+            String serverHost = "localhost";
+
+            System.out.println("=".repeat(50));
+            System.out.println("🎤 STARTING VOICE CHAT");
+            System.out.println("   Server: " + serverHost);
+            System.out.println("   Room: " + roomId);
+            System.out.println("   User: " + connection.getCurrentUserId());
+            System.out.println("   Players: " + players.size());
+            System.out.println("=".repeat(50));
+
             voiceChatManager = new VoiceChatManager(
                     serverHost,
                     roomId,
                     connection.getCurrentUserId()
             );
 
-            // Set status listener
             voiceChatManager.setStatusListener(new VoiceChatManager.VoiceStatusListener() {
                 @Override
                 public void onVoiceStarted() {
                     Platform.runLater(() -> {
+                        System.out.println("✅ [VOICE] Started successfully");
+
                         isVoiceChatActive = true;
                         updateVoiceChatButton(true);
-                        addSystemMessage("🎤 Voice chat đã bật");
-                        System.out.println("✅ Voice chat started");
+
+                        // ✅ Update SELF indicator FIRST
+                        Integer mySlot = userIdToSlot.get(connection.getCurrentUserId());
+                        if (mySlot != null) {
+                            updateVoiceIndicator(mySlot, true);
+                            playerVoiceStatus.put(connection.getCurrentUserId(), true);
+                            System.out.println("   ✅ Updated self indicator at slot " + mySlot);
+                        }
+
+                        // ✅ THEN notify server
+                        notifyVoiceStatusChange(true);
+
+                        int otherPlayers = players.size() - 1;
+                        String message = otherPlayers == 0 ?
+                                "🎤 Voice chat đã bật\n⚠️ Chưa có người khác bật mic!" :
+                                "🎤 Voice chat đã bật - Có " + otherPlayers + " người khác trong phòng";
+
+                        addSystemMessage(message);
+                        System.out.println("✅ Voice chat started successfully");
                     });
                 }
 
                 @Override
                 public void onVoiceStopped() {
                     Platform.runLater(() -> {
+                        System.out.println("🛑 [VOICE] Stopped");
+
                         isVoiceChatActive = false;
                         updateVoiceChatButton(false);
+
+                        // ✅ Update self indicator
+                        Integer mySlot = userIdToSlot.get(connection.getCurrentUserId());
+                        if (mySlot != null) {
+                            updateVoiceIndicator(mySlot, false);
+                            playerVoiceStatus.remove(connection.getCurrentUserId());
+                            System.out.println("   ✅ Cleared self indicator at slot " + mySlot);
+                        }
+
+                        // ✅ Notify server
+                        notifyVoiceStatusChange(false);
+
                         addSystemMessage("🔇 Voice chat đã tắt");
-                        System.out.println("🛑 Voice chat stopped");
+                        System.out.println("✅ Voice chat stopped");
                     });
                 }
 
                 @Override
                 public void onError(String error) {
                     Platform.runLater(() -> {
+                        System.err.println("❌ Voice chat error: " + error);
                         showError("Lỗi voice chat: " + error);
                         isVoiceChatActive = false;
                         updateVoiceChatButton(false);
@@ -1204,21 +1550,81 @@ public class RoomController {
                 }
             });
 
-            // Start voice chat
             boolean success = voiceChatManager.start();
 
             if (!success) {
-                showError("Không thể bật voice chat!\nKiểm tra microphone và quyền truy cập.");
+                showError(
+                        "Không thể bật voice chat!\n\n" +
+                                "Kiểm tra:\n" +
+                                "1. Microphone có được kết nối?\n" +
+                                "2. Ứng dụng có quyền truy cập microphone?\n" +
+                                "3. Server có đang chạy?\n" +
+                                "4. Port 8888 có bị chặn?"
+                );
                 voiceChatManager = null;
             }
 
         } catch (Exception e) {
             System.err.println("❌ Error starting voice chat: " + e.getMessage());
             e.printStackTrace();
-            showError("Lỗi khi bật voice chat: " + e.getMessage());
+            showError("Lỗi khi bật voice chat:\n" + e.getMessage());
             isVoiceChatActive = false;
             updateVoiceChatButton(false);
         }
+    }
+
+    /**
+     * Notify server about voice status change
+     */
+    private void notifyVoiceStatusChange(boolean isActive) {
+        try {
+            connection.sendVoiceStatusChange(roomId, connection.getCurrentUserId(), isActive);
+            System.out.println("📢 Notified voice status: " + isActive);
+
+        } catch (Exception e) {
+            System.err.println("❌ Error notifying voice status: " + e.getMessage());
+        }
+    }
+
+    private void updateVoiceChatStatus() {
+        if (voiceChatManager == null || !voiceChatManager.isRunning()) {
+            return;
+        }
+
+        Platform.runLater(() -> {
+            // Query server for active voice clients count
+            // (Bạn cần implement API này trên server)
+
+            // For now, show local status
+            String tooltip = "Voice Chat đang bật\n" +
+                    "Phòng: " + roomId + "\n" +
+                    "Người chơi: " + players.size();
+
+            if (btnVoiceChat != null) {
+                btnVoiceChat.setTooltip(new Tooltip(tooltip));
+            }
+        });
+    }
+
+    private void showVoiceChatStatus() {
+        StringBuilder status = new StringBuilder("🎤 Voice Chat Status:\n");
+
+        boolean anyoneActive = false;
+        for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
+            PlayerInfo player = entry.getValue();
+            boolean isActive = playerVoiceStatus.getOrDefault(player.userId, false);
+
+            if (isActive) {
+                status.append("  ✅ ").append(player.name).append("\n");
+                anyoneActive = true;
+            }
+        }
+
+        if (!anyoneActive) {
+            status.append("  ❌ Chưa có ai bật mic");
+        }
+
+        addSystemMessage(status.toString());
     }
 
     /**
@@ -1283,7 +1689,37 @@ public class RoomController {
             }
         }
     }
+    /**
+     * Test voice chat setup
+     */
+    private void testVoiceChat() {
+        System.out.println("=".repeat(50));
+        System.out.println("🧪 TESTING VOICE CHAT SETUP");
+        System.out.println("=".repeat(50));
 
+        System.out.println("Room ID: " + roomId);
+        System.out.println("User ID: " + connection.getCurrentUserId());
+        System.out.println("Players: " + players.size());
+
+        System.out.println("\nPlayers:");
+        for (Map.Entry<Integer, PlayerInfo> entry : players.entrySet()) {
+            System.out.println("  Slot " + entry.getKey() + ": " + entry.getValue().name);
+        }
+
+        System.out.println("\nUI Components:");
+        System.out.println("  btnVoiceChat: " + (btnVoiceChat != null ? "✓" : "✗"));
+        System.out.println("  micIcon: " + (micIcon != null ? "✓" : "✗"));
+        System.out.println("  voiceIndicator1: " + (voiceIndicator1 != null ? "✓" : "✗"));
+        System.out.println("  voiceIndicator2: " + (voiceIndicator2 != null ? "✓" : "✗"));
+        System.out.println("  voiceIndicator3: " + (voiceIndicator3 != null ? "✓" : "✗"));
+        System.out.println("  voiceIndicator4: " + (voiceIndicator4 != null ? "✓" : "✗"));
+
+        System.out.println("\nVoice Status:");
+        System.out.println("  isVoiceChatActive: " + isVoiceChatActive);
+        System.out.println("  voiceChatManager: " + (voiceChatManager != null ? "✓" : "✗"));
+
+        System.out.println("=".repeat(50));
+    }
 
     // ==================== Friends List ====================
 
@@ -1946,6 +2382,10 @@ public class RoomController {
         connection.clearPlayerLeftCallback();
         connection.clearPlayerReadyCallback();
         connection.clearKickPlayerCallback();
+        connection.clearVoiceStatusCallback();
+        players.clear();
+        userIdToSlot.clear();
+        playerVoiceStatus.clear();
         System.out.println("🧹 RoomController cleaned up");
     }
 
