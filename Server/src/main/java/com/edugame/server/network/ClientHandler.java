@@ -38,6 +38,8 @@ public class ClientHandler implements Runnable {
     private static final GameRoomManager gameRoomManager = GameRoomManager.getInstance();
     private GameManager gameManager = GameManager.getInstance();
 
+    private VoiceChatServer voiceChatServer;
+
     public void setMatchmakingManager(MatchmakingManager matchmakingManager) {
         this.matchmakingManager = matchmakingManager;
     }
@@ -55,6 +57,7 @@ public class ClientHandler implements Runnable {
         this.messageDAO = new MessageDAO();
         this.running = true;
         this.questionDAO = new QuestionDAO();
+        this.voiceChatServer = GameServer.getVoiceChatServer();
 
         try {
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -290,6 +293,25 @@ public class ClientHandler implements Runnable {
             e.printStackTrace();
             sendError("Invalid message format");
         }
+    }
+
+    /**
+     * ✅ Helper method to get current user's room ID
+     */
+    private String getCurrentUserRoomId() {
+        if (currentUser == null) return null;
+
+        try {
+            // Get room from GameRoomManager
+            GameRoomManager.GameRoom room = gameRoomManager.getRoomByUser(currentUser.getUserId());
+            if (room != null) {
+                return room.getRoomId();
+            }
+        } catch (Exception e) {
+            logWithTime("⚠️ Error getting room ID: " + e.getMessage());
+        }
+
+        return null;
     }
 
     private void handleGameChat(JsonObject jsonMessage) {
@@ -916,6 +938,16 @@ public class ClientHandler implements Runnable {
         try {
             if (currentUser != null) {
                 logWithTime("🚪 LOGOUT: " + currentUser.getUsername());
+
+
+                if (voiceChatServer != null) {
+                    String currentRoomId = getCurrentUserRoomId();
+                    if (currentRoomId != null) {
+                        voiceChatServer.removeClient(currentUser.getUserId(), currentRoomId);
+                        logWithTime("   🔇 Voice chat cleaned up for room " + currentRoomId);
+                    }
+                }
+
                 userDAO.updateOnlineStatus(currentUser.getUserId(), false);
                 currentUser = null;
             }
@@ -1286,6 +1318,17 @@ public class ClientHandler implements Runnable {
     private void disconnect() {
         try {
             if (currentUser != null) {
+                logWithTime("👋 User disconnecting: " + currentUser.getUsername());
+
+                // ✅ Clean up voice chat
+                if (voiceChatServer != null) {
+                    String currentRoomId = getCurrentUserRoomId();
+                    if (currentRoomId != null) {
+                        voiceChatServer.removeClient(currentUser.getUserId(), currentRoomId);
+                        logWithTime("   🔇 Voice chat cleaned up for room " + currentRoomId);
+                    }
+                }
+
                 userDAO.updateOnlineStatus(currentUser.getUserId(), false);
             }
 

@@ -14,10 +14,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.edugame.server.network.VoiceChatServer;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class GameServer {
     private ServerSocket serverSocket;
+    private static VoiceChatServer voiceChatServer;
     private List<ClientHandler> connectedClients;
     private boolean running;
     private int port;
@@ -35,6 +37,7 @@ public class GameServer {
 
         System.out.println("✅ GameServer initialized!");
     }
+
     public static GameServer getInstance() {
         return instance;
     }
@@ -53,6 +56,13 @@ public class GameServer {
     }
 
     /**
+     * Get VoiceChatServer instance
+     */
+    public static VoiceChatServer getVoiceChatServer() {
+        return voiceChatServer;
+    }
+
+    /**
      * Start the server
      */
     public void start() {
@@ -67,11 +77,25 @@ public class GameServer {
             serverSocket = new ServerSocket(port);
             running = true;
 
+            // Start Voice Chat UDP Server
+            System.out.println("🎙️ Starting Voice Chat Server...");
+            voiceChatServer = new VoiceChatServer();
+            boolean voiceStarted = voiceChatServer.start();
+
+            if (voiceStarted) {
+                System.out.println("✅ Voice Chat Server started successfully");
+            } else {
+                System.err.println("⚠️ Voice Chat Server failed to start (continuing without voice)");
+            }
+
             System.out.println("========================================");
             System.out.println("🎮 MATH ADVENTURE SERVER");
             System.out.println("========================================");
             System.out.println("✓ Server started on port: " + port);
             System.out.println("✓ Database connected");
+            if (voiceStarted) {
+                System.out.println("✓ Voice Chat enabled");
+            }
             System.out.println("✓ Waiting for clients...");
             System.out.println("========================================\n");
 
@@ -80,7 +104,7 @@ public class GameServer {
                 try {
                     Socket clientSocket = serverSocket.accept();
 
-                    // Create new client handler với reference đến server
+                    // Create new client handler với reference đến server và voiceChatServer
                     ClientHandler clientHandler = new ClientHandler(clientSocket, this);
                     connectedClients.add(clientHandler);
 
@@ -108,8 +132,6 @@ public class GameServer {
         }
     }
 
-
-
     /**
      * Stop the server
      */
@@ -120,20 +142,23 @@ public class GameServer {
             // Disconnect all clients
             System.out.println("\n🛑 Disconnecting all clients...");
             for (ClientHandler client : connectedClients) {
-                // Client handler will clean up on its own
                 if (client.isRunning()) {
-                    // Optionally send shutdown notification
+                    // Client handler will clean up on its own
                 }
             }
             connectedClients.clear();
+
+            // Stop Voice Chat Server
+            if (voiceChatServer != null) {
+                System.out.println("🛑 Stopping Voice Chat Server...");
+                voiceChatServer.stop();
+                System.out.println("✓ Voice Chat Server stopped");
+            }
 
             // Close server socket
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
-
-            // Close database connection
-//            DatabaseConnection.getInstance().closeConnection();
 
             System.out.println("========================================");
             System.out.println("✓ Server stopped");
@@ -372,6 +397,4 @@ public class GameServer {
         System.out.println("[SERVER] ⚠️⚠️⚠️ User NOT FOUND or OFFLINE (userId=" + userId + ")");
         return false;
     }
-
-
 }

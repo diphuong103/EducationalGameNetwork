@@ -1,6 +1,7 @@
 package com.edugame.client.controller;
 
 import com.edugame.client.network.ServerConnection;
+import com.edugame.client.network.VoiceChatManager;
 import com.edugame.client.util.AvatarUtil;
 import com.edugame.client.util.GameDataParser;
 import com.edugame.client.util.SceneManager;
@@ -61,6 +62,10 @@ public class RoomController {
     @FXML private Label kickIcon3;
     @FXML private Label kickIcon4;
 
+
+    @FXML private Button btnVoiceChat;
+    @FXML private Label micIcon;
+
     // ==================== Data ====================
 
     private ServerConnection connection;
@@ -76,7 +81,8 @@ public class RoomController {
     private String currentFilter = "ALL";
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
     private Consumer<JsonObject> kickPlayerCallback;
-
+    private VoiceChatManager voiceChatManager;
+    private boolean isVoiceChatActive = false;
 
     @FXML
     private void initialize() {
@@ -98,7 +104,24 @@ public class RoomController {
         connection.setGameStartCallback(this::handleGameStartResponse);
 
 
+
         System.out.println("✅ RoomController initialized");
+    }
+
+
+    private void setupVoiceChat() {
+        if (btnVoiceChat == null) {
+            System.err.println("⚠️ btnVoiceChat is null!");
+            return;
+        }
+
+        btnVoiceChat.setOnAction(e -> toggleVoiceChat());
+        btnVoiceChat.setDisable(false);
+
+        // Set initial state
+        updateVoiceChatButton(false);
+
+        System.out.println("✅ Voice chat button setup complete");
     }
 
     /**
@@ -1118,7 +1141,150 @@ public class RoomController {
         }
     }
 
-    // ==================== FRIENDS LIST - FIXED ====================
+
+    // ==================== VOICE CHAT ====================
+
+    /**
+     * Toggle voice chat on/off
+     */
+    private void toggleVoiceChat() {
+        if (isVoiceChatActive) {
+            stopVoiceChat();
+        } else {
+            startVoiceChat();
+        }
+    }
+
+    /**
+     * Start voice chat
+     */
+    private void startVoiceChat() {
+        try {
+            System.out.println("🎤 Starting voice chat...");
+
+            // Get server host from connection
+            String serverHost = "localhost"; // Hoặc lấy từ ServerConnection
+
+            // Initialize voice chat manager
+            voiceChatManager = new VoiceChatManager(
+                    serverHost,
+                    roomId,
+                    connection.getCurrentUserId()
+            );
+
+            // Set status listener
+            voiceChatManager.setStatusListener(new VoiceChatManager.VoiceStatusListener() {
+                @Override
+                public void onVoiceStarted() {
+                    Platform.runLater(() -> {
+                        isVoiceChatActive = true;
+                        updateVoiceChatButton(true);
+                        addSystemMessage("🎤 Voice chat đã bật");
+                        System.out.println("✅ Voice chat started");
+                    });
+                }
+
+                @Override
+                public void onVoiceStopped() {
+                    Platform.runLater(() -> {
+                        isVoiceChatActive = false;
+                        updateVoiceChatButton(false);
+                        addSystemMessage("🔇 Voice chat đã tắt");
+                        System.out.println("🛑 Voice chat stopped");
+                    });
+                }
+
+                @Override
+                public void onError(String error) {
+                    Platform.runLater(() -> {
+                        showError("Lỗi voice chat: " + error);
+                        isVoiceChatActive = false;
+                        updateVoiceChatButton(false);
+                    });
+                }
+            });
+
+            // Start voice chat
+            boolean success = voiceChatManager.start();
+
+            if (!success) {
+                showError("Không thể bật voice chat!\nKiểm tra microphone và quyền truy cập.");
+                voiceChatManager = null;
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Error starting voice chat: " + e.getMessage());
+            e.printStackTrace();
+            showError("Lỗi khi bật voice chat: " + e.getMessage());
+            isVoiceChatActive = false;
+            updateVoiceChatButton(false);
+        }
+    }
+
+    /**
+     * Stop voice chat
+     */
+    private void stopVoiceChat() {
+        try {
+            System.out.println("🛑 Stopping voice chat...");
+
+            if (voiceChatManager != null) {
+                voiceChatManager.stop();
+                voiceChatManager = null;
+            }
+
+            isVoiceChatActive = false;
+            updateVoiceChatButton(false);
+
+        } catch (Exception e) {
+            System.err.println("❌ Error stopping voice chat: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Update voice chat button UI
+     */
+    private void updateVoiceChatButton(boolean active) {
+        Platform.runLater(() -> {
+            if (btnVoiceChat == null || micIcon == null) return;
+
+            if (active) {
+                // Active state - recording
+                btnVoiceChat.getStyleClass().remove("voice-button");
+                btnVoiceChat.getStyleClass().add("voice-button-active");
+                micIcon.setText("🔴"); // Red recording indicator
+                btnVoiceChat.setTooltip(new Tooltip("Voice Chat đang bật (Nhấn để tắt)"));
+            } else {
+                // Inactive state
+                btnVoiceChat.getStyleClass().remove("voice-button-active");
+                if (!btnVoiceChat.getStyleClass().contains("voice-button")) {
+                    btnVoiceChat.getStyleClass().add("voice-button");
+                }
+                micIcon.setText("🎤"); // Microphone icon
+                btnVoiceChat.setTooltip(new Tooltip("Voice Chat (Nhấn để bật)"));
+            }
+        });
+    }
+
+    /**
+     * Mute/unmute microphone (optional feature)
+     */
+    private void toggleMute() {
+        if (voiceChatManager != null && isVoiceChatActive) {
+            boolean currentlyMuted = false; // Track mute state
+            currentlyMuted = !currentlyMuted;
+            voiceChatManager.setMuted(currentlyMuted);
+
+            if (currentlyMuted) {
+                addSystemMessage("🔇 Mic đã tắt tiếng");
+            } else {
+                addSystemMessage("🎤 Mic đã bật tiếng");
+            }
+        }
+    }
+
+
     // ==================== Friends List ====================
 
     private void setupFriendsList() {
@@ -1323,22 +1489,45 @@ public class RoomController {
         btnFilterInGame.setOnAction(e -> handleFilter("IN_GAME"));
         btnReady.setOnAction(e -> handleReady());
         btnStart.setOnAction(e -> handleStartGame());
+
+        setupVoiceChat();
     }
 
     /**
      * Handle back button
      */
     private void handleBack() {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Xác nhận");
-        alert.setHeaderText("Rời phòng");
-        alert.setContentText("Bạn có chắc muốn rời khỏi phòng?");
+        if (isVoiceChatActive) {
+            Alert confirmAlert = new Alert(Alert.AlertType.WARNING);
+            confirmAlert.setTitle("Voice Chat đang bật");
+            confirmAlert.setHeaderText("Voice chat đang hoạt động");
+            confirmAlert.setContentText("Rời phòng sẽ tắt voice chat. Bạn có chắc muốn rời?");
 
-        alert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
-                leaveRoom();
-            }
-        });
+            confirmAlert.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    leaveRoomWithVoiceCleanup();
+                }
+            });
+        } else {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("Xác nhận");
+            alert.setHeaderText("Rời phòng");
+            alert.setContentText("Bạn có chắc muốn rời khỏi phòng?");
+
+            alert.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    leaveRoom();
+                }
+            });
+        }
+    }
+
+    /**
+     * Leave room with voice chat cleanup
+     */
+    private void leaveRoomWithVoiceCleanup() {
+        stopVoiceChat();
+        leaveRoom();
     }
 
     /**
@@ -1531,94 +1720,6 @@ public class RoomController {
     }
 
 
-
-//    /**
-//     * ✅ Handle START_GAME broadcast from server
-//     * This is received by ALL players including host
-//     */
-//    private void handleGameStartBroadcast(JsonObject data) {
-//        Platform.runLater(() -> {
-//            try {
-//                boolean success = data.get("success").getAsBoolean();
-//
-//                if (!success) {
-//                    showError("Không thể bắt đầu game!");
-//                    if (btnStart != null) {
-//                        btnStart.setDisable(false);
-//                        btnStart.setText("Bắt đầu");
-//                    }
-//                    return;
-//                }
-//
-//                System.out.println("🎮 [START_GAME] Received start game broadcast");
-//
-//                // ✅ Parse game data using helper
-//                Map<String, Object> gameData = GameDataParser.parseStartGameData(data);
-//
-//                // ✅ Transition to game scene immediately
-//                // MathGameController will handle its own 10s countdown
-//                transitionToGameScene(gameData);
-//
-//            } catch (Exception e) {
-//                System.err.println("❌ Error handling START_GAME: " + e.getMessage());
-//                e.printStackTrace();
-//                showError("Lỗi khi bắt đầu game!\n" + e.getMessage());
-//
-//                // Re-enable button on error
-//                if (btnStart != null && isHost) {
-//                    btnStart.setDisable(false);
-//                    btnStart.setText("Bắt đầu");
-//                }
-//            }
-//        });
-//    }
-
-//    /**
-//     * ✅ Transition to MathGame Scene
-//     */
-//    private void transitionToGameScene(Map<String, Object> gameData) {
-//        try {
-//            System.out.println("🎮 [TRANSITION] Loading game scene...");
-//
-//            // Clear room callbacks before leaving
-//            connection.clearPlayerJoinedCallback();
-//            connection.clearPlayerLeftCallback();
-//            connection.clearPlayerReadyCallback();
-//            connection.setRoomChatCallback(null);
-//            connection.setKickPlayerCallback(null);
-//            connection.unregisterHandler(Protocol.START_GAME);
-//
-//            System.out.println("🧹 [TRANSITION] Cleared room callbacks");
-//
-//            // Load MathGame Scene with FXMLLoader
-//            FXMLLoader loader = new FXMLLoader(
-//                    getClass().getResource("/fxml/MathGame.fxml")
-//            );
-//            Parent root = loader.load();
-//
-//            // Get MathGameController and initialize with game data
-//            MathGameController gameController = loader.getController();
-//            gameController.initializeGame(gameData);
-//
-//            // Switch scene
-//            Stage stage = (Stage) btnStart.getScene().getWindow();
-//            Scene scene = new Scene(root);
-//            stage.setScene(scene);
-//            stage.setTitle("Math Racing Game - " + gameData.get("subject"));
-//            stage.show();
-//
-//            System.out.println("✅ [TRANSITION] Successfully loaded game scene");
-//
-//        } catch (IOException e) {
-//            System.err.println("❌ [TRANSITION] Failed to load FXML: " + e.getMessage());
-//            e.printStackTrace();
-//            showError("Không thể tải giao diện game!\nKiểm tra file: /fxml/MathGame.fxml");
-//        } catch (Exception e) {
-//            System.err.println("❌ [TRANSITION] Error: " + e.getMessage());
-//            e.printStackTrace();
-//            showError("Lỗi khi chuyển sang màn hình game!\n" + e.getMessage());
-//        }
-//    }
 
     /**
      * Check if all players are ready
@@ -1834,6 +1935,12 @@ public class RoomController {
      * Cleanup when leaving room
      */
     private void cleanup() {
+
+        // Stop voice chat if active
+        if (isVoiceChatActive) {
+            stopVoiceChat();
+        }
+
         connection.clearRoomChatCallback();
         connection.clearPlayerJoinedCallback();
         connection.clearPlayerLeftCallback();

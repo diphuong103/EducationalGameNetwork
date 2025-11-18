@@ -617,3 +617,48 @@
 .start-button:hover {
     -fx-background-color: linear-gradient(to right, #f4511e, #e64a19);
 }
+/* ============================================
+   VOICE CHAT BUTTON
+   ============================================ */
+
+.voice-button {
+    -fx-background-color: rgba(76, 175, 80, 0.2);
+    -fx-background-radius: 8;
+    -fx-padding: 8 12;
+    -fx-cursor: hand;
+    -fx-border-color: rgba(76, 175, 80, 0.5);
+    -fx-border-radius: 8;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.3), 8, 0, 0, 0);
+}
+
+.voice-button:hover {
+    -fx-background-color: rgba(76, 175, 80, 0.3);
+    -fx-border-color: rgba(76, 175, 80, 0.7);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.voice-button:pressed {
+    -fx-scale-x: 0.95;
+    -fx-scale-y: 0.95;
+}
+
+/* Voice Button Active State (when mic is on) */
+.voice-button-active {
+    -fx-background-color: rgba(244, 67, 54, 0.3);
+    -fx-border-color: rgba(244, 67, 54, 0.7);
+    -fx-effect: dropshadow(gaussian, rgba(244, 67, 54, 0.5), 12, 0, 0, 0);
+}
+
+.voice-button-active:hover {
+    -fx-background-color: rgba(244, 67, 54, 0.4);
+    -fx-border-color: rgba(244, 67, 54, 0.9);
+}
+
+/* Muted/Disabled State */
+.voice-button:disabled {
+    -fx-background-color: rgba(100, 100, 100, 0.2);
+    -fx-border-color: rgba(100, 100, 100, 0.3);
+    -fx-opacity: 0.5;
+}

@@ -1,5 +1,6 @@
 package com.edugame.client.controller;
 
+import com.edugame.client.config.ServerConfig;
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.SceneManager;
 import javafx.application.Platform;
@@ -18,7 +19,7 @@ public class RegisterController {
     @FXML private PasswordField passwordField;
     @FXML private PasswordField confirmPasswordField;
 
-    // Age buttons - 7 buttons từ 6-12
+    // Age buttons
     @FXML private ToggleButton age6Button;
     @FXML private ToggleButton age7Button;
     @FXML private ToggleButton age8Button;
@@ -44,13 +45,13 @@ public class RegisterController {
 
     private ServerConnection serverConnection;
     private String selectedAvatar = "avatar4.png";
-    private String selectedAge = "9"; // Default age
+    private String selectedAge = "9";
 
     @FXML
     public void initialize() {
         serverConnection = ServerConnection.getInstance();
 
-        // Set default selections
+        // Set defaults
         if (age9Button != null) {
             age9Button.setSelected(true);
             selectedAge = "9";
@@ -60,10 +61,10 @@ public class RegisterController {
             avatar4Button.setSelected(true);
         }
 
-        // Add Enter key handler
+        // Enter key handler
         confirmPasswordField.setOnAction(event -> handleRegister());
 
-        // Focus on first field
+        // Focus
         Platform.runLater(() -> fullNameField.requestFocus());
     }
 
@@ -71,21 +72,13 @@ public class RegisterController {
     private void handleAgeSelection() {
         Toggle selectedToggle = ageGroup.getSelectedToggle();
 
-        if (selectedToggle == age6Button) {
-            selectedAge = "6";
-        } else if (selectedToggle == age7Button) {
-            selectedAge = "7";
-        } else if (selectedToggle == age8Button) {
-            selectedAge = "8";
-        } else if (selectedToggle == age9Button) {
-            selectedAge = "9";
-        } else if (selectedToggle == age10Button) {
-            selectedAge = "10";
-        } else if (selectedToggle == age11Button) {
-            selectedAge = "11";
-        } else if (selectedToggle == age12Button) {
-            selectedAge = "12";
-        }
+        if (selectedToggle == age6Button) selectedAge = "6";
+        else if (selectedToggle == age7Button) selectedAge = "7";
+        else if (selectedToggle == age8Button) selectedAge = "8";
+        else if (selectedToggle == age9Button) selectedAge = "9";
+        else if (selectedToggle == age10Button) selectedAge = "10";
+        else if (selectedToggle == age11Button) selectedAge = "11";
+        else if (selectedToggle == age12Button) selectedAge = "12";
 
         System.out.println("Selected age: " + selectedAge);
     }
@@ -121,23 +114,33 @@ public class RegisterController {
         showLoading(true);
         registerButton.setDisable(true);
 
-        // Register user
+        // Register
         new Thread(() -> {
             try {
-                // Connect to server if not connected
+                // ✅ Kết nối sử dụng ServerConfig
                 if (!serverConnection.isConnected()) {
-                    boolean connected = serverConnection.connect("localhost", 8888);
+                    ServerConfig config = ServerConfig.getInstance();
+                    System.out.println("🔌 Connecting to: " + config.getServerAddress());
+
+                    boolean connected = serverConnection.connect(config.getHost(), config.getPort());
+
                     if (!connected) {
                         Platform.runLater(() -> {
                             showLoading(false);
                             registerButton.setDisable(false);
-                            showError("Không thể kết nối đến server!\nVui lòng kiểm tra kết nối mạng.");
+                            showError("❌ Không thể kết nối đến server!\n\n" +
+                                    "Server: " + config.getServerAddress() + "\n" +
+                                    "Mode: " + config.getMode() + "\n\n" +
+                                    "Vui lòng kiểm tra:\n" +
+                                    "• Server đã chạy chưa?\n" +
+                                    "• Cấu hình kết nối đúng chưa?\n" +
+                                    "• Kết nối mạng ổn định không?");
                         });
                         return;
                     }
                 }
 
-                // Send registration request
+                // Send registration
                 boolean registerSuccess = serverConnection.register(
                         username, password, email, fullName, selectedAge, selectedAvatar
                 );
@@ -147,14 +150,14 @@ public class RegisterController {
                     registerButton.setDisable(false);
 
                     if (registerSuccess) {
-                        showSuccess("Đăng ký thành công!\nĐang chuyển về màn hình đăng nhập...");
+                        showSuccess("✅ Đăng ký thành công!\nĐang chuyển về màn hình đăng nhập...");
 
-                        // Navigate back to login after delay
+                        // Delay then go back
                         PauseTransition delay = new PauseTransition(Duration.seconds(2));
                         delay.setOnFinished(event -> handleBackToLogin());
                         delay.play();
                     } else {
-                        showError("Đăng ký thất bại!\nTên đăng nhập hoặc email đã tồn tại.");
+                        showError("❌ Đăng ký thất bại!\nTên đăng nhập hoặc email đã tồn tại.");
                     }
                 });
 
@@ -162,7 +165,7 @@ public class RegisterController {
                 Platform.runLater(() -> {
                     showLoading(false);
                     registerButton.setDisable(false);
-                    showError("Lỗi kết nối: " + e.getMessage());
+                    showError("❌ Lỗi kết nối: " + e.getMessage());
                 });
                 e.printStackTrace();
             }
@@ -181,19 +184,16 @@ public class RegisterController {
 
     private boolean validateInput(String fullName, String username, String email,
                                   String password, String confirmPassword) {
-        // Check empty fields
         if (fullName.isEmpty() || username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
             showError("Vui lòng điền đầy đủ thông tin bắt buộc!");
             return false;
         }
 
-        // Validate full name
         if (fullName.length() < 2) {
             showError("Họ và tên phải có ít nhất 2 ký tự!");
             return false;
         }
 
-        // Validate username
         if (username.length() < 3) {
             showError("Tên đăng nhập phải có ít nhất 3 ký tự!");
             return false;
@@ -204,31 +204,26 @@ public class RegisterController {
             return false;
         }
 
-        // Validate email (if provided)
         if (!email.isEmpty() && !email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             showError("Email không hợp lệ!");
             return false;
         }
 
-        // Validate password
         if (password.length() < 6) {
             showError("Mật khẩu phải có ít nhất 6 ký tự!");
             return false;
         }
 
-        // Check password match
         if (!password.equals(confirmPassword)) {
             showError("Mật khẩu xác nhận không khớp!");
             return false;
         }
 
-        // Check age selection
         if (ageGroup.getSelectedToggle() == null) {
             showError("Vui lòng chọn độ tuổi của bạn!");
             return false;
         }
 
-        // Check avatar selection
         if (avatarGroup.getSelectedToggle() == null) {
             showError("Vui lòng chọn nhân vật yêu thích!");
             return false;
@@ -256,7 +251,6 @@ public class RegisterController {
         alert.setContentText(message);
         alert.show();
 
-        // Auto close after 2 seconds
         PauseTransition delay = new PauseTransition(Duration.seconds(2));
         delay.setOnFinished(event -> alert.close());
         delay.play();

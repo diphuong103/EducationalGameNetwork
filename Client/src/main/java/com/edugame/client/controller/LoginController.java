@@ -1,6 +1,8 @@
 package com.edugame.client.controller;
 
+import com.edugame.client.config.ServerConfig;
 import com.edugame.client.network.ServerConnection;
+import com.edugame.client.ui.ServerSelectorDialog;
 import com.edugame.client.util.SceneManager;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -9,8 +11,6 @@ import javafx.scene.layout.StackPane;
 import javafx.animation.PauseTransition;
 import javafx.util.Duration;
 
-import java.io.IOException;
-
 public class LoginController {
 
     @FXML private TextField usernameField;
@@ -18,6 +18,8 @@ public class LoginController {
     @FXML private CheckBox rememberMeCheckBox;
     @FXML private Button loginButton;
     @FXML private Button registerButton;
+    @FXML private Button serverConfigButton; // NEW: Nút config server
+    @FXML private Label serverInfoLabel; // NEW: Hiển thị server hiện tại
     @FXML private StackPane loadingOverlay;
 
     private ServerConnection serverConnection;
@@ -26,15 +28,43 @@ public class LoginController {
     public void initialize() {
         serverConnection = ServerConnection.getInstance();
 
-        // Load saved username if remember me was checked
+        // Load saved credentials
         loadSavedCredentials();
 
-        // Add Enter key handler for quick login
+        // Add Enter key handlers
         passwordField.setOnAction(event -> handleLogin());
         usernameField.setOnAction(event -> passwordField.requestFocus());
 
-        // Focus on username field when scene loads
-        Platform.runLater(() -> usernameField.requestFocus());
+        // Focus on username field
+        Platform.runLater(() -> {
+            usernameField.requestFocus();
+            updateServerInfoLabel(); // Hiển thị server info
+        });
+    }
+
+    /**
+     * NEW: Cập nhật label hiển thị server hiện tại
+     */
+    private void updateServerInfoLabel() {
+        if (serverInfoLabel != null) {
+            ServerConfig config = ServerConfig.getInstance();
+            String icon = config.isLocal() ? "💻" :
+                    config.isNgrok() ? "🌍" : "☁️";
+            serverInfoLabel.setText(icon + " " + config.getServerAddress());
+        }
+    }
+
+    /**
+     * NEW: Mở dialog cấu hình server
+     */
+    @FXML
+    private void handleServerConfig() {
+        ServerSelectorDialog dialog = new ServerSelectorDialog();
+        if (dialog.showAndWait()) {
+            updateServerInfoLabel();
+            showInfo("✅ Đã cập nhật cấu hình server!\n" +
+                    "Bạn có thể đăng nhập ngay bây giờ.");
+        }
     }
 
     @FXML
@@ -60,19 +90,29 @@ public class LoginController {
         // Connect to server and authenticate
         new Thread(() -> {
             try {
-                // 🧹 Nếu đã có kết nối cũ, ngắt trước để tránh trùng session
+                // Ngắt kết nối cũ nếu có
                 if (serverConnection.isConnected()) {
                     serverConnection.disconnect();
                     Thread.sleep(200);
                 }
 
-                // ✅ Tạo kết nối mới
-                boolean connected = serverConnection.connect("localhost", 8888);
+                // ✅ Kết nối sử dụng ServerConfig
+                ServerConfig config = ServerConfig.getInstance();
+                System.out.println("🔌 Connecting to: " + config.getServerAddress());
+
+                boolean connected = serverConnection.connect(config.getHost(), config.getPort());
+
                 if (!connected) {
                     Platform.runLater(() -> {
                         showLoading(false);
                         loginButton.setDisable(false);
-                        showError("Không thể kết nối đến server!\nVui lòng kiểm tra kết nối mạng.");
+                        showError("❌ Không thể kết nối đến server!\n\n" +
+                                "Server: " + config.getServerAddress() + "\n" +
+                                "Mode: " + config.getMode() + "\n\n" +
+                                "Kiểm tra:\n" +
+                                "• Server đã chạy chưa?\n" +
+                                "• Cấu hình Ngrok đúng chưa?\n" +
+                                "• Kết nối mạng ổn định không?");
                     });
                     return;
                 }
@@ -85,17 +125,17 @@ public class LoginController {
                     loginButton.setDisable(false);
 
                     if (loginSuccess) {
-                        // Save credentials if remember me is checked
+                        // Save credentials if remember me
                         if (rememberMeCheckBox.isSelected()) {
                             saveCredentials(username);
                         } else {
                             clearSavedCredentials();
                         }
 
-                        // Show success message
-                        showSuccess("Đăng nhập thành công!");
+                        // Show success
+                        showSuccess("✅ Đăng nhập thành công!");
 
-                        // Navigate to home screen after delay
+                        // Navigate to home
                         PauseTransition delay = new PauseTransition(Duration.seconds(1));
                         delay.setOnFinished(event -> {
                             try {
@@ -107,7 +147,7 @@ public class LoginController {
                         });
                         delay.play();
                     } else {
-                        showError("Tên đăng nhập hoặc mật khẩu không đúng!");
+                        showError("❌ Tên đăng nhập hoặc mật khẩu không đúng!");
                     }
                 });
 
@@ -115,7 +155,7 @@ public class LoginController {
                 Platform.runLater(() -> {
                     showLoading(false);
                     loginButton.setDisable(false);
-                    showError("Lỗi kết nối: " + e.getMessage());
+                    showError("❌ Lỗi kết nối: " + e.getMessage());
                 });
                 e.printStackTrace();
             }
@@ -138,7 +178,7 @@ public class LoginController {
         alert.setTitle("Quên mật khẩu");
         alert.setHeaderText("Liên hệ hỗ trợ");
         alert.setContentText("Vui lòng liên hệ với admin để được hỗ trợ khôi phục mật khẩu.\n\n" +
-                "Email: support@mathadventure.com\n" +
+                "Email: support@brainquest.com\n" +
                 "Hotline: 1900-xxxx");
         alert.showAndWait();
     }
@@ -162,16 +202,20 @@ public class LoginController {
         alert.setContentText(message);
         alert.show();
 
-        // Auto close sau 1 giây
         PauseTransition delay = new PauseTransition(Duration.seconds(1));
         delay.setOnFinished(event -> alert.close());
         delay.play();
     }
 
+    private void showInfo(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Thông báo");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
 
     private void loadSavedCredentials() {
-        // TODO: Implement preferences loading
-        // For now, just a placeholder
         String savedUsername = System.getProperty("saved.username", "");
         if (!savedUsername.isEmpty()) {
             usernameField.setText(savedUsername);
@@ -181,12 +225,10 @@ public class LoginController {
     }
 
     private void saveCredentials(String username) {
-        // TODO: Implement preferences saving
         System.setProperty("saved.username", username);
     }
 
     private void clearSavedCredentials() {
-        // TODO: Implement preferences clearing
         System.clearProperty("saved.username");
     }
 }

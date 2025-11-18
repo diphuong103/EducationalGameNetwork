@@ -1,44 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.image.*?>
-<?import javafx.scene.layout.*?>
-<?import javafx.scene.text.*?>
-<?import javafx.scene.shape.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Circle?>
 
-    <AnchorPane xmlns="http://javafx.com/javafx/17"
-                xmlns:fx="http://javafx.com/fxml/1"
-                fx:controller="com.edugame.client.controller.RoomController"
-                prefHeight="700.0" prefWidth="1200.0"
-                styleClass="root"
-                stylesheets="@../css/room.css, @../css/common.css"
-                >
+<AnchorPane prefHeight="700.0" prefWidth="1200.0" styleClass="root" stylesheets="@../css/room.css, @../css/common.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.edugame.client.controller.RoomController">
 
     <!-- ============================================ -->
     <!-- HEADER: Back Button & Room ID -->
     <!-- ============================================ -->
-    <HBox alignment="CENTER_LEFT" spacing="20"
-          AnchorPane.topAnchor="15" AnchorPane.leftAnchor="20" AnchorPane.rightAnchor="20">
+    <HBox alignment="CENTER_LEFT" spacing="20" AnchorPane.leftAnchor="20" AnchorPane.rightAnchor="20" AnchorPane.topAnchor="15">
 
         <!-- Back Button -->
         <Button fx:id="btnBack" styleClass="back-button">
             <graphic>
                 <HBox alignment="CENTER" spacing="8">
-                    <Label text="⟵" style="-fx-font-size: 20; -fx-text-fill: white;"/>
-                    <Label text="Trở về" style="-fx-font-size: 14; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                    <Label style="-fx-font-size: 20; -fx-text-fill: white;" text="⟵" />
+                    <Label style="-fx-font-size: 14; -fx-text-fill: white; -fx-font-weight: bold;" text="Trở về" />
                 </HBox>
             </graphic>
         </Button>
 
-        <Region HBox.hgrow="ALWAYS"/>
+        <Region HBox.hgrow="ALWAYS" />
 
         <!-- Room ID Display -->
         <HBox alignment="CENTER" spacing="10" styleClass="room-id-container">
-            <Label text="🏠" style="-fx-font-size: 18;"/>
+            <Label style="-fx-font-size: 18;" text="🏠" />
             <VBox spacing="2">
-                <Label text="ID Phòng" style="-fx-text-fill: #aaaaaa; -fx-font-size: 11;"/>
-                <Label fx:id="lblRoomId" text="579494" styleClass="room-id-text"/>
+                <Label style="-fx-text-fill: #aaaaaa; -fx-font-size: 11;" text="ID Phòng" />
+                <Label fx:id="lblRoomId" styleClass="room-id-text" text="579494" />
             </VBox>
         </HBox>
     </HBox>
@@ -46,67 +50,62 @@
     <!-- ============================================ -->
     <!-- CENTER: 4 Player Slots (CENTERED) -->
     <!-- ============================================ -->
-    <GridPane hgap="35" vgap="35" alignment="CENTER"
-              AnchorPane.topAnchor="120" AnchorPane.leftAnchor="150" AnchorPane.rightAnchor="330">
+    <GridPane alignment="CENTER" hgap="35" vgap="35" AnchorPane.leftAnchor="150" AnchorPane.rightAnchor="330" AnchorPane.topAnchor="120">
 
         <columnConstraints>
-            <ColumnConstraints halignment="CENTER" prefWidth="180"/>
-            <ColumnConstraints halignment="CENTER" prefWidth="180"/>
-            <ColumnConstraints halignment="CENTER" prefWidth="180"/>
-            <ColumnConstraints halignment="CENTER" prefWidth="180"/>
+            <ColumnConstraints halignment="CENTER" prefWidth="180" />
+            <ColumnConstraints halignment="CENTER" prefWidth="180" />
+            <ColumnConstraints halignment="CENTER" prefWidth="180" />
+            <ColumnConstraints halignment="CENTER" prefWidth="180" />
         </columnConstraints>
 
         <rowConstraints>
-            <RowConstraints valignment="CENTER" prefHeight="230"/>
+            <RowConstraints prefHeight="230" valignment="CENTER" />
         </rowConstraints>
 
         <!-- Player Slot 1 (Host) -->
         <VBox alignment="CENTER" spacing="8" styleClass="player-slot-host" GridPane.columnIndex="0">
             <StackPane>
-                <Circle radius="50" styleClass="avatar-border-host"/>
+                <Circle radius="50" styleClass="avatar-border-host" />
                 <ImageView fx:id="avatar1" fitHeight="90" fitWidth="90" preserveRatio="true">
                     <clip>
-                        <Circle radius="45" centerX="45" centerY="45"/>
+                        <Circle centerX="45" centerY="45" radius="45" />
                     </clip>
                 </ImageView>
 
                 <!-- Crown Icon for Host -->
-                <Label text="👑" style="-fx-font-size: 18;"
-                       StackPane.alignment="TOP_CENTER" translateY="-8"/>
+                <Label style="-fx-font-size: 18;" text="👑" translateY="-8" StackPane.alignment="TOP_CENTER" />
                 <!-- Ready Status -->
-                <Circle fx:id="readyIndicator1" radius="8" fill="#4caf50"
-                        StackPane.alignment="BOTTOM_RIGHT" translateX="10" translateY="8" visible="false"/>
+                <Circle fx:id="readyIndicator1" fill="#4caf50" radius="8" translateX="10" translateY="8" visible="false" StackPane.alignment="BOTTOM_RIGHT" />
             </StackPane>
 
             <VBox alignment="CENTER" spacing="2">
-                <Label fx:id="name1" text="Người chơi 1" styleClass="player-name-host"/>
-                <Label fx:id="score1" text="⭐ 1250" styleClass="player-score"/>
-                <Label text="Chủ phòng" styleClass="host-badge"/>
+                <Label fx:id="name1" styleClass="player-name-host" text="Người chơi 1" />
+                <Label fx:id="score1" styleClass="player-score" text="⭐ 1250" />
+                <Label styleClass="host-badge" text="Chủ phòng" />
             </VBox>
         </VBox>
 
         <!-- Player Slot 2 -->
         <VBox alignment="CENTER" spacing="8" styleClass="player-slot-empty" GridPane.columnIndex="1">
             <StackPane>
-                <Circle radius="50" styleClass="avatar-border-empty"/>
+                <Circle radius="50" styleClass="avatar-border-empty" />
                 <ImageView fx:id="avatar2" fitHeight="90" fitWidth="90" preserveRatio="true">
                     <clip>
-                        <Circle radius="45" centerX="45" centerY="45"/>
+                        <Circle centerX="45" centerY="45" radius="45" />
                     </clip>
                 </ImageView>
 
                 <!-- Kick icon (ẩn mặc định, chỉ hiện với host) -->
-                <Label fx:id="kickIcon2" text="❌" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;"
-                       StackPane.alignment="TOP_RIGHT" translateX="-6" translateY="6" visible="false"/>
+                <Label fx:id="kickIcon2" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;" text="❌" translateX="-6" translateY="6" visible="false" StackPane.alignment="TOP_RIGHT" />
 
-                <Label fx:id="emptyIcon2" text="+" style="-fx-font-size: 38; -fx-text-fill: #555555;"/>
-                <Circle fx:id="readyIndicator2" radius="8" fill="#4caf50"
-                        StackPane.alignment="BOTTOM_RIGHT" translateX="10" translateY="8" visible="false"/>
+                <Label fx:id="emptyIcon2" style="-fx-font-size: 38; -fx-text-fill: #555555;" text="+" />
+                <Circle fx:id="readyIndicator2" fill="#4caf50" radius="8" translateX="10" translateY="8" visible="false" StackPane.alignment="BOTTOM_RIGHT" />
             </StackPane>
 
             <VBox alignment="CENTER" spacing="2">
-                <Label fx:id="name2" text="Đang chờ..." styleClass="player-name-empty"/>
-                <Label fx:id="score2" text="" styleClass="player-score"/>
+                <Label fx:id="name2" styleClass="player-name-empty" text="Đang chờ..." />
+                <Label fx:id="score2" styleClass="player-score" text="" />
             </VBox>
         </VBox>
 
@@ -114,25 +113,23 @@
         <!-- Player Slot 3 -->
         <VBox alignment="CENTER" spacing="8" styleClass="player-slot-empty" GridPane.columnIndex="2">
             <StackPane>
-                <Circle radius="50" styleClass="avatar-border-empty"/>
+                <Circle radius="50" styleClass="avatar-border-empty" />
                 <ImageView fx:id="avatar3" fitHeight="90" fitWidth="90" preserveRatio="true">
                     <clip>
-                        <Circle radius="45" centerX="45" centerY="45"/>
+                        <Circle centerX="45" centerY="45" radius="45" />
                     </clip>
                 </ImageView>
 
                 <!-- Kick icon -->
-                <Label fx:id="kickIcon3" text="❌" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;"
-                       StackPane.alignment="TOP_RIGHT" translateX="-6" translateY="6" visible="false"/>
+                <Label fx:id="kickIcon3" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;" text="❌" translateX="-6" translateY="6" visible="false" StackPane.alignment="TOP_RIGHT" />
 
-                <Label fx:id="emptyIcon3" text="+" style="-fx-font-size: 38; -fx-text-fill: #555555;"/>
-                <Circle fx:id="readyIndicator3" radius="8" fill="#4caf50"
-                        StackPane.alignment="BOTTOM_RIGHT" translateX="10" translateY="8" visible="false"/>
+                <Label fx:id="emptyIcon3" style="-fx-font-size: 38; -fx-text-fill: #555555;" text="+" />
+                <Circle fx:id="readyIndicator3" fill="#4caf50" radius="8" translateX="10" translateY="8" visible="false" StackPane.alignment="BOTTOM_RIGHT" />
             </StackPane>
 
             <VBox alignment="CENTER" spacing="2">
-                <Label fx:id="name3" text="Đang chờ..." styleClass="player-name-empty"/>
-                <Label fx:id="score3" text="" styleClass="player-score"/>
+                <Label fx:id="name3" styleClass="player-name-empty" text="Đang chờ..." />
+                <Label fx:id="score3" styleClass="player-score" text="" />
             </VBox>
         </VBox>
 
@@ -140,25 +137,23 @@
         <!-- Player Slot 4 -->
         <VBox alignment="CENTER" spacing="8" styleClass="player-slot-empty" GridPane.columnIndex="3">
             <StackPane>
-                <Circle radius="50" styleClass="avatar-border-empty"/>
+                <Circle radius="50" styleClass="avatar-border-empty" />
                 <ImageView fx:id="avatar4" fitHeight="90" fitWidth="90" preserveRatio="true">
                     <clip>
-                        <Circle radius="45" centerX="45" centerY="45"/>
+                        <Circle centerX="45" centerY="45" radius="45" />
                     </clip>
                 </ImageView>
 
                 <!-- Kick icon -->
-                <Label fx:id="kickIcon4" text="❌" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;"
-                       StackPane.alignment="TOP_RIGHT" translateX="-6" translateY="6" visible="false"/>
+                <Label fx:id="kickIcon4" style="-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-cursor: hand;" text="❌" translateX="-6" translateY="6" visible="false" StackPane.alignment="TOP_RIGHT" />
 
-                <Label fx:id="emptyIcon4" text="+" style="-fx-font-size: 38; -fx-text-fill: #555555;"/>
-                <Circle fx:id="readyIndicator4" radius="8" fill="#4caf50"
-                        StackPane.alignment="BOTTOM_RIGHT" translateX="10" translateY="8" visible="false"/>
+                <Label fx:id="emptyIcon4" style="-fx-font-size: 38; -fx-text-fill: #555555;" text="+" />
+                <Circle fx:id="readyIndicator4" fill="#4caf50" radius="8" translateX="10" translateY="8" visible="false" StackPane.alignment="BOTTOM_RIGHT" />
             </StackPane>
 
             <VBox alignment="CENTER" spacing="2">
-                <Label fx:id="name4" text="Đang chờ..." styleClass="player-name-empty"/>
-                <Label fx:id="score4" text="" styleClass="player-score"/>
+                <Label fx:id="name4" styleClass="player-name-empty" text="Đang chờ..." />
+                <Label fx:id="score4" styleClass="player-score" text="" />
             </VBox>
         </VBox>
 
@@ -168,45 +163,49 @@
     <!-- ============================================ -->
     <!-- BOTTOM LEFT: Room Chat -->
     <!-- ============================================ -->
-    <VBox spacing="8" styleClass="chat-container"
-          AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="20"
-          prefWidth="380" prefHeight="280">
+    <VBox prefHeight="280" prefWidth="400.0" spacing="8" styleClass="chat-container" AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="20">
 
         <padding>
-            <Insets topRightBottomLeft="12"/>
+            <Insets topRightBottomLeft="12" />
         </padding>
 
         <!-- Chat Header -->
         <HBox alignment="CENTER_LEFT" spacing="8">
-            <Label text="💬" style="-fx-font-size: 18;"/>
-            <Label text="Chat Phòng" styleClass="chat-header"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Label fx:id="onlineCount" text="🟢 1/4"
-                   style="-fx-text-fill: #4caf50; -fx-font-size: 12; -fx-font-weight: bold;"/>
+            <Label style="-fx-font-size: 18;" text="💬" />
+            <Label styleClass="chat-header" text="Chat Phòng" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="onlineCount" style="-fx-text-fill: #4caf50; -fx-font-size: 12; -fx-font-weight: bold;" text="🟢 1/4" />
         </HBox>
 
-        <Separator style="-fx-background-color: #3a3a3a;"/>
+        <Separator style="-fx-background-color: #3a3a3a;" />
 
         <!-- Chat Messages with ScrollPane -->
-        <ScrollPane fx:id="chatScrollPane" VBox.vgrow="ALWAYS"
-                    styleClass="chat-list" prefHeight="180"
-                    fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+        <ScrollPane fx:id="chatScrollPane" fitToWidth="true" hbarPolicy="NEVER" prefHeight="210" styleClass="chat-list" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
             <content>
                 <VBox fx:id="chatMessagesContainer" spacing="8">
                     <padding>
-                        <Insets topRightBottomLeft="8"/>
+                        <Insets topRightBottomLeft="8" />
                     </padding>
                 </VBox>
             </content>
         </ScrollPane>
 
         <!-- Chat Input -->
-        <HBox spacing="8" alignment="CENTER_LEFT">
-            <Button fx:id="emojiButton" text="😊"
-                    style="-fx-background-color: transparent; -fx-font-size: 18px; -fx-cursor: hand;"/>
-            <TextField fx:id="chatInputField" promptText="Nhập tin nhắn..."
-                       styleClass="chat-input" HBox.hgrow="ALWAYS"/>
-            <Button fx:id="btnSendChat" text="Gửi" styleClass="send-button"/>
+        <HBox alignment="CENTER_LEFT" spacing="8">
+            <Button fx:id="emojiButton" style="-fx-background-color: transparent; -fx-font-size: 16px; -fx-cursor: hand;" text="😊" />
+
+            <!-- Voice Chat Button -->
+            <Button fx:id="btnVoiceChat" styleClass="voice-button">
+                <graphic>
+                    <Label fx:id="micIcon" style="-fx-font-size: 16px;" text="🎤" />
+                </graphic>
+                <tooltip>
+                    <Tooltip text="Voice Chat (Nhấn để bật/tắt)" />
+                </tooltip>
+            </Button>
+
+            <TextField fx:id="chatInputField" promptText="Nhập tin nhắn..." styleClass="chat-input" HBox.hgrow="ALWAYS" />
+            <Button fx:id="btnSendChat" styleClass="send-button" text="Gửi" />
         </HBox>
     </VBox>
 
@@ -217,49 +216,43 @@
     <!-- ============================================ -->
     <!-- RIGHT PANEL: Friends List & Actions -->
     <!-- ============================================ -->
-    <VBox spacing="12" styleClass="friends-panel"
-          AnchorPane.topAnchor="80" AnchorPane.rightAnchor="20" AnchorPane.bottomAnchor="20"
-          prefWidth="280">
+    <VBox prefWidth="280" spacing="12" styleClass="friends-panel" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="20" AnchorPane.topAnchor="80">
 
         <!-- Friends List Header -->
         <HBox alignment="CENTER_LEFT" spacing="8">
-            <Label text="👥" style="-fx-font-size: 18;"/>
-            <Label text="Danh sách bạn bè" styleClass="friends-header"/>
+            <Label style="-fx-font-size: 18;" text="👥" />
+            <Label styleClass="friends-header" text="Danh sách bạn bè" />
         </HBox>
 
-        <Separator style="-fx-background-color: #3a3a3a;"/>
+        <Separator style="-fx-background-color: #3a3a3a;" />
 
         <!-- Status Filter Buttons -->
-        <HBox spacing="8" alignment="CENTER">
-            <Button fx:id="btnFilterAll" text="Tất cả" styleClass="filter-button, filter-active"/>
-            <Button fx:id="btnFilterOnline" text="🟢 Online" styleClass="filter-button"/>
-            <Button fx:id="btnFilterInGame" text="🎮 Trong trận" styleClass="filter-button"/>
+        <HBox alignment="CENTER" spacing="8">
+            <Button fx:id="btnFilterAll" styleClass="filter-button, filter-active" text="Tất cả" />
+            <Button fx:id="btnFilterOnline" styleClass="filter-button" text="🟢 Online" />
+            <Button fx:id="btnFilterInGame" styleClass="filter-button" text="🎮 Trong trận" />
         </HBox>
 
         <!-- Friends Card List -->
-        <ScrollPane fx:id="friendsScrollPane" VBox.vgrow="ALWAYS"
-                    fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
-                    styleClass="friend-scroll-pane">
+        <ScrollPane fx:id="friendsScrollPane" fitToWidth="true" hbarPolicy="NEVER" styleClass="friend-scroll-pane" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
             <content>
                 <VBox fx:id="friendCardsContainer" spacing="10" styleClass="friend-cards-container">
                     <!-- Sample Friend Card -->
-                    <HBox spacing="10" alignment="CENTER_LEFT" styleClass="friend-card">
+                    <HBox alignment="CENTER_LEFT" spacing="10" styleClass="friend-card">
                         <ImageView fx:id="avatarSample" fitHeight="50" fitWidth="50" preserveRatio="true">
                             <clip>
-                                <Circle radius="25" centerX="25" centerY="25"/>
+                                <Circle centerX="25" centerY="25" radius="25" />
                             </clip>
                         </ImageView>
 
                         <VBox alignment="CENTER_LEFT" spacing="3" HBox.hgrow="ALWAYS">
-                            <Label text="Nguyễn Văn A" styleClass="friend-name"/>
-                            <Label text="⭐ 1250 điểm" styleClass="friend-score"/>
+                            <Label styleClass="friend-name" text="Nguyễn Văn A" />
+                            <Label styleClass="friend-score" text="⭐ 1250 điểm" />
                         </VBox>
 
-                        <Button fx:id="btnInviteFriendSample"
-                                styleClass="invite-icon-button"
-                                text="➕">
+                        <Button fx:id="btnInviteFriendSample" styleClass="invite-icon-button" text="➕">
                             <tooltip>
-                                <Tooltip text="Mời vào phòng"/>
+                                <Tooltip text="Mời vào phòng" />
                             </tooltip>
                         </Button>
 
@@ -273,11 +266,10 @@
         <!-- Ready/Start Button -->
         <StackPane>
             <!-- Ready Button (for players) -->
-            <Button fx:id="btnReady" text="✓ Sẵn sàng" styleClass="action-button, ready-button"/>
+            <Button fx:id="btnReady" styleClass="action-button, ready-button" text="✓ Sẵn sàng" />
 
             <!-- Start Button (for host, only visible when all ready) -->
-            <Button fx:id="btnStart" text="▶ Bắt đầu trò chơi"
-                    styleClass="action-button, start-button" visible="false" managed="false"/>
+            <Button fx:id="btnStart" managed="false" styleClass="action-button, start-button" text="▶ Bắt đầu trò chơi" visible="false" />
         </StackPane>
     </VBox>
 

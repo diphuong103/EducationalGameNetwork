@@ -18,11 +18,25 @@
 
         <!-- Main Content Card -->
         <VBox alignment="TOP_CENTER" spacing="18" styleClass="content-card"
-              maxWidth="400" maxHeight="550">
+              maxWidth="400" maxHeight="600">
 
-        <VBox.margin>
+            <VBox.margin>
                 <Insets top="30" bottom="30" left="30" right="30"/>
             </VBox.margin>
+
+            <!-- ✅ NEW: Server Info Bar -->
+            <HBox alignment="CENTER" spacing="10"
+                  style="-fx-background-color: #e3f2fd; -fx-padding: 8; -fx-background-radius: 5;">
+                <Label fx:id="serverInfoLabel"
+                       text="💻 localhost:8888"
+                       style="-fx-font-size: 11px; -fx-text-fill: #1976d2;"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="serverConfigButton"
+                        text="⚙️"
+                        onAction="#handleServerConfig"
+                        style="-fx-background-color: transparent; -fx-text-fill: #1976d2;
+                               -fx-font-size: 14px; -fx-cursor: hand;"/>
+            </HBox>
 
             <!-- Logo -->
             <VBox alignment="CENTER" spacing="15">
@@ -110,12 +124,12 @@
             </VBox>
 
             <!-- Version -->
-            <Text text="Version 1.0.0 | © 2025 Math Adventure"
+            <Text text="Version 1.0.0 | © 2025 BrainQuest"
                   styleClass="version-text"/>
         </VBox>
     </VBox>
 
-    <!-- Loading Overlay (Hidden by default) -->
+    <!-- Loading Overlay -->
     <StackPane fx:id="loadingOverlay" visible="false" styleClass="loading-overlay">
         <ProgressIndicator styleClass="loading-spinner"/>
     </StackPane>
