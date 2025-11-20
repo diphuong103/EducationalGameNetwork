@@ -1485,6 +1485,10 @@ public class RoomController {
                     connection.getCurrentUserId()
             );
 
+            // 🔊 Tăng âm lượng (1.0 = bình thường, 2.0 = gấp đôi)
+            voiceChatManager.setVolume(1.5f);
+
+
             voiceChatManager.setStatusListener(new VoiceChatManager.VoiceStatusListener() {
                 @Override
                 public void onVoiceStarted() {

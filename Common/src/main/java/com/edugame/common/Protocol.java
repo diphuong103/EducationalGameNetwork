@@ -6,12 +6,21 @@ package com.edugame.common;
  */
 public class Protocol {
 
+
+    //HEARTBEAT PROTOCOL
+    public static final String HEARTBEAT = "HEARTBEAT";
+    public static final String HEARTBEAT_ACK = "HEARTBEAT_ACK";
+
+    public static final int HEARTBEAT_INTERVAL = 10000; // 10 seconds
+    public static final int HEARTBEAT_TIMEOUT = 30000;
+
     // ============================================
     // AUTHENTICATION
     // ============================================
     public static final String LOGIN = "LOGIN";
     public static final String REGISTER = "REGISTER";
     public static final String LOGOUT = "LOGOUT";
+    public static final String PING = "PING";
 
     // ============================================
     // ROOM MANAGEMENT

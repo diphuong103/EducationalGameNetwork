@@ -54,6 +54,14 @@ public class ServerConnection {
 
     private User currentUser;
 
+    //Heartbeat fields
+    private String sessionToken;
+    private Thread heartbeatThread;
+    private volatile boolean isHeartbeatRunning = false;
+    private long lastHeartbeatTime = 0;
+    private int missedHeartbeats = 0;
+    private static final int MAX_MISSED_HEARTBEATS = 3;
+
     // Listener management
     private Thread listenerThread;
     private volatile boolean isListening = false;
@@ -256,10 +264,18 @@ public class ServerConnection {
     public boolean connect(String host, int port) {
         try {
             socket = new Socket(host, port);
+
+            socket.setKeepAlive(true);
+            socket.setTcpNoDelay(true); // Disable Nagle's algorithm
+            socket.setSoTimeout(0);
+
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream(), true);
             connected = true;
 
+            System.out.println("✅ Connected to server: " + host + ":" + port);
+            System.out.println("   Keep-Alive: ENABLED");
+            System.out.println("   TCP No Delay: ENABLED");
             System.out.println("✅ Connected to server: " + host + ":" + port);
             return true;
         } catch (IOException e) {
@@ -294,7 +310,9 @@ public class ServerConnection {
                             String type = json.has("type") ? json.get("type").getAsString() : "UNKNOWN";
 
                             System.out.println("📨 Received: " + type);
-
+                            if (!Protocol.HEARTBEAT_ACK.equals(type)) {
+                                System.out.println("📨 Received: " + type);
+                            }
                             // Route message to appropriate handler
                             handleIncomingMessage(type, json);
 
@@ -341,6 +359,15 @@ public class ServerConnection {
                 handleErrorMessage(json);
                 break;
 
+            case "PONG":
+                // Heartbeat response - do nothing, just keep alive
+                // System.out.println("💓 PONG received");
+                break;
+
+            case Protocol.HEARTBEAT_ACK:
+                handleHeartbeatAck();
+                break;
+                
             case Protocol.GET_PROFILE:
                 if (profileCallback != null) {
                     profileCallback.accept(json);
@@ -539,6 +566,12 @@ public class ServerConnection {
             System.out.println("🎯 Found dynamic handler for: " + type);
             dynamicHandler.accept(json);
         }
+    }
+
+    private void handleHeartbeatAck() {
+        lastHeartbeatTime = System.currentTimeMillis();
+        missedHeartbeats = 0;
+        // System.out.println("💓 Heartbeat ACK received");
     }
 
     // ============================================
@@ -1646,8 +1679,15 @@ public class ServerConnection {
                 wins = jsonResponse.get("wins").getAsInt();
                 currentLevel = calculateLevel(totalScore);
 
+                // ✅ SAVE SESSION TOKEN
+                if (jsonResponse.has("sessionToken")) {
+                    sessionToken = jsonResponse.get("sessionToken").getAsString();
+                    System.out.println("✅ Session token received: " + sessionToken.substring(0, 8) + "...");
+                }
+
                 // ✅ Start listener SAU KHI login thành công
                 startListener();
+                startHeartbeat();
 
                 System.out.println("✅ Login successful: " + username);
             } else {
@@ -1660,6 +1700,141 @@ public class ServerConnection {
             System.err.println("❌ Login error: " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * ✅ Start heartbeat thread
+     */
+    private void startHeartbeat() {
+        synchronized (this) {
+            if (isHeartbeatRunning && heartbeatThread != null && heartbeatThread.isAlive()) {
+                System.out.println("⚠️ Heartbeat already running");
+                return;
+            }
+
+            System.out.println("💓 Starting heartbeat (interval: " + Protocol.HEARTBEAT_INTERVAL + "ms)...");
+            isHeartbeatRunning = true;
+            lastHeartbeatTime = System.currentTimeMillis();
+            missedHeartbeats = 0;
+
+            heartbeatThread = new Thread(() -> {
+                System.out.println("💓 Heartbeat thread STARTED");
+
+                while (isHeartbeatRunning && isConnected()) {
+                    try {
+                        Thread.sleep(Protocol.HEARTBEAT_INTERVAL);
+
+                        if (!isConnected()) {
+                            System.out.println("⚠️ Heartbeat: Connection lost");
+                            break;
+                        }
+
+                        // ✅ Send HEARTBEAT ping
+                        sendHeartbeat();
+
+                        // ✅ Check if server is still alive
+                        long timeSinceLastHeartbeat = System.currentTimeMillis() - lastHeartbeatTime;
+
+                        if (timeSinceLastHeartbeat > Protocol.HEARTBEAT_TIMEOUT) {
+                            missedHeartbeats++;
+                            System.err.println("⚠️ Missed heartbeat #" + missedHeartbeats +
+                                    " (last: " + timeSinceLastHeartbeat + "ms ago)");
+
+                            if (missedHeartbeats >= MAX_MISSED_HEARTBEATS) {
+                                System.err.println("❌ Server not responding - connection lost!");
+                                handleConnectionLost();
+                                break;
+                            }
+                        }
+
+                    } catch (InterruptedException e) {
+                        if (isHeartbeatRunning) {
+                            System.err.println("⚠️ Heartbeat interrupted");
+                        }
+                        break;
+                    } catch (Exception e) {
+                        System.err.println("❌ Heartbeat error: " + e.getMessage());
+                        break;
+                    }
+                }
+
+                isHeartbeatRunning = false;
+                System.out.println("💓 Heartbeat thread STOPPED");
+
+            }, "Heartbeat");
+
+            heartbeatThread.setDaemon(true);
+            heartbeatThread.start();
+
+            System.out.println("✅ Heartbeat started");
+        }
+    }
+    /**
+     * ✅ Send HEARTBEAT ping to server
+     */
+    private void sendHeartbeat() {
+        try {
+            Map<String, Object> heartbeat = new HashMap<>();
+            heartbeat.put("type", Protocol.HEARTBEAT);
+            heartbeat.put("timestamp", System.currentTimeMillis());
+
+            // Send directly without logging
+            if (writer != null && !writer.checkError()) {
+                String json = gson.toJson(heartbeat);
+                writer.println(json);
+                writer.flush();
+                // System.out.println("💓 Heartbeat sent");
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send heartbeat: " + e.getMessage());
+        }
+    }
+
+    /**
+     * ✅ Handle connection lost
+     */
+    private void handleConnectionLost() {
+        System.err.println("🔴 CONNECTION LOST!");
+
+        // Stop everything
+        isListening = false;
+        stopHeartbeat();
+        connected = false;
+
+        // Notify user on JavaFX thread
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Mất kết nối");
+            alert.setHeaderText("Kết nối tới server bị gián đoạn");
+            alert.setContentText("Vui lòng kiểm tra kết nối mạng và đăng nhập lại!");
+            alert.showAndWait();
+
+            // Return to login screen
+            try {
+                SceneManager.getInstance().switchScene("Login.fxml");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+
+    /**
+     * Stop heartbeat
+     */
+    private void stopHeartbeat() {
+        isHeartbeatRunning = false;
+        if (heartbeatThread != null && heartbeatThread.isAlive()) {
+            heartbeatThread.interrupt();
+            try {
+                heartbeatThread.join(1000); // Wait max 1 second
+            } catch (InterruptedException e) {
+                // Ignore
+            }
+            heartbeatThread = null;
+        }
+        System.out.println("🛑 Heartbeat stopped");
     }
 
     /** Calculate level */
@@ -2030,6 +2205,14 @@ public class ServerConnection {
         if (!isConnected()) {
             System.err.println("❌ Cannot send - not connected");
             return;
+        }
+
+        String type = (String) data.get("type");
+        if (sessionToken != null &&
+                !"LOGIN".equals(type) &&
+                !"REGISTER".equals(type) &&
+                !"PING".equals(type)) {
+            data.put("sessionToken", sessionToken);
         }
 
         if (writer != null && !writer.checkError()) {
@@ -3001,6 +3184,7 @@ public class ServerConnection {
     public void disconnect() {
         try {
             isListening = false;
+            stopHeartbeat();
 
             if (socket != null && !socket.isClosed()) {
                 Map<String, Object> req = new HashMap<>();
@@ -3041,6 +3225,8 @@ public class ServerConnection {
         currentLevel = 0;
         currentUser = null;
 
+        sessionToken = null;
+
         selectedSubject = null;
         clearAllHandlers();
 
@@ -3067,6 +3253,9 @@ public class ServerConnection {
             }
 
             isListening = false;
+
+            stopHeartbeat();
+
             if (listenerThread != null && listenerThread.isAlive()) {
                 listenerThread.interrupt();
                 listenerThread = null;
@@ -3092,6 +3281,8 @@ public class ServerConnection {
             totalGames = 0;
             wins = 0;
             currentLevel = 0;
+
+            sessionToken = null;
 
             System.out.println("🧹 Client session cleared completely");
 

@@ -19,6 +19,7 @@ public class VoiceChatManager {
 
     // ==================== Constants ====================
     private static final int SAMPLE_RATE = 16000; // 16kHz
+    private float volumeGain = 2.0f;
     private static final int SAMPLE_SIZE_IN_BITS = 16;
     private static final int CHANNELS = 1; // Mono
     private static final boolean SIGNED = true;
@@ -408,13 +409,19 @@ public class VoiceChatManager {
             // Play audio data
             int audioLength = length - offset;
             if (audioLength > 0 && speakers != null && speakers.isOpen()) {
-                speakers.write(data, offset, audioLength);
+//                speakers.write(data, offset, audioLength);
+                // Amplify audio before playing
+                byte[] amplified = amplifyAudio(data, offset, audioLength);
+                speakers.write(amplified, 0, amplified.length);
+
             }
 
         } catch (Exception e) {
             System.err.println("❌ Error processing audio: " + e.getMessage());
         }
     }
+
+
 
     /**
      * Send JOIN_VOICE message to server
@@ -461,6 +468,36 @@ public class VoiceChatManager {
         } catch (IOException e) {
             System.err.println("❌ Error sending LEAVE_VOICE: " + e.getMessage());
         }
+    }
+
+    public void setVolume(float gain) {
+        this.volumeGain = gain;
+        System.out.println("🔊 Volume set to: " + gain + "x");
+    }
+
+    private byte[] amplifyAudio(byte[] input, int offset, int length) {
+        byte[] output = new byte[length];
+
+        for (int i = 0; i < length; i += 2) {
+            // PCM 16-bit little-endian
+            int low = input[offset + i] & 0xFF;
+            int high = input[offset + i + 1];
+
+            short sample = (short) ((high << 8) | low);
+
+            // Multiply volume
+            int amplified = (int) (sample * volumeGain);
+
+            // Clamp to 16-bit range
+            if (amplified > Short.MAX_VALUE) amplified = Short.MAX_VALUE;
+            if (amplified < Short.MIN_VALUE) amplified = Short.MIN_VALUE;
+
+            // Write back
+            output[i]     = (byte) (amplified & 0xFF);
+            output[i + 1] = (byte) ((amplified >> 8) & 0xFF);
+        }
+
+        return output;
     }
 
     // ==================== Interface ====================

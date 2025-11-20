@@ -27,6 +27,8 @@ public class GameServer {
     private final GameRoomManager roomManager;
     private static GameServer instance;
 
+    private Thread monitorThread;
+    private volatile boolean isMonitoring = false;
 
     public GameServer(int port) {
         this.port = port;
@@ -406,6 +408,69 @@ public class GameServer {
         System.out.println("[SERVER] ⚠️⚠️⚠️ User NOT FOUND or OFFLINE (userId=" + userId + ")");
         return false;
     }
+    /**
+     * ✅ Start connection monitoring thread
+     */
+    private void startConnectionMonitor() {
+        isMonitoring = true;
 
+        monitorThread = new Thread(() -> {
+            System.out.println("🔍 Connection monitor STARTED");
+
+            while (isMonitoring) {
+                try {
+                    Thread.sleep(30000); // Check every 30 seconds
+
+                    List<ClientHandler> deadClients = new ArrayList<>();
+
+                    // Check all connected clients
+                    for (ClientHandler client : connectedClients) {
+                        if (!client.isClientAlive()) {
+                            System.err.println("⚠️ Dead client detected: " +
+                                    (client.getCurrentUser() != null ?
+                                            client.getCurrentUser().getUsername() : "unknown"));
+                            deadClients.add(client);
+                        }
+                    }
+
+                    // Remove dead clients
+                    for (ClientHandler client : deadClients) {
+                        connectedClients.remove(client);
+                        // Force disconnect
+                        try {
+                            client.disconnect();
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                    }
+
+                    if (deadClients.size() > 0) {
+                        System.out.println("🧹 Cleaned up " + deadClients.size() + " dead clients");
+                    }
+
+                } catch (InterruptedException e) {
+                    break;
+                } catch (Exception e) {
+                    System.err.println("❌ Monitor error: " + e.getMessage());
+                }
+            }
+
+            System.out.println("🔍 Connection monitor STOPPED");
+
+        }, "ConnectionMonitor");
+
+        monitorThread.setDaemon(true);
+        monitorThread.start();
+    }
+
+    /**
+     * Stop monitoring
+     */
+    private void stopConnectionMonitor() {
+        isMonitoring = false;
+        if (monitorThread != null && monitorThread.isAlive()) {
+            monitorThread.interrupt();
+        }
+    }
 
 }

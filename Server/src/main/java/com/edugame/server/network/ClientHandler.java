@@ -31,6 +31,10 @@ public class ClientHandler implements Runnable {
     private GameSessionDAO gameSessionDAO;
     private MessageDAO messageDAO;
     private User currentUser;
+    private String sessionToken;
+    private long lastActivityTime;
+    private static final long SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    private static final long HEARTBEAT_INTERVAL = 30000;
     private boolean running;
     private GameServer server;
     private MatchmakingManager matchmakingManager;
@@ -39,6 +43,10 @@ public class ClientHandler implements Runnable {
     private GameManager gameManager = GameManager.getInstance();
 
     private VoiceChatServer voiceChatServer;
+
+   // Heartbeat fields
+    private long lastHeartbeatTime;
+    private static final long HEARTBEAT_TIMEOUT = 60000;
 
     public void setMatchmakingManager(MatchmakingManager matchmakingManager) {
         this.matchmakingManager = matchmakingManager;
@@ -58,6 +66,24 @@ public class ClientHandler implements Runnable {
         this.running = true;
         this.questionDAO = new QuestionDAO();
         this.voiceChatServer = GameServer.getVoiceChatServer();
+
+        this.sessionToken = null;
+        this.lastActivityTime = System.currentTimeMillis();
+
+        this.lastHeartbeatTime = System.currentTimeMillis();
+        try {
+            socket.setKeepAlive(true);
+            socket.setSoTimeout(0); // 30 seconds read timeout
+            socket.setTcpNoDelay(true); // Disable Nagle's algorithm
+
+            System.out.println("✅ [Handler] Socket configured for ngrok");
+            System.out.println("   Keep-Alive: true");
+            System.out.println("   Timeout: 30s");
+            System.out.println("   TCP No Delay: true");
+
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to configure socket: " + e.getMessage());
+        }
 
         try {
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -93,6 +119,7 @@ public class ClientHandler implements Runnable {
             int messageCount = 0;
 
             while (running && (message = reader.readLine()) != null) {
+                lastActivityTime = System.currentTimeMillis();
                 messageCount++;
                 logWithTime("📨 [Handler-" + Thread.currentThread().getId() + "] Message #" + messageCount);
                 handleMessage(message);
@@ -117,6 +144,14 @@ public class ClientHandler implements Runnable {
 
             logWithTime("   📦 Type: " + type + " | User: " + (currentUser != null ? currentUser.getUsername() : "anonymous"));
 
+            if (!type.equals(Protocol.LOGIN) && !type.equals(Protocol.REGISTER)) {
+                if (!isSessionValid()) {
+                    logWithTime("❌ [Handler] Invalid session for type: " + type);
+                    sendError("Phiên làm việc hết hạn. Vui lòng đăng nhập lại!");
+                    return;
+                }
+            }
+
             switch (type) {
                 case Protocol.LOGIN:
                     logWithTime("   → Calling handleLogin()");
@@ -126,6 +161,13 @@ public class ClientHandler implements Runnable {
                 case Protocol.REGISTER:
                     logWithTime("   → Calling handleRegister()");
                     handleRegister(jsonMessage);
+                    break;
+
+                case Protocol.PING:
+                    handlePing(jsonMessage);
+                    break;
+                case Protocol.HEARTBEAT:
+                    handleHeartbeat(jsonMessage);
                     break;
 
                 case Protocol.GET_LEADERBOARD:
@@ -302,6 +344,56 @@ public class ClientHandler implements Runnable {
         }
     }
 
+
+    /**
+     * Handle HEARTBEAT ping from client
+     */
+    private void handleHeartbeat(JsonObject request) {
+        try {
+            // Update heartbeat time
+            lastHeartbeatTime = System.currentTimeMillis();
+
+            // Send ACK back
+            Map<String, Object> ack = new HashMap<>();
+            ack.put("type", Protocol.HEARTBEAT_ACK);
+            ack.put("timestamp", System.currentTimeMillis());
+
+            sendMessage(ack);
+
+            // Don't log - too noisy
+            // logWithTime("💓 Heartbeat ACK sent");
+
+        } catch (Exception e) {
+            logWithTime("❌ [HEARTBEAT] Error: " + e.getMessage());
+        }
+    }
+    /**
+     * Check if client is still alive (optional - for server-side monitoring)
+     */
+    public boolean isClientAlive() {
+        long timeSinceLastHeartbeat = System.currentTimeMillis() - lastHeartbeatTime;
+        return timeSinceLastHeartbeat < HEARTBEAT_TIMEOUT;
+    }
+    /**
+     * Handle PING message (heartbeat)
+     */
+    private void handlePing(JsonObject request) {
+        try {
+            lastActivityTime = System.currentTimeMillis();
+
+            JsonObject pong = new JsonObject();
+            pong.addProperty("type", "PONG");
+            pong.addProperty("timestamp", System.currentTimeMillis());
+
+            sendResponse(pong);
+
+            // Don't log every ping - too noisy
+            // logWithTime("💓 PING received");
+
+        } catch (Exception e) {
+            logWithTime("❌ [PING] Error: " + e.getMessage());
+        }
+    }
     /**
      * ✅ Helper method to get current user's room ID
      */
@@ -858,6 +950,8 @@ public class ClientHandler implements Runnable {
 
         if (user != null) {
             currentUser = user;
+            sessionToken = generateSessionToken();
+            lastActivityTime = System.currentTimeMillis();
 
             logWithTime("   ✅ Login successful");
             logWithTime("      User: " + user.getUsername() + " | Name: " + user.getFullName());
@@ -866,6 +960,7 @@ public class ClientHandler implements Runnable {
             Map<String, Object> response = new HashMap<>();
             response.put("type", Protocol.LOGIN);
             response.put("success", true);
+            response.put("sessionToken", sessionToken);
             response.put("userId", user.getUserId());
             response.put("username", user.getUsername());
             response.put("fullName", user.getFullName());
@@ -892,6 +987,13 @@ public class ClientHandler implements Runnable {
 
             sendMessage(response);
         }
+    }
+
+    /**
+     * Generate unique session token
+     */
+    private String generateSessionToken() {
+        return java.util.UUID.randomUUID().toString() + "-" + System.currentTimeMillis();
     }
 
     private void handleRegister(JsonObject jsonMessage) {
@@ -1187,6 +1289,21 @@ public class ClientHandler implements Runnable {
         }
     }
 
+//    private void handleDisconnectDuringGame() {
+//        String roomId = getCurrentUserRoomId();
+//        if (roomId != null) {
+//            GameSession session = gameManager.getSession(roomId);
+//            if (session != null && !session.isFinished()) {
+//                // Mark player as disconnected
+//                session.markPlayerDisconnected(currentUser.getUserId());
+//
+//                // If all players disconnected -> end game
+//                if (session.areAllPlayersDisconnected()) {
+//                    gameManager.endGame(roomId, "ALL_PLAYERS_DISCONNECTED");
+//                }
+//            }
+//        }
+//    }
     /**
      * Helper method to send JsonObject response
      */
@@ -1434,7 +1551,7 @@ public class ClientHandler implements Runnable {
         sendMessage(response);
     }
 
-    private void disconnect() {
+    void disconnect() {
         try {
             if (currentUser != null) {
                 logWithTime("👋 User disconnecting: " + currentUser.getUsername());
@@ -1882,7 +1999,15 @@ public class ClientHandler implements Runnable {
         try {
             logWithTime("🚪 [JOIN_ROOM] ========== START ==========");
 
+            // ✅ VALIDATE SESSION FIRST
+            if (!isSessionValid()) {
+                logWithTime("❌ [JOIN_ROOM] Invalid session!");
+                sendError("Phiên làm việc hết hạn. Vui lòng đăng nhập lại!");
+                return;
+            }
+
             if (currentUser == null) {
+                logWithTime("❌ [JOIN_ROOM] currentUser is null!");
                 sendError("Bạn chưa đăng nhập!");
                 return;
             }
@@ -1943,6 +2068,13 @@ public class ClientHandler implements Runnable {
             List<Map<String, Object>> playersList = new ArrayList<>();
             for (ClientHandler client : room.getPlayers()) {
                 User user = client.getCurrentUser();
+
+                // ✅ NULL CHECK for safety
+                if (user == null) {
+                    logWithTime("⚠️ [JOIN_ROOM] Skipping player with null user");
+                    continue;
+                }
+
                 Map<String, Object> playerData = new HashMap<>();
                 playerData.put("userId", user.getUserId());
                 playerData.put("username", user.getUsername());
@@ -3065,6 +3197,23 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             logWithTime("❌ [ROOM_CHAT] Error: " + e.getMessage());
         }
+    }
+
+    /**
+     * Check if session is still valid
+     */
+    private boolean isSessionValid() {
+        if (currentUser == null) {
+            return false;
+        }
+
+        long inactiveTime = System.currentTimeMillis() - lastActivityTime;
+        if (inactiveTime > SESSION_TIMEOUT) {
+            logWithTime("❌ [Session] Expired for user: " + currentUser.getUsername());
+            return false;
+        }
+
+        return true;
     }
 
 }
