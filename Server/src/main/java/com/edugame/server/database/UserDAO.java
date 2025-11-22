@@ -558,6 +558,8 @@ public class UserDAO {
      * Bao gồm cả người chưa chơi game nào (total_games = 0)
      */
     public List<PlayerInfo> getAllPlayersForLeaderboard() {
+        System.out.println("🔍 [DEBUG UserDAO] Starting getAllPlayersForLeaderboard()...");
+
         List<PlayerInfo> players = new ArrayList<>();
 
         String query = """
@@ -568,33 +570,55 @@ public class UserDAO {
         ORDER BY total_score DESC, wins DESC, username ASC
     """;
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query);
-             ResultSet rs = stmt.executeQuery()) {
+        try {
+            System.out.println("🔍 [DEBUG UserDAO] Connection status: " +
+                    (connection != null && !connection.isClosed() ? "OK" : "CLOSED"));
 
-            while (rs.next()) {
-                PlayerInfo player = new PlayerInfo();
-                player.userId = rs.getInt("user_id");
-                player.username = rs.getString("username");
-                player.fullName = rs.getString("full_name");
-                player.email = rs.getString("email");
-                player.age = rs.getInt("age");
-                player.avatarUrl = rs.getString("avatar_url");
-                player.totalScore = rs.getInt("total_score");
-                player.mathScore = rs.getInt("math_score");
-                player.englishScore = rs.getInt("english_score");
-                player.literatureScore = rs.getInt("literature_score");
-                player.totalGames = rs.getInt("total_games");
-                player.wins = rs.getInt("wins");
-                player.createdAt = rs.getTimestamp("created_at");
-
-                players.add(player);
+            if (connection == null || connection.isClosed()) {
+                System.err.println("❌ [DEBUG UserDAO] Connection is NULL or closed!");
+                System.err.println("   Attempting to reconnect...");
+                connection = DatabaseConnection.getInstance().getConnection();
             }
 
-            System.out.println("✅ [UserDAO] Loaded " + players.size() + " players for leaderboard");
+            try (PreparedStatement stmt = connection.prepareStatement(query);
+                 ResultSet rs = stmt.executeQuery()) {
+
+                System.out.println("✅ [DEBUG UserDAO] Query executed successfully");
+
+                int count = 0;
+                while (rs.next()) {
+                    PlayerInfo player = new PlayerInfo();
+                    player.userId = rs.getInt("user_id");
+                    player.username = rs.getString("username");
+                    player.fullName = rs.getString("full_name");
+                    player.email = rs.getString("email");
+                    player.age = rs.getInt("age");
+                    player.avatarUrl = rs.getString("avatar_url");
+                    player.totalScore = rs.getInt("total_score");
+                    player.mathScore = rs.getInt("math_score");
+                    player.englishScore = rs.getInt("english_score");
+                    player.literatureScore = rs.getInt("literature_score");
+                    player.totalGames = rs.getInt("total_games");
+                    player.wins = rs.getInt("wins");
+                    player.createdAt = rs.getTimestamp("created_at");
+
+                    players.add(player);
+                    count++;
+
+                    if (count <= 3) {
+                        System.out.println("   [" + count + "] " + player.username +
+                                " - Score: " + player.totalScore);
+                    }
+                }
+
+                System.out.println("✅ [DEBUG UserDAO] Loaded " + players.size() + " players from database");
+
+            }
 
         } catch (SQLException e) {
-            System.err.println("❌ [UserDAO] Error getting players: " + e.getMessage());
+            System.err.println("❌ [DEBUG UserDAO] SQL Error: " + e.getMessage());
+            System.err.println("   Error Code: " + e.getErrorCode());
+            System.err.println("   SQL State: " + e.getSQLState());
             e.printStackTrace();
         }
 
@@ -724,5 +748,196 @@ public class UserDAO {
         }
 
         return null;
+    }
+
+    public boolean updateUser(int userId, String username, String fullName, String email) {
+        String sql = "UPDATE users SET username = ?, full_name = ?, email = ? WHERE user_id = ?";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            pstmt.setString(2, fullName);
+            pstmt.setString(3, email);
+            pstmt.setInt(4, userId);
+
+            int rows = pstmt.executeUpdate();
+
+            if (rows > 0) {
+                System.out.println("✅ User updated successfully: " + username);
+                return true;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error updating user: " + e.getMessage());
+
+            // Check for duplicate username or email
+            if (e.getErrorCode() == 1062) {
+                System.err.println("❌ Username or email already exists!");
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Xóa user theo ID
+     */
+    public boolean deleteUser(int userId) {
+        // Kiểm tra xem user có đang online không
+        String checkSql = "SELECT is_online FROM users WHERE user_id = ?";
+
+        try (PreparedStatement checkStmt = connection.prepareStatement(checkSql)) {
+            checkStmt.setInt(1, userId);
+            ResultSet rs = checkStmt.executeQuery();
+
+            if (rs.next() && rs.getBoolean("is_online")) {
+                System.err.println("⚠️ Cannot delete online user!");
+                return false;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error checking user status: " + e.getMessage());
+            return false;
+        }
+
+        // Xóa user
+        String deleteSql = "DELETE FROM users WHERE user_id = ?";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(deleteSql)) {
+            pstmt.setInt(1, userId);
+
+            int rows = pstmt.executeUpdate();
+
+            if (rows > 0) {
+                System.out.println("✅ User deleted successfully (ID: " + userId + ")");
+                return true;
+            } else {
+                System.err.println("⚠️ User not found (ID: " + userId + ")");
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error deleting user: " + e.getMessage());
+
+            // Check for foreign key constraint
+            if (e.getErrorCode() == 1451) {
+                System.err.println("❌ Cannot delete user with existing game records!");
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Kiểm tra username có tồn tại không (ngoại trừ user hiện tại - dùng cho Edit)
+     */
+    public boolean usernameExistsExcept(String username, int exceptUserId) {
+        String sql = "SELECT COUNT(*) FROM users WHERE username = ? AND user_id != ?";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            pstmt.setInt(2, exceptUserId);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error checking username: " + e.getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * Kiểm tra email có tồn tại không (ngoại trừ user hiện tại - dùng cho Edit)
+     */
+    public boolean emailExistsExcept(String email, int exceptUserId) {
+        String sql = "SELECT COUNT(*) FROM users WHERE email = ? AND user_id != ?";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, email);
+            pstmt.setInt(2, exceptUserId);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error checking email: " + e.getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * Reset password về mặc định
+     */
+    public boolean resetPassword(int userId, String newPassword) {
+        return updatePassword(userId, newPassword);
+    }
+
+    /**
+     * Đếm số user online
+     */
+    public int getOnlineUserCount() {
+        String sql = "SELECT COUNT(*) FROM users WHERE is_online = 1";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error counting online users: " + e.getMessage());
+        }
+
+        return 0;
+    }
+
+    /**
+     * Lấy danh sách user online
+     */
+    public List<PlayerInfo> getOnlineUsers() {
+        List<PlayerInfo> players = new ArrayList<>();
+
+        String query = """
+        SELECT user_id, username, full_name, email, age, avatar_url,
+               total_score, math_score, english_score, literature_score,
+               total_games, wins, created_at
+        FROM users 
+        WHERE is_online = 1
+        ORDER BY username ASC
+    """;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                PlayerInfo player = new PlayerInfo();
+                player.userId = rs.getInt("user_id");
+                player.username = rs.getString("username");
+                player.fullName = rs.getString("full_name");
+                player.email = rs.getString("email");
+                player.age = rs.getInt("age");
+                player.avatarUrl = rs.getString("avatar_url");
+                player.totalScore = rs.getInt("total_score");
+                player.mathScore = rs.getInt("math_score");
+                player.englishScore = rs.getInt("english_score");
+                player.literatureScore = rs.getInt("literature_score");
+                player.totalGames = rs.getInt("total_games");
+                player.wins = rs.getInt("wins");
+                player.createdAt = rs.getTimestamp("created_at");
+
+                players.add(player);
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error getting online users: " + e.getMessage());
+        }
+
+        return players;
     }
 }

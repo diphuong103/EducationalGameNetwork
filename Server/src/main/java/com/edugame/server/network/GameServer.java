@@ -148,38 +148,86 @@ public class GameServer {
      */
     public void stop() {
         try {
+            System.out.println("\n🛑 ========== SERVER SHUTDOWN INITIATED ==========");
+
+            // 1. Set running flag to false FIRST
             running = false;
 
-            // Disconnect all clients
-            System.out.println("\n🛑 Disconnecting all clients...");
-            for (ClientHandler client : connectedClients) {
-                if (client.isRunning()) {
-                    // Client handler will clean up on its own
+            // 2. Stop monitoring thread
+            if (isMonitoring) {
+                System.out.println("🛑 Stopping connection monitor...");
+                stopConnectionMonitor();
+            }
+
+            // 3. Disconnect all clients with timeout
+            System.out.println("🛑 Disconnecting " + connectedClients.size() + " clients...");
+
+            List<ClientHandler> clientsCopy = new ArrayList<>(connectedClients);
+            int disconnected = 0;
+
+            for (ClientHandler client : clientsCopy) {
+                try {
+                    if (client.isRunning()) {
+                        // Force disconnect
+                        client.disconnect();
+                        disconnected++;
+
+                        // Small delay to allow graceful shutdown
+                        Thread.sleep(50);
+                    }
+                } catch (Exception e) {
+                    System.err.println("⚠️ Error disconnecting client: " + e.getMessage());
                 }
             }
+
+            System.out.println("✓ Disconnected " + disconnected + " clients");
+
+            // 4. Clear client list
             connectedClients.clear();
 
-            // Stop Voice Chat Server
+            // 5. Stop Voice Chat Server
             if (voiceChatServer != null) {
                 System.out.println("🛑 Stopping Voice Chat Server...");
-                voiceChatServer.stop();
-                System.out.println("✓ Voice Chat Server stopped");
+                try {
+                    voiceChatServer.stop();
+                    System.out.println("✓ Voice Chat Server stopped");
+                } catch (Exception e) {
+                    System.err.println("⚠️ Error stopping voice chat: " + e.getMessage());
+                }
             }
 
-            // Close server socket
+            // 6. Close server socket
             if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close();
+                System.out.println("🛑 Closing server socket...");
+                try {
+                    serverSocket.close();
+                    System.out.println("✓ Server socket closed");
+                } catch (IOException e) {
+                    System.err.println("⚠️ Error closing socket: " + e.getMessage());
+                }
             }
 
-            System.out.println("========================================");
-            System.out.println("✓ Server stopped");
-            System.out.println("========================================");
+            // 7. Give threads time to clean up
+            Thread.sleep(500);
 
-        } catch (IOException e) {
-            System.err.println("✗ Error stopping server: " + e.getMessage());
+            System.out.println("========================================");
+            System.out.println("✅ SERVER SHUTDOWN COMPLETE");
+            System.out.println("========================================\n");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error during server shutdown: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
+    /**
+     * ✅ Add this helper method to check if server is truly stopped
+     */
+    public boolean isStopped() {
+        return !running &&
+                (serverSocket == null || serverSocket.isClosed()) &&
+                connectedClients.isEmpty();
+    }
     // ========== BROADCAST FUNCTIONS ==========
 
     /**

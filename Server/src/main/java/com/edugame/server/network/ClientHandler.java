@@ -121,6 +121,12 @@ public class ClientHandler implements Runnable {
             while (running && (message = reader.readLine()) != null) {
                 lastActivityTime = System.currentTimeMillis();
                 messageCount++;
+
+                if (!running) {
+                    logWithTime("⚠️ Running flag is false, breaking loop");
+                    break;
+                }
+
                 logWithTime("📨 [Handler-" + Thread.currentThread().getId() + "] Message #" + messageCount);
                 handleMessage(message);
             }
@@ -128,7 +134,12 @@ public class ClientHandler implements Runnable {
             logWithTime("🔴 ClientHandler loop ENDED after " + messageCount + " messages");
 
         } catch (IOException e) {
-            logWithTime("✗ Client disconnected: " + e.getMessage());
+            if (running) {
+                // Only log if we weren't intentionally stopped
+                logWithTime("✗ Client disconnected: " + e.getMessage());
+            } else {
+                logWithTime("✓ Client handler stopped (intentional)");
+            }
         } finally {
             handleLogout();
             disconnect();
@@ -1553,34 +1564,93 @@ public class ClientHandler implements Runnable {
 
     void disconnect() {
         try {
-            if (currentUser != null) {
-                logWithTime("👋 User disconnecting: " + currentUser.getUsername());
+            logWithTime("🔌 [DISCONNECT] Initiating disconnect...");
 
-                // ✅ Clean up voice chat
+            // 1. Set running flag to false to stop the main loop
+            running = false;
+
+            // 2. Clean up user session
+            if (currentUser != null) {
+                logWithTime("   👋 User: " + currentUser.getUsername());
+
+                // Update online status in database
+                try {
+                    userDAO.updateOnlineStatus(currentUser.getUserId(), false);
+                } catch (Exception e) {
+                    logWithTime("   ⚠️ Could not update online status: " + e.getMessage());
+                }
+
+                // Clean up voice chat
                 if (voiceChatServer != null) {
                     String currentRoomId = getCurrentUserRoomId();
                     if (currentRoomId != null) {
-                        voiceChatServer.removeClient(currentUser.getUserId(), currentRoomId);
-                        logWithTime("   🔇 Voice chat cleaned up for room " + currentRoomId);
+                        try {
+                            voiceChatServer.removeClient(currentUser.getUserId(), currentRoomId);
+                            logWithTime("   🔇 Voice chat cleaned up for room " + currentRoomId);
+                        } catch (Exception e) {
+                            logWithTime("   ⚠️ Voice cleanup error: " + e.getMessage());
+                        }
                     }
                 }
 
-                userDAO.updateOnlineStatus(currentUser.getUserId(), false);
+                currentUser = null;
             }
 
-            running = false;
+            // 3. Close I/O streams
+            try {
+                if (reader != null) {
+                    reader.close();
+                    logWithTime("   ✓ Reader closed");
+                }
+            } catch (IOException e) {
+                logWithTime("   ⚠️ Error closing reader: " + e.getMessage());
+            }
 
-            if (reader != null) reader.close();
-            if (writer != null) writer.close();
+            try {
+                if (writer != null) {
+                    writer.close();
+                    logWithTime("   ✓ Writer closed");
+                }
+            } catch (Exception e) {
+                logWithTime("   ⚠️ Error closing writer: " + e.getMessage());
+            }
+
+            // 4. Close socket
+            try {
+                if (clientSocket != null && !clientSocket.isClosed()) {
+                    clientSocket.close();
+                    logWithTime("   ✓ Socket closed");
+                }
+            } catch (IOException e) {
+                logWithTime("   ⚠️ Error closing socket: " + e.getMessage());
+            }
+
+            // 5. Remove from server's client list
+            if (server != null) {
+                server.removeClient(this);
+                logWithTime("   ✓ Removed from server list");
+            }
+
+            logWithTime("✅ [DISCONNECT] Complete");
+
+        } catch (Exception e) {
+            logWithTime("❌ [DISCONNECT] Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * ✅ Add this method to force immediate stop
+     */
+    public void forceStop() {
+        running = false;
+
+        try {
             if (clientSocket != null && !clientSocket.isClosed()) {
                 clientSocket.close();
             }
-
-            logWithTime("✓ Client disconnected: " +
-                    (currentUser != null ? currentUser.getUsername() : "anonymous"));
-
-        } catch (IOException e) {
-            logWithTime("✗ Error disconnecting: " + e.getMessage());
+        } catch (Exception e) {
+            // Ignore
         }
     }
 

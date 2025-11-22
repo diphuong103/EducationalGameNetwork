@@ -3,7 +3,10 @@ package com.edugame.client;
 import com.edugame.client.network.ServerConnection;
 import com.edugame.client.util.SceneManager;
 import javafx.application.Application;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
+
+import java.util.Objects;
 
 public class ClientMain extends Application {
 
@@ -21,6 +24,13 @@ public class ClientMain extends Application {
             primaryStage.setResizable(true);
             primaryStage.setMinWidth(950);
             primaryStage.setMinHeight(650);
+
+            try {
+                Image icon = new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/icons/game-controller.png")));
+                primaryStage.getIcons().add(icon);
+            } catch (Exception e) {
+                System.out.println("⚠️ Server icon not found, using default");
+            }
 
             // Load login screen
             sceneManager.switchScene("Login.fxml");
