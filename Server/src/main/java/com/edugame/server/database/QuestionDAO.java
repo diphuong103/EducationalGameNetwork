@@ -177,6 +177,24 @@ public class QuestionDAO {
         return false;
     }
 
+    public List<Question> getAllQuestions() {
+        List<Question> questions = new ArrayList<>();
+        String query = "SELECT * FROM questions WHERE is_active = 1 ORDER BY created_at DESC";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                questions.add(mapResultSetToQuestion(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("❌ Error getting all questions: " + e.getMessage());
+        }
+
+        return questions;
+    }
+
     /**
      * Chuyển đổi từ ResultSet → Question object
      */

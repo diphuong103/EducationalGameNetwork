@@ -87,6 +87,20 @@ public class ServerViewController {
     @FXML private Label memoryLabel;
     @FXML private Label timestampLabel;
 
+    @FXML private Label totalRoomsLabel;
+    @FXML private Label playingRoomsLabel;
+    @FXML private Label waitingRoomsLabel;
+    @FXML private Label subjectIconLabel;
+    @FXML private Label playerCountLabel;
+    @FXML private Label currentQuestionLabel;
+    @FXML private Label timeRemainingLabel;
+    @FXML private Label correctAnswersLabel;
+    @FXML private Label wrongAnswersLabel;
+    @FXML private Label skippedLabel;
+    @FXML private ProgressBar gameProgressBar;
+    @FXML private VBox roomContent;
+    @FXML private Button kickPlayerButton;
+
     // ==================== INSTANCE VARIABLES ====================
 
     private GameServer gameServer;
@@ -258,9 +272,17 @@ public class ServerViewController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/QuestionManagerView.fxml"));
             Parent root = loader.load();
 
+            // Load CSS
+            try {
+                String css = getClass().getResource("/css/question-manager.css").toExternalForm();
+                root.getStylesheets().add(css);
+            } catch (Exception cssError) {
+                logToConsole("⚠️ Could not load CSS: " + cssError.getMessage());
+            }
+
             Stage stage = new Stage();
             stage.setTitle("Question Bank Manager");
-            stage.setScene(new Scene(root, 1200, 700));
+            stage.setScene(new Scene(root, 1400, 800));
             stage.initModality(Modality.NONE);
             stage.show();
 
@@ -268,6 +290,7 @@ public class ServerViewController {
 
         } catch (IOException e) {
             logToConsole("❌ Failed to open Question Bank: " + e.getMessage());
+            e.printStackTrace();
             showAlert("Error", "Could not open Question Bank Manager", Alert.AlertType.ERROR);
         }
     }
@@ -1092,7 +1115,8 @@ public class ServerViewController {
     @FXML
     private void handleRefreshRooms() {
         updateRoomList();
-        showNotification("Rooms refreshed", "info");
+        updateRoomStatistics();
+        showNotification("Danh sách phòng đã được làm mới", "info");
     }
 
     private void updateRoomList() {
@@ -1102,7 +1126,9 @@ public class ServerViewController {
                 Collection<GameRoomManager.GameRoom> rooms = getRoomsSafely();
 
                 if (rooms == null || rooms.isEmpty()) {
-                    showEmptyRoomList();
+                    Label emptyLabel = new Label("Chưa có phòng nào");
+                    emptyLabel.setStyle("-fx-text-fill: #94a3b8; -fx-font-size: 14px; -fx-padding: 20;");
+                    roomListContainer.getChildren().add(emptyLabel);
                     return;
                 }
 
@@ -1112,10 +1138,56 @@ public class ServerViewController {
                         roomListContainer.getChildren().add(roomCard);
                     }
                 }
+
+                updateRoomStatistics();
+
             } catch (Exception e) {
                 System.err.println("❌ Error updating room list: " + e.getMessage());
-                showEmptyRoomList();
             }
+        });
+    }
+
+    private void updateRoomStatistics() {
+        try {
+            Collection<GameRoomManager.GameRoom> rooms = getRoomsSafely();
+            int total = rooms != null ? rooms.size() : 0;
+            int playing = 0;
+            int waiting = 0;
+
+            if (rooms != null) {
+                for (GameRoomManager.GameRoom room : rooms) {
+                    String status = getRoomStatus(room);
+                    if ("PLAYING".equals(status)) {
+                        playing++;
+                    } else if ("WAITING".equals(status)) {
+                        waiting++;
+                    }
+                }
+            }
+
+            totalRoomsLabel.setText(String.valueOf(total));
+            playingRoomsLabel.setText(String.valueOf(playing));
+            waitingRoomsLabel.setText(String.valueOf(waiting));
+
+        } catch (Exception e) {
+            System.err.println("⚠️ Error updating room statistics: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleKickPlayer() {
+        if (selectedRoomId == null) return;
+
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Kick người chơi");
+        dialog.setHeaderText("Nhập username của người chơi cần kick");
+        dialog.setContentText("Username:");
+
+        Optional<String> result = dialog.showAndWait();
+        result.ifPresent(username -> {
+            logToConsole("👊 Kicked player: " + username + " from room " + selectedRoomId);
+            showNotification("Đã kick người chơi: " + username, "warning");
+            // TODO: Implement kick logic
         });
     }
 
@@ -1159,31 +1231,42 @@ public class ServerViewController {
     }
 
     private VBox createRoomCard(String roomId, GameRoomManager.GameRoom room) {
-        VBox card = new VBox(8);
+        VBox card = new VBox(10);
         card.getStyleClass().add("room-card");
-        card.setPadding(new Insets(12));
+        card.setPadding(new Insets(15));
 
         if (roomId.equals(selectedRoomId)) {
             card.getStyleClass().add("room-card-selected");
         }
 
-        Label title = new Label("🎮 Room #" + roomId);
-        title.getStyleClass().add("room-card-title");
+        // Room Number & Status Badge
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
 
-        String subject = getSubjectEmoji(room.getSubject()) + " " + room.getSubject();
-        Label subtitle = new Label(subject + " | " + room.getDifficulty());
+        Label roomNum = new Label("🎮 Room #" + roomId);
+        roomNum.getStyleClass().add("room-card-title");
+        HBox.setHgrow(roomNum, Priority.ALWAYS);
+
+        String status = getRoomStatus(room);
+        Label statusBadge = new Label(status);
+        statusBadge.getStyleClass().addAll("status-badge", "status-" + status.toLowerCase());
+
+        header.getChildren().addAll(roomNum, statusBadge);
+
+        // Subject & Difficulty
+        String subjectEmoji = getSubjectEmoji(room.getSubject());
+        Label subtitle = new Label(subjectEmoji + " " + room.getSubject() + " | " + room.getDifficulty());
         subtitle.getStyleClass().add("room-card-subtitle");
 
-        Label players = new Label("👥 " + room.getPlayerCount() + "/" + room.getMaxPlayers() + " players");
+        // Player Count
+        Label players = new Label("👥 " + room.getPlayerCount() + "/" + room.getMaxPlayers() + " người chơi");
         players.getStyleClass().add("room-card-players");
 
-        HBox statusBox = new HBox();
-        statusBox.setAlignment(Pos.CENTER_LEFT);
-        Label statusLabel = new Label(getRoomStatus(room));
-        statusLabel.getStyleClass().addAll("status-badge", "status-" + getRoomStatus(room).toLowerCase());
-        statusBox.getChildren().add(statusLabel);
+        // Host Info
+        Label host = new Label("Host: " + (room.getHost() != null ? room.getHost().getUsername() : "N/A"));
+        host.getStyleClass().add("room-card-players");
 
-        card.getChildren().addAll(title, subtitle, players, statusBox);
+        card.getChildren().addAll(header, subtitle, players, host);
         card.setOnMouseClicked(e -> selectRoom(roomId, room));
 
         return card;
@@ -1198,28 +1281,47 @@ public class ServerViewController {
     private void displayRoomDetails(String roomId, GameRoomManager.GameRoom room) {
         Platform.runLater(() -> {
             try {
+                // Hide empty state, show content
                 emptyState.setVisible(false);
-                roomInfoGrid.setVisible(true);
-                playersSection.setVisible(true);
-                adminActionsSection.setVisible(true);
+                roomContent.setVisible(true);
                 closeRoomButton.setVisible(true);
 
-                selectedRoomTitle.setText("Room #" + roomId + " - " + room.getRoomName());
+                // Update header
+                selectedRoomTitle.setText("Phòng #" + roomId + " - " + room.getRoomName());
                 roomStatusBadge.setText(getRoomStatus(room));
                 roomStatusBadge.getStyleClass().clear();
                 roomStatusBadge.getStyleClass().addAll("status-badge", "status-" + getRoomStatus(room).toLowerCase());
+                roomIdLabel.setText("#" + roomId);
 
-                roomIdLabel.setText(roomId);
-                hostLabel.setText(room.getHost() != null ? room.getHost().getUsername() : "Unknown");
-                subjectLabel.setText(getSubjectEmoji(room.getSubject()) + " " + room.getSubject());
+                // Update info
+                hostLabel.setText(room.getHost() != null ? room.getHost().getUsername() : "N/A");
+
+                String subjectEmoji = getSubjectEmoji(room.getSubject());
+                subjectIconLabel.setText(subjectEmoji);
+                subjectLabel.setText(room.getSubject());
+
                 difficultyLabel.setText(room.getDifficulty());
+                playerCountLabel.setText(room.getPlayerCount() + "/" + room.getMaxPlayers());
 
+                // Update progress (mock data - replace with real data)
+                currentQuestionLabel.setText("Câu 5/10");
+                gameProgressBar.setProgress(0.5);
+                timeRemainingLabel.setText("30s còn lại");
+
+                correctAnswersLabel.setText("12");
+                wrongAnswersLabel.setText("3");
+                skippedLabel.setText("1");
+
+                // Update players list
                 updatePlayersList(room);
+
             } catch (Exception e) {
                 System.err.println("❌ Error displaying room details: " + e.getMessage());
+                e.printStackTrace();
             }
         });
     }
+
 
     private void updatePlayersList(GameRoomManager.GameRoom room) {
         try {
@@ -1279,12 +1381,9 @@ public class ServerViewController {
 
     @FXML
     private void handleCloseRoom() {
-        if (selectedRoomId == null) return;
         selectedRoomId = null;
         emptyState.setVisible(true);
-        roomInfoGrid.setVisible(false);
-        playersSection.setVisible(false);
-        adminActionsSection.setVisible(false);
+        roomContent.setVisible(false);
         closeRoomButton.setVisible(false);
         updateRoomList();
     }
@@ -1292,15 +1391,25 @@ public class ServerViewController {
     @FXML
     private void handlePauseGame() {
         if (selectedRoomId == null) return;
-        logToConsole("⏸️ Pausing room: " + selectedRoomId);
-        showNotification("Game paused", "warning");
+
+        pauseButton.setVisible(false);
+        resumeButton.setVisible(true);
+
+        logToConsole("⏸️ Paused room: " + selectedRoomId);
+        showNotification("Đã tạm dừng phòng", "warning");
+        // TODO: Implement pause logic
     }
 
     @FXML
     private void handleResumeGame() {
         if (selectedRoomId == null) return;
-        logToConsole("▶️ Resuming room: " + selectedRoomId);
-        showNotification("Game resumed", "success");
+
+        resumeButton.setVisible(false);
+        pauseButton.setVisible(true);
+
+        logToConsole("▶️ Resumed room: " + selectedRoomId);
+        showNotification("Đã tiếp tục phòng", "success");
+        // TODO: Implement resume logic
     }
 
     @FXML
@@ -1308,14 +1417,14 @@ public class ServerViewController {
         if (selectedRoomId == null) return;
 
         TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Send Announcement");
-        dialog.setHeaderText("Send message to room #" + selectedRoomId);
-        dialog.setContentText("Message:");
+        dialog.setTitle("Gửi thông báo");
+        dialog.setHeaderText("Gửi thông báo đến phòng #" + selectedRoomId);
+        dialog.setContentText("Nội dung:");
 
         Optional<String> result = dialog.showAndWait();
         result.ifPresent(message -> {
             logToConsole("📢 Announcement to room " + selectedRoomId + ": " + message);
-            showNotification("Announcement sent", "info");
+            showNotification("Đã gửi thông báo", "info");
             // TODO: Implement broadcast logic
         });
     }
@@ -1325,17 +1434,17 @@ public class ServerViewController {
         if (selectedRoomId == null) return;
 
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.setTitle("Confirm");
-        confirm.setHeaderText("Destroy Room #" + selectedRoomId);
-        confirm.setContentText("This will kick all players. Are you sure?");
+        confirm.setTitle("Xác nhận");
+        confirm.setHeaderText("Hủy phòng #" + selectedRoomId);
+        confirm.setContentText("Điều này sẽ kick tất cả người chơi. Bạn có chắc chắn?");
 
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
-            logToConsole("💣 Destroying room: " + selectedRoomId);
-            // TODO: Implement destroy logic
+            logToConsole("💣 Destroyed room: " + selectedRoomId);
             handleCloseRoom();
             updateRoomList();
-            showNotification("Room destroyed", "danger");
+            showNotification("Đã hủy phòng", "danger");
+            // TODO: Implement destroy logic
         }
     }
 
@@ -1497,11 +1606,11 @@ public class ServerViewController {
     // ==================== HELPER METHODS ====================
 
     private String getRoomStatus(GameRoomManager.GameRoom room) {
-        // TODO: Implement proper status check
-        if (room.getPlayerCount() < room.getMaxPlayers()) {
-            return "WAITING";
+        // TODO: Implement proper status detection
+        if (room.getPlayerCount() >= room.getMaxPlayers()) {
+            return "PLAYING";
         }
-        return "PLAYING";
+        return "WAITING";
     }
 
     private String getSubjectEmoji(String subject) {

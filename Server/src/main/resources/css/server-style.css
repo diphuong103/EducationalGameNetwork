@@ -524,3 +524,360 @@
         -fx-font-size: 28px;
     }
 }
+
+/* ==================== ROOM MANAGEMENT REDESIGN ==================== */
+
+/* Container */
+.room-management-container {
+    -fx-background-color: #0f172a;
+}
+
+/* Left Panel - Room List */
+.room-list-panel {
+    -fx-background-color: #1e293b;
+    -fx-border-color: #334155;
+    -fx-border-width: 0 1 0 0;
+}
+
+.panel-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f8fafc;
+}
+
+.info-text {
+    -fx-font-size: 13px;
+    -fx-text-fill: #94a3b8;
+}
+
+.info-text-sm {
+    -fx-font-size: 12px;
+    -fx-text-fill: #94a3b8;
+}
+
+.info-value-accent {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #3b82f6;
+}
+
+.status-playing {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #4ade80;
+}
+
+.status-waiting {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fbbf24;
+}
+
+.btn-refresh-rooms {
+    -fx-background-color: #1e40af;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-padding: 10 20;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+.btn-refresh-rooms:hover {
+    -fx-background-color: #1d4ed8;
+}
+
+/* Room Cards Container */
+.room-list-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.room-list-scroll .viewport {
+    -fx-background-color: transparent;
+}
+
+.room-list-scroll .scroll-bar {
+    -fx-background-color: #1e293b;
+}
+
+.room-cards-container {
+    -fx-padding: 5;
+}
+
+/* Individual Room Card */
+.room-card {
+    -fx-background-color: #0f172a;
+    -fx-background-radius: 12;
+    -fx-border-color: #334155;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-padding: 15;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 2);
+}
+
+.room-card:hover {
+    -fx-background-color: #1e293b;
+    -fx-border-color: #3b82f6;
+    -fx-scale-x: 1.02;
+    -fx-scale-y: 1.02;
+}
+
+.room-card-selected {
+    -fx-background-color: #1e293b;
+    -fx-border-color: #3b82f6;
+    -fx-border-width: 2;
+}
+
+.room-card-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f8fafc;
+}
+
+.room-card-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #94a3b8;
+}
+
+.room-card-players {
+    -fx-font-size: 12px;
+    -fx-text-fill: #64748b;
+}
+
+/* Status Badges */
+.status-badge {
+    -fx-padding: 4 12;
+    -fx-background-radius: 12;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.status-waiting {
+    -fx-background-color: rgba(251, 191, 36, 0.2);
+    -fx-text-fill: #fbbf24;
+    -fx-border-color: #fbbf24;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+}
+
+.status-playing {
+    -fx-background-color: rgba(74, 222, 128, 0.2);
+    -fx-text-fill: #4ade80;
+    -fx-border-color: #4ade80;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+}
+
+.status-finished {
+    -fx-background-color: rgba(148, 163, 184, 0.2);
+    -fx-text-fill: #94a3b8;
+    -fx-border-color: #94a3b8;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+}
+
+/* Right Panel - Room Details */
+.room-detail-panel {
+    -fx-background-color: #0f172a;
+}
+
+.room-header {
+    -fx-padding: 0 0 10 0;
+}
+
+.room-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f8fafc;
+}
+
+.room-id-text {
+    -fx-font-size: 13px;
+    -fx-text-fill: #64748b;
+    -fx-font-family: 'Consolas', monospace;
+}
+
+.btn-close-detail {
+    -fx-background-color: transparent;
+    -fx-text-fill: #94a3b8;
+    -fx-font-size: 18px;
+    -fx-cursor: hand;
+    -fx-padding: 5 10;
+}
+
+.btn-close-detail:hover {
+    -fx-background-color: rgba(239, 68, 68, 0.2);
+    -fx-text-fill: #ef4444;
+}
+
+/* Empty State */
+.empty-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #64748b;
+}
+
+.empty-subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: #475569;
+    -fx-wrap-text: true;
+    -fx-text-alignment: center;
+}
+
+/* Room Info Grid */
+.room-info-grid {
+    -fx-background-color: #1e293b;
+    -fx-background-radius: 12;
+    -fx-padding: 20;
+}
+
+.info-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #94a3b8;
+    -fx-font-weight: 600;
+    -fx-text-transform: uppercase;
+}
+
+.info-value {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f8fafc;
+}
+
+.difficulty-badge {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fbbf24;
+    -fx-padding: 6 12;
+    -fx-background-color: rgba(251, 191, 36, 0.15);
+    -fx-background-radius: 8;
+}
+
+/* Progress Section */
+.progress-section {
+    -fx-background-color: #1e293b;
+    -fx-background-radius: 12;
+    -fx-padding: 20;
+}
+
+.section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f8fafc;
+}
+
+.progress-text {
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #3b82f6;
+}
+
+.game-progress-bar {
+    -fx-background-color: #334155;
+    -fx-background-radius: 6;
+}
+
+.game-progress-bar .bar {
+    -fx-background-color: linear-gradient(to right, #3b82f6, #8b5cf6);
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+}
+
+.time-text {
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #f59e0b;
+}
+
+/* Stats Grid */
+.stats-grid {
+    -fx-background-color: transparent;
+}
+
+.stat-card {
+    -fx-background-color: #0f172a;
+    -fx-background-radius: 10;
+    -fx-padding: 15;
+    -fx-border-color: #334155;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+}
+
+.stat-value {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f8fafc;
+}
+
+.stat-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #94a3b8;
+}
+
+/* Players Scroll */
+.players-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.players-scroll .viewport {
+    -fx-background-color: transparent;
+}
+
+/* Player Cards */
+.player-card {
+    -fx-background-color: #1e293b;
+    -fx-background-radius: 10;
+    -fx-border-color: #334155;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-padding: 12;
+}
+
+.player-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f8fafc;
+}
+
+.player-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #94a3b8;
+}
+
+.player-host-badge {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fbbf24;
+    -fx-background-color: rgba(251, 191, 36, 0.2);
+    -fx-padding: 3 8;
+    -fx-background-radius: 8;
+}
+
+.player-ready-badge {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #4ade80;
+    -fx-background-color: rgba(74, 222, 128, 0.2);
+    -fx-padding: 3 8;
+    -fx-background-radius: 8;
+}
+
+/* Admin Action Buttons */
+.btn-warning-outline {
+    -fx-background-color: transparent;
+    -fx-text-fill: #f59e0b;
+    -fx-border-color: #f59e0b;
+    -fx-border-width: 2;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 10 20;
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+}
+
+.btn-warning-outline:hover {
+    -fx-background-color: rgba(245, 158, 11, 0.1);
+}
