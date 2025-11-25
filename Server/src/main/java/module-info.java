@@ -4,9 +4,10 @@ module com.edugame.server {
     requires com.edugame.common;
     requires com.google.gson;
     requires java.sql;
-    requires org.apache.poi.poi;
     requires jdk.httpserver;
     requires java.management;
+    requires org.apache.poi.ooxml;
+    requires java.net.http;
 
     opens com.edugame.server.controller to javafx.fxml;
 

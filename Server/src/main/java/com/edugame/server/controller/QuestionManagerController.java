@@ -2,6 +2,10 @@ package com.edugame.server.controller;
 
 import com.edugame.server.database.QuestionDAO;
 import com.edugame.server.model.Question;
+import com.edugame.server.service.AIService;
+import com.edugame.server.util.FileImporter;
+import com.edugame.server.util.SampleFileGenerator;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -10,8 +14,10 @@ import javafx.collections.ObservableList;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -366,15 +372,168 @@ public class QuestionManagerController {
         );
 
         File selectedFile = fileChooser.showOpenDialog(null);
-        if (selectedFile != null) {
-            // TODO: Implement file import logic
-            showAlert(Alert.AlertType.INFORMATION, "Import file",
-                    "Chức năng import từ file đang được phát triển.\nFile đã chọn: " + selectedFile.getName());
+        if (selectedFile == null) {
+            return;
+        }
+
+        // Show loading dialog
+        Alert loadingAlert = new Alert(Alert.AlertType.INFORMATION);
+        loadingAlert.setTitle("Đang import...");
+        loadingAlert.setHeaderText("Vui lòng đợi");
+        loadingAlert.setContentText("Đang đọc file: " + selectedFile.getName());
+        loadingAlert.show();
+
+        // Import in background thread
+        new Thread(() -> {
+            try {
+                List<Question> importedQuestions;
+                String fileName = selectedFile.getName().toLowerCase();
+
+                if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+                    // Import từ Excel
+                    importedQuestions = FileImporter.importFromExcel(selectedFile);
+                } else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+                    // Import từ Word
+                    importedQuestions = FileImporter.importFromWord(selectedFile);
+                } else {
+                    importedQuestions = new ArrayList<>();
+                    javafx.application.Platform.runLater(() -> {
+                        loadingAlert.close();
+                        showAlert(Alert.AlertType.ERROR, "Lỗi",
+                                "Định dạng file không được hỗ trợ!\nChỉ chấp nhận file .xlsx, .xls, .docx, .doc");
+                    });
+                    return;
+                }
+
+                // Nếu import từ Word, cho phép người dùng chọn môn học và độ khó chung
+                if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+                    javafx.application.Platform.runLater(() -> {
+                        loadingAlert.close();
+
+                        // Create dialog to select subject and difficulty
+                        Dialog<javafx.util.Pair<String, String>> dialog = new Dialog<>();
+                        dialog.setTitle("Chọn môn học và độ khó");
+                        dialog.setHeaderText("Áp dụng cho tất cả câu hỏi từ file Word");
+
+                        ButtonType confirmButtonType = new ButtonType("Xác nhận", ButtonBar.ButtonData.OK_DONE);
+                        dialog.getDialogPane().getButtonTypes().addAll(confirmButtonType, ButtonType.CANCEL);
+
+                        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+                        grid.setHgap(10);
+                        grid.setVgap(10);
+                        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+
+                        ComboBox<String> subjectCombo = new ComboBox<>();
+                        subjectCombo.setItems(FXCollections.observableArrayList("Toán học", "Ngữ văn", "Tiếng Anh"));
+                        subjectCombo.setValue("Toán học");
+
+                        ComboBox<String> difficultyCombo = new ComboBox<>();
+                        difficultyCombo.setItems(FXCollections.observableArrayList("Dễ", "Trung bình", "Khó"));
+                        difficultyCombo.setValue("Dễ");
+
+                        grid.add(new Label("Môn học:"), 0, 0);
+                        grid.add(subjectCombo, 1, 0);
+                        grid.add(new Label("Độ khó:"), 0, 1);
+                        grid.add(difficultyCombo, 1, 1);
+
+                        dialog.getDialogPane().setContent(grid);
+
+                        dialog.setResultConverter(dialogButton -> {
+                            if (dialogButton == confirmButtonType) {
+                                return new javafx.util.Pair<>(subjectCombo.getValue(), difficultyCombo.getValue());
+                            }
+                            return null;
+                        });
+
+                        Optional<javafx.util.Pair<String, String>> result = dialog.showAndWait();
+
+                        if (result.isPresent()) {
+                            String subject = getSubjectDbValue(result.get().getKey());
+                            String difficulty = getDifficultyDbValue(result.get().getValue());
+
+                            // Update all questions with selected subject and difficulty
+                            for (Question q : importedQuestions) {
+                                q.setSubject(subject);
+                                q.setDifficulty(difficulty);
+                            }
+
+                            // Save questions
+                            saveImportedQuestions(importedQuestions, selectedFile.getName());
+                        }
+                    });
+                } else {
+                    // Save Excel questions directly
+                    javafx.application.Platform.runLater(() -> {
+                        loadingAlert.close();
+                        saveImportedQuestions(importedQuestions, selectedFile.getName());
+                    });
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                javafx.application.Platform.runLater(() -> {
+                    loadingAlert.close();
+                    showAlert(Alert.AlertType.ERROR, "Lỗi import",
+                            "Không thể import file!\n\nChi tiết lỗi: " + e.getMessage() +
+                                    "\n\nVui lòng kiểm tra định dạng file.");
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * Save imported questions to database
+     */
+    private void saveImportedQuestions(List<Question> importedQuestions, String fileName) {
+        if (importedQuestions.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "Không có dữ liệu",
+                    "Không tìm thấy câu hỏi hợp lệ trong file!");
+            return;
+        }
+
+        // Confirmation dialog
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Xác nhận import");
+        confirmAlert.setHeaderText("Đã tìm thấy " + importedQuestions.size() + " câu hỏi");
+        confirmAlert.setContentText("Bạn có muốn thêm tất cả câu hỏi này vào hệ thống?");
+
+        Optional<ButtonType> result = confirmAlert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            int successCount = 0;
+            int failCount = 0;
+
+            for (Question q : importedQuestions) {
+                if (questionDAO.addQuestion(q)) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            }
+
+            // Update UI
+            loadAllQuestions();
+
+            // Show result
+            String message = String.format(
+                    "Import từ file: %s\n\n" +
+                            "✅ Thành công: %d câu hỏi\n" +
+                            "❌ Thất bại: %d câu hỏi",
+                    fileName, successCount, failCount
+            );
+
+            Alert resultAlert = new Alert(
+                    failCount == 0 ? Alert.AlertType.INFORMATION : Alert.AlertType.WARNING
+            );
+            resultAlert.setTitle("Kết quả import");
+            resultAlert.setHeaderText(null);
+            resultAlert.setContentText(message);
+            resultAlert.showAndWait();
         }
     }
 
     @FXML
     private void handleGenerateWithAI() {
+        // Validate inputs
         String prompt = aiPromptArea.getText().trim();
         String subject = aiSubjectCombo.getValue();
         String difficulty = aiDifficultyCombo.getValue();
@@ -386,53 +545,311 @@ public class QuestionManagerController {
             return;
         }
 
+        if (subject == null || difficulty == null) {
+            showAlert(Alert.AlertType.WARNING, "Thiếu thông tin",
+                    "Vui lòng chọn môn học và độ khó!");
+            return;
+        }
+
+        int quantity;
         try {
-            int quantity = Integer.parseInt(quantityStr);
+            quantity = Integer.parseInt(quantityStr);
             if (quantity <= 0 || quantity > 50) {
                 showAlert(Alert.AlertType.WARNING, "Số lượng không hợp lệ",
                         "Vui lòng nhập số lượng từ 1-50!");
                 return;
             }
-
-            // Convert to DB values
-            String dbSubject = getSubjectDbValue(subject);
-            String dbDifficulty = getDifficultyDbValue(difficulty);
-
-            // TODO: Implement AI generation logic with dbSubject and dbDifficulty
-            showAlert(Alert.AlertType.INFORMATION, "Tạo câu hỏi bằng AI",
-                    String.format("Chức năng tạo câu hỏi bằng AI đang được phát triển.\n\n" +
-                                    "Thông tin:\n" +
-                                    "- Môn học: %s (%s)\n" +
-                                    "- Độ khó: %s (%s)\n" +
-                                    "- Số lượng: %d câu\n" +
-                                    "- Chủ đề: %s",
-                            subject, dbSubject, difficulty, dbDifficulty, quantity, prompt));
-
         } catch (NumberFormatException e) {
             showAlert(Alert.AlertType.WARNING, "Số lượng không hợp lệ",
                     "Vui lòng nhập số nguyên hợp lệ!");
+            return;
+        }
+
+        // Convert display values to DB values
+        String dbSubject = getSubjectDbValue(subject);
+        String dbDifficulty = getDifficultyDbValue(difficulty);
+
+        // Show loading dialog
+        Alert loadingAlert = new Alert(Alert.AlertType.INFORMATION);
+        loadingAlert.setTitle("Đang tạo câu hỏi với AI...");
+        loadingAlert.setHeaderText("Vui lòng đợi");
+        loadingAlert.setContentText(String.format(
+                "Đang sử dụng Gemini AI để tạo %d câu hỏi về:\n'%s'\n\n" +
+                        "Môn: %s | Độ khó: %s\n\n" +
+                        "Quá trình này có thể mất 10-30 giây...",
+                quantity, prompt, subject, difficulty
+        ));
+
+        // Disable button to prevent double click
+        Button generateButton = (Button) aiPromptArea.getScene().lookup("#generateAIButton");
+        if (generateButton != null) {
+            generateButton.setDisable(true);
+        }
+
+        loadingAlert.show();
+
+        // Generate questions in background thread
+        new Thread(() -> {
+            try {
+                // Call AI service - FIX: Use AIResult
+                AIService.AIResult result = AIService.generateQuestions(
+                        prompt, dbSubject, dbDifficulty, quantity
+                );
+
+                // Update UI on JavaFX thread
+                javafx.application.Platform.runLater(() -> {
+                    loadingAlert.close();
+
+                    // Re-enable button
+                    if (generateButton != null) {
+                        generateButton.setDisable(false);
+                    }
+
+                    // FIX: Check for errors first
+                    if (result.hasError()) {
+                        showAlert(Alert.AlertType.ERROR, "Lỗi tạo câu hỏi",
+                                result.getErrorMessage());
+                        return;
+                    }
+
+                    // FIX: Get questions from result
+                    List<Question> generatedQuestions = result.getQuestions();
+
+                    if (generatedQuestions.isEmpty()) {
+                        showAlert(Alert.AlertType.ERROR, "Lỗi",
+                                "Không thể tạo câu hỏi!\n\n" +
+                                        "Nguyên nhân có thể:\n" +
+                                        "- API Key không hợp lệ\n" +
+                                        "- Không có kết nối internet\n" +
+                                        "- Gemini API gặp sự cố\n\n" +
+                                        "Vui lòng kiểm tra lại.");
+                        return;
+                    }
+
+                    // Show preview dialog
+                    showAIQuestionsPreview(generatedQuestions, prompt, subject, difficulty);
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                javafx.application.Platform.runLater(() -> {
+                    loadingAlert.close();
+
+                    // Re-enable button
+                    if (generateButton != null) {
+                        generateButton.setDisable(false);
+                    }
+
+                    showAlert(Alert.AlertType.ERROR, "Lỗi tạo câu hỏi",
+                            "Đã xảy ra lỗi khi tạo câu hỏi bằng AI!\n\n" +
+                                    "Chi tiết lỗi: " + e.getMessage() +
+                                    "\n\nVui lòng thử lại hoặc kiểm tra kết nối internet.");
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * Hiển thị dialog preview và xác nhận câu hỏi từ AI
+     */
+    private void showAIQuestionsPreview(List<Question> questions, String topic, String subject, String difficulty) {
+        // Create dialog
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Xem trước câu hỏi từ AI");
+        dialog.setHeaderText(String.format(
+                "Đã tạo %d câu hỏi về chủ đề: '%s'\nMôn: %s | Độ khó: %s",
+                questions.size(), topic, subject, difficulty
+        ));
+
+        // Create content
+        javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(10);
+        content.setPadding(new javafx.geometry.Insets(20));
+
+        // Add scrollable area
+        javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane();
+        javafx.scene.layout.VBox questionsBox = new javafx.scene.layout.VBox(15);
+        questionsBox.setPadding(new javafx.geometry.Insets(10));
+
+        // Add each question to preview
+        for (int i = 0; i < questions.size(); i++) {
+            Question q = questions.get(i);
+
+            javafx.scene.layout.VBox questionBox = new javafx.scene.layout.VBox(5);
+            questionBox.setStyle("-fx-border-color: #ddd; -fx-border-radius: 5; -fx-padding: 10; -fx-background-color: #f9f9f9;");
+
+            Label titleLabel = new Label("Câu " + (i + 1) + ": " + q.getQuestionText());
+            titleLabel.setWrapText(true);
+            titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+
+            Label optionALabel = new Label("A. " + q.getOptionA());
+            optionALabel.setWrapText(true);
+
+            Label optionBLabel = new Label("B. " + q.getOptionB());
+            optionBLabel.setWrapText(true);
+
+            Label optionCLabel = new Label("C. " + q.getOptionC());
+            optionCLabel.setWrapText(true);
+
+            Label optionDLabel = new Label("D. " + q.getOptionD());
+            optionDLabel.setWrapText(true);
+
+            Label answerLabel = new Label("✓ Đáp án đúng: " + q.getCorrectAnswer());
+            answerLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+
+            questionBox.getChildren().addAll(
+                    titleLabel,
+                    optionALabel, optionBLabel, optionCLabel, optionDLabel,
+                    answerLabel
+            );
+
+            questionsBox.getChildren().add(questionBox);
+        }
+
+        scrollPane.setContent(questionsBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefHeight(400);
+        scrollPane.setPrefWidth(600);
+
+        content.getChildren().add(scrollPane);
+
+        // Add info label
+        Label infoLabel = new Label("💡 Kiểm tra kỹ các câu hỏi trước khi thêm vào hệ thống");
+        infoLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        content.getChildren().add(infoLabel);
+
+        dialog.getDialogPane().setContent(content);
+
+        // Add buttons
+        ButtonType addAllButton = new ButtonType("Thêm tất cả", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelButton = new ButtonType("Hủy bỏ", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(addAllButton, cancelButton);
+
+        // Handle result
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isPresent() && result.get() == addAllButton) {
+            saveAIQuestions(questions, topic);
+        }
+    }
+
+    /**
+     * Lưu câu hỏi từ AI vào database
+     */
+    private void saveAIQuestions(List<Question> questions, String topic) {
+        int successCount = 0;
+        int failCount = 0;
+
+        for (Question q : questions) {
+            if (questionDAO.addQuestion(q)) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        }
+
+        // Update UI
+        loadAllQuestions();
+
+        // Clear AI form
+        aiPromptArea.clear();
+        aiQuantityField.setText("5");
+
+        // Show result
+        String message = String.format(
+                "Tạo câu hỏi bằng AI - Chủ đề: '%s'\n\n" +
+                        "✅ Thành công: %d câu hỏi\n" +
+                        "❌ Thất bại: %d câu hỏi\n\n" +
+                        "Các câu hỏi đã được thêm vào hệ thống!",
+                topic, successCount, failCount
+        );
+
+        Alert resultAlert = new Alert(
+                failCount == 0 ? Alert.AlertType.INFORMATION : Alert.AlertType.WARNING
+        );
+        resultAlert.setTitle("Kết quả tạo câu hỏi");
+        resultAlert.setHeaderText(null);
+        resultAlert.setContentText(message);
+        resultAlert.showAndWait();
+    }
+
+    /**
+     * Kiểm tra kết nối AI (optional - có thể gọi khi khởi động)
+     */
+    @FXML
+    private void handleTestAIConnection() {
+        Alert loadingAlert = new Alert(Alert.AlertType.INFORMATION);
+        loadingAlert.setTitle("Kiểm tra kết nối");
+        loadingAlert.setHeaderText("Đang kiểm tra kết nối với Gemini AI...");
+        loadingAlert.setContentText("Vui lòng đợi...");
+        loadingAlert.show();
+
+        new Thread(() -> {
+            boolean connected = AIService.testConnection();
+
+            javafx.application.Platform.runLater(() -> {
+                loadingAlert.close();
+
+                if (connected) {
+                    showAlert(Alert.AlertType.INFORMATION, "Kết nối thành công",
+                            "✅ Đã kết nối thành công với Gemini AI!\n\n" +
+                                    "Bạn có thể sử dụng tính năng tạo câu hỏi tự động.");
+                } else {
+                    showAlert(Alert.AlertType.ERROR, "Kết nối thất bại",
+                            "❌ Không thể kết nối với Gemini AI!\n\n" +
+                                    "Vui lòng kiểm tra:\n" +
+                                    "- API Key có đúng không\n" +
+                                    "- Kết nối internet\n" +
+                                    "- Gemini API có hoạt động không");
+                }
+            });
+        }).start();
+    }
+
+
+
+    @FXML
+    private void handleDownloadSample() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Lưu file mẫu");
+        fileChooser.setInitialFileName("mau_cau_hoi.xlsx");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Excel Files", "*.xlsx")
+        );
+
+        File file = fileChooser.showSaveDialog(null);
+        if (file != null) {
+            try {
+                SampleFileGenerator.generateSampleExcel(file);
+                showAlert(Alert.AlertType.INFORMATION, "Thành công",
+                        "Đã tải file mẫu thành công!\n\nĐường dẫn: " + file.getAbsolutePath());
+            } catch (Exception e) {
+                showAlert(Alert.AlertType.ERROR, "Lỗi",
+                        "Không thể tạo file mẫu!\n\n" + e.getMessage());
+            }
         }
     }
 
     @FXML
     private void handleBackToServer() {
-        try {
-            // Load ServerView.fxml
-            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
-                    getClass().getResource("/com/edugame/server/view/ServerView.fxml")
-            );
-            javafx.scene.Parent root = loader.load();
+//        try {
+//            // Load ServerView.fxml
+//            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+//                    getClass().getResource("/fxml/ServerView.fxml")
+//            );
+//            javafx.scene.Parent root = loader.load();
+//
+//            // Get current stage and set new scene
+//            javafx.stage.Stage stage = (javafx.stage.Stage) saveButton.getScene().getWindow();
+//            stage.setScene(new javafx.scene.Scene(root));
+//            stage.setTitle("Server Management");
+//        } catch (Exception e) {
+//            System.err.println("Error loading ServerView: " + e.getMessage());
+//            e.printStackTrace();
+//            showAlert(Alert.AlertType.ERROR, "Lỗi",
+//                    "Không thể quay lại trang Server. Vui lòng kiểm tra file ServerView.fxml!");
+//        }
 
-            // Get current stage and set new scene
-            javafx.stage.Stage stage = (javafx.stage.Stage) saveButton.getScene().getWindow();
-            stage.setScene(new javafx.scene.Scene(root));
-            stage.setTitle("Server Management");
-        } catch (Exception e) {
-            System.err.println("Error loading ServerView: " + e.getMessage());
-            e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Lỗi",
-                    "Không thể quay lại trang Server. Vui lòng kiểm tra file ServerView.fxml!");
-        }
+        Stage stage = (Stage) saveButton.getScene().getWindow();
+        stage.close();
     }
 
     private Question createQuestionFromForm() {

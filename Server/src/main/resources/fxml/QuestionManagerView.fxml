@@ -1,60 +1,70 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Hyperlink?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.edugame.server.controller.QuestionManagerController"
-            prefHeight="800.0" prefWidth="1400.0"
-            style="-fx-background-color: #1a1a1a;">
+<BorderPane prefHeight="800.0" prefWidth="1400.0" style="-fx-background-color: #1a1a1a;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.edugame.server.controller.QuestionManagerController">
 
     <!-- Top: Header + Statistics -->
     <top>
         <VBox spacing="20" styleClass="main-container">
-            <padding><Insets top="20" right="20" bottom="10" left="20"/></padding>
+            <padding><Insets bottom="10" left="20" right="20" top="20" /></padding>
 
             <!-- Header -->
             <HBox alignment="CENTER_LEFT" spacing="15" styleClass="header">
-                <Button text="← Quay lại" onAction="#handleBackToServer" styleClass="back-button"/>
-                <Label text="Quản lý Câu hỏi" styleClass="header-title">
-                    <font><Font name="System Bold" size="22"/></font>
+                <Button onAction="#handleBackToServer" styleClass="back-button" text="← Quay lại" />
+                <Label styleClass="header-title" text="Quản lý Câu hỏi">
+                    <font><Font name="System Bold" size="22" /></font>
                 </Label>
             </HBox>
 
             <!-- Statistics Cards -->
             <HBox spacing="15" styleClass="stats-container">
                 <VBox styleClass="stat-card stat-card-total" HBox.hgrow="ALWAYS">
-                    <Label fx:id="totalQuestionsLabel" text="0" styleClass="stat-number"/>
-                    <Label text="Tổng câu hỏi" styleClass="stat-label"/>
+                    <Label fx:id="totalQuestionsLabel" styleClass="stat-number" text="0" />
+                    <Label styleClass="stat-label" text="Tổng câu hỏi" />
                 </VBox>
 
                 <VBox styleClass="stat-card stat-card-math" HBox.hgrow="ALWAYS">
-                    <Label fx:id="mathQuestionsLabel" text="0" styleClass="stat-number"/>
-                    <Label text="Toán học" styleClass="stat-label"/>
+                    <Label fx:id="mathQuestionsLabel" styleClass="stat-number" text="0" />
+                    <Label styleClass="stat-label" text="Toán học" />
                 </VBox>
 
                 <VBox styleClass="stat-card stat-card-literature" HBox.hgrow="ALWAYS">
-                    <Label fx:id="literatureQuestionsLabel" text="0" styleClass="stat-number"/>
-                    <Label text="Ngữ văn" styleClass="stat-label"/>
+                    <Label fx:id="literatureQuestionsLabel" styleClass="stat-number" text="0" />
+                    <Label styleClass="stat-label" text="Ngữ văn" />
                 </VBox>
 
                 <VBox styleClass="stat-card stat-card-english" HBox.hgrow="ALWAYS">
-                    <Label fx:id="englishQuestionsLabel" text="0" styleClass="stat-number"/>
-                    <Label text="Tiếng Anh" styleClass="stat-label"/>
+                    <Label fx:id="englishQuestionsLabel" styleClass="stat-number" text="0" />
+                    <Label styleClass="stat-label" text="Tiếng Anh" />
                 </VBox>
             </HBox>
 
             <!-- Search and Filters -->
-            <HBox spacing="15" alignment="CENTER_LEFT" styleClass="filter-container">
-                <TextField fx:id="searchField" promptText="🔍 Tìm kiếm câu hỏi..."
-                           styleClass="search-field" prefWidth="400"/>
-                <Label text="Môn học:" styleClass="filter-label"/>
-                <ComboBox fx:id="subjectFilter" styleClass="filter-combo" prefWidth="150"/>
-                <Label text="Độ khó:" styleClass="filter-label"/>
-                <ComboBox fx:id="difficultyFilter" styleClass="filter-combo" prefWidth="150"/>
+            <HBox alignment="CENTER_LEFT" spacing="15" styleClass="filter-container">
+                <TextField fx:id="searchField" prefWidth="400" promptText="🔍 Tìm kiếm câu hỏi..." styleClass="search-field" />
+                <Label styleClass="filter-label" text="Môn học:" />
+                <ComboBox fx:id="subjectFilter" prefWidth="150" styleClass="filter-combo" />
+                <Label styleClass="filter-label" text="Độ khó:" />
+                <ComboBox fx:id="difficultyFilter" prefWidth="150" styleClass="filter-combo" />
             </HBox>
         </VBox>
     </top>
@@ -62,35 +72,35 @@
     <!-- Center: Tab Pane -->
     <center>
         <TabPane styleClass="main-tab-pane" tabClosingPolicy="UNAVAILABLE">
-            <padding><Insets top="0" right="20" bottom="20" left="20"/></padding>
+            <padding><Insets bottom="20" left="20" right="20" top="0" /></padding>
 
             <!-- Tab 1: Quản lý câu hỏi -->
-            <Tab text="📋 Quản lý câu hỏi" styleClass="main-tab">
+            <Tab styleClass="main-tab" text="📋 Quản lý câu hỏi">
                 <SplitPane dividerPositions="0.6" styleClass="split-pane">
 
                     <!-- Left: Question Table -->
                     <VBox spacing="10" styleClass="table-container">
                         <HBox alignment="CENTER_LEFT" spacing="10">
-                            <Label text="Danh sách câu hỏi" styleClass="section-title">
-                                <font><Font name="System Bold" size="16"/></font>
+                            <Label styleClass="section-title" text="Danh sách câu hỏi">
+                                <font><Font name="System Bold" size="16" /></font>
                             </Label>
-                            <Label fx:id="selectedCountLabel" text="" styleClass="selected-label"/>
-                            <Region HBox.hgrow="ALWAYS"/>
-                            <Button text="❌ Bỏ chọn" onAction="#handleDeselectQuestion" styleClass="deselect-button"/>
-                            <Button text="🗑️ Xóa" onAction="#handleDeleteQuestion" styleClass="delete-button"/>
+                            <Label fx:id="selectedCountLabel" styleClass="selected-label" text="" />
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Button onAction="#handleDeselectQuestion" styleClass="deselect-button" text="❌ Bỏ chọn" />
+                            <Button onAction="#handleDeleteQuestion" styleClass="delete-button" text="🗑️ Xóa" />
                         </HBox>
 
-                        <TableView fx:id="questionTable" VBox.vgrow="ALWAYS" styleClass="question-table">
+                        <TableView fx:id="questionTable" styleClass="question-table" VBox.vgrow="ALWAYS">
                             <columns>
-                                <TableColumn fx:id="sttColumn" text="STT" prefWidth="50"/>
-                                <TableColumn fx:id="subjectColumn" text="Môn học" prefWidth="100"/>
-                                <TableColumn fx:id="contentColumn" text="Nội dung" prefWidth="200"/>
-                                <TableColumn fx:id="answerAColumn" text="A" prefWidth="90"/>
-                                <TableColumn fx:id="answerBColumn" text="B" prefWidth="90"/>
-                                <TableColumn fx:id="answerCColumn" text="C" prefWidth="90"/>
-                                <TableColumn fx:id="answerDColumn" text="D" prefWidth="90"/>
-                                <TableColumn fx:id="correctAnswerColumn" text="Đúng" prefWidth="60"/>
-                                <TableColumn fx:id="difficultyColumn" text="Độ khó" prefWidth="80"/>
+                                <TableColumn fx:id="sttColumn" prefWidth="50" text="STT" />
+                                <TableColumn fx:id="subjectColumn" prefWidth="100" text="Môn học" />
+                                <TableColumn fx:id="contentColumn" prefWidth="200" text="Nội dung" />
+                                <TableColumn fx:id="answerAColumn" prefWidth="90" text="A" />
+                                <TableColumn fx:id="answerBColumn" prefWidth="90" text="B" />
+                                <TableColumn fx:id="answerCColumn" prefWidth="90" text="C" />
+                                <TableColumn fx:id="answerDColumn" prefWidth="90" text="D" />
+                                <TableColumn fx:id="correctAnswerColumn" prefWidth="60" text="Đúng" />
+                                <TableColumn fx:id="difficultyColumn" prefWidth="80" text="Độ khó" />
                             </columns>
                         </TableView>
                     </VBox>
@@ -98,85 +108,79 @@
                     <!-- Right: Question Form -->
                     <ScrollPane fitToWidth="true" styleClass="scroll-pane">
                         <VBox spacing="15" styleClass="form-container">
-                            <padding><Insets top="10" right="15" bottom="15" left="15"/></padding>
+                            <padding><Insets bottom="15" left="15" right="15" top="10" /></padding>
 
                             <HBox alignment="CENTER_LEFT" spacing="10">
-                                <Label text="Thông tin câu hỏi" styleClass="section-title">
-                                    <font><Font name="System Bold" size="16"/></font>
+                                <Label styleClass="section-title" text="Thông tin câu hỏi">
+                                    <font><Font name="System Bold" size="16" /></font>
                                 </Label>
-                                <Region HBox.hgrow="ALWAYS"/>
-                                <Button text="➕ Mới" onAction="#handleNewQuestion" styleClass="new-button"/>
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button onAction="#handleNewQuestion" styleClass="new-button" text="➕ Mới" />
                             </HBox>
 
-                            <Separator/>
+                            <Separator />
 
                             <!-- Question Content -->
                             <VBox spacing="5">
-                                <Label text="Nội dung câu hỏi *" styleClass="form-label"/>
-                                <TextArea fx:id="questionContentArea" promptText="Nhập nội dung câu hỏi..."
-                                          prefRowCount="3" wrapText="true" styleClass="text-area"/>
+                                <Label styleClass="form-label" text="Nội dung câu hỏi *" />
+                                <TextArea fx:id="questionContentArea" prefRowCount="3" promptText="Nhập nội dung câu hỏi..." styleClass="text-area" wrapText="true" />
                             </VBox>
 
                             <!-- Subject and Difficulty -->
                             <HBox spacing="15">
                                 <VBox spacing="5" HBox.hgrow="ALWAYS">
-                                    <Label text="Môn học *" styleClass="form-label"/>
-                                    <ComboBox fx:id="subjectCombo" promptText="Chọn môn học"
-                                              styleClass="form-combo" maxWidth="Infinity"/>
+                                    <Label styleClass="form-label" text="Môn học *" />
+                                    <ComboBox fx:id="subjectCombo" maxWidth="Infinity" promptText="Chọn môn học" styleClass="form-combo" />
                                 </VBox>
 
                                 <VBox spacing="5" HBox.hgrow="ALWAYS">
-                                    <Label text="Độ khó *" styleClass="form-label"/>
-                                    <ComboBox fx:id="difficultyCombo" promptText="Chọn độ khó"
-                                              styleClass="form-combo" maxWidth="Infinity"/>
+                                    <Label styleClass="form-label" text="Độ khó *" />
+                                    <ComboBox fx:id="difficultyCombo" maxWidth="Infinity" promptText="Chọn độ khó" styleClass="form-combo" />
                                 </VBox>
                             </HBox>
 
-                            <Separator/>
+                            <Separator />
 
                             <!-- Answers -->
                             <VBox spacing="10">
-                                <Label text="Các đáp án" styleClass="form-label">
-                                    <font><Font name="System Bold" size="13"/></font>
+                                <Label styleClass="form-label" text="Các đáp án">
+                                    <font><Font name="System Bold" size="13" /></font>
                                 </Label>
 
                                 <VBox spacing="5">
-                                    <Label text="Đáp án A *" styleClass="form-label-small"/>
-                                    <TextField fx:id="answerAField" promptText="Nhập đáp án A" styleClass="text-field"/>
+                                    <Label styleClass="form-label-small" text="Đáp án A *" />
+                                    <TextField fx:id="answerAField" promptText="Nhập đáp án A" styleClass="text-field" />
                                 </VBox>
 
                                 <VBox spacing="5">
-                                    <Label text="Đáp án B *" styleClass="form-label-small"/>
-                                    <TextField fx:id="answerBField" promptText="Nhập đáp án B" styleClass="text-field"/>
+                                    <Label styleClass="form-label-small" text="Đáp án B *" />
+                                    <TextField fx:id="answerBField" promptText="Nhập đáp án B" styleClass="text-field" />
                                 </VBox>
 
                                 <VBox spacing="5">
-                                    <Label text="Đáp án C *" styleClass="form-label-small"/>
-                                    <TextField fx:id="answerCField" promptText="Nhập đáp án C" styleClass="text-field"/>
+                                    <Label styleClass="form-label-small" text="Đáp án C *" />
+                                    <TextField fx:id="answerCField" promptText="Nhập đáp án C" styleClass="text-field" />
                                 </VBox>
 
                                 <VBox spacing="5">
-                                    <Label text="Đáp án D *" styleClass="form-label-small"/>
-                                    <TextField fx:id="answerDField" promptText="Nhập đáp án D" styleClass="text-field"/>
+                                    <Label styleClass="form-label-small" text="Đáp án D *" />
+                                    <TextField fx:id="answerDField" promptText="Nhập đáp án D" styleClass="text-field" />
                                 </VBox>
                             </VBox>
 
-                            <Separator/>
+                            <Separator />
 
                             <!-- Correct Answer -->
                             <VBox spacing="5">
-                                <Label text="Đáp án đúng *" styleClass="form-label"/>
-                                <ComboBox fx:id="correctAnswerCombo" promptText="Chọn đáp án đúng"
-                                          styleClass="form-combo" prefWidth="150"/>
+                                <Label styleClass="form-label" text="Đáp án đúng *" />
+                                <ComboBox fx:id="correctAnswerCombo" prefWidth="150" promptText="Chọn đáp án đúng" styleClass="form-combo" />
                             </VBox>
 
                             <!-- Action Buttons -->
-                            <HBox spacing="10" alignment="CENTER" styleClass="button-container">
-                                <padding><Insets top="10"/></padding>
-                                <Button fx:id="saveButton" text="Thêm câu hỏi" onAction="#handleSaveQuestion"
-                                        styleClass="save-button" prefWidth="150"/>
-                                <Button text="Làm mới" onAction="#handleClearForm"
-                                        styleClass="clear-button" prefWidth="100"/>
+                            <HBox alignment="CENTER" spacing="10" styleClass="button-container">
+                                <padding><Insets top="10" /></padding>
+                                <Button fx:id="saveButton" onAction="#handleSaveQuestion" prefWidth="150" styleClass="save-button" text="Thêm câu hỏi" />
+                                <Button onAction="#handleClearForm" prefWidth="100" styleClass="clear-button" text="Làm mới" />
                             </HBox>
                         </VBox>
                     </ScrollPane>
@@ -185,37 +189,35 @@
             </Tab>
 
             <!-- Tab 2: Import từ file -->
-            <Tab text="📁 Import từ file" styleClass="main-tab">
+            <Tab styleClass="main-tab" text="📁 Import từ file">
                 <ScrollPane fitToWidth="true" pannable="true" styleClass="scroll-pane">
                     <content>
-                        <VBox spacing="20" alignment="TOP_CENTER" styleClass="tab-content">
-                            <padding><Insets top="40" right="40" bottom="40" left="40"/></padding>
+                        <VBox alignment="TOP_CENTER" spacing="20" styleClass="tab-content">
+                            <padding><Insets bottom="40" left="40" right="40" top="40" /></padding>
 
-                            <Label text="📄 Import câu hỏi từ file Excel/Word" styleClass="section-title">
-                                <font><Font name="System Bold" size="18"/></font>
+                            <Label styleClass="section-title" text="📄 Import câu hỏi từ file Excel/Word">
+                                <font><Font name="System Bold" size="18" /></font>
                             </Label>
 
-                            <VBox spacing="20" alignment="CENTER" styleClass="upload-area" maxWidth="600">
-                                <VBox spacing="15" alignment="CENTER">
-                                    <Label text="📂" styleClass="upload-icon"/>
-                                    <Label text="Kéo thả file vào đây hoặc click để chọn file"
-                                           styleClass="upload-text"/>
-                                    <Label text="Hỗ trợ: Excel (.xlsx, .xls) và Word (.docx, .doc)"
-                                           styleClass="upload-hint"/>
+                            <VBox alignment="CENTER" maxWidth="600" spacing="20" styleClass="upload-area">
+                                <VBox alignment="CENTER" spacing="15">
+                                    <Label styleClass="upload-icon" text="📂" />
+                                    <Label styleClass="upload-text" text="Kéo thả file vào đây hoặc click để chọn file" />
+                                    <Label styleClass="upload-hint" text="Hỗ trợ: Excel (.xlsx, .xls) và Word (.docx, .doc)" />
                                 </VBox>
 
-                                <Button text="⬆ Chọn file để upload" onAction="#handleImportFile"
-                                        styleClass="upload-button"/>
+                                <Button onAction="#handleImportFile" styleClass="upload-button" text="⬆ Chọn file để upload" />
                             </VBox>
 
-                            <VBox spacing="10" alignment="CENTER_LEFT" styleClass="info-box">
-                                <Label text="📝 Hướng dẫn định dạng file:" styleClass="info-title"/>
-                                <Label text="• Cột 1: Môn học (Toán học/Ngữ văn/Tiếng Anh)" styleClass="info-text"/>
-                                <Label text="• Cột 2: Độ khó (Dễ/Trung bình/Khó)" styleClass="info-text"/>
-                                <Label text="• Cột 3: Nội dung câu hỏi" styleClass="info-text"/>
-                                <Label text="• Cột 4-7: Đáp án A, B, C, D" styleClass="info-text"/>
-                                <Label text="• Cột 8: Đáp án đúng (A/B/C/D)" styleClass="info-text"/>
+                            <VBox alignment="CENTER_LEFT" spacing="10" styleClass="info-box">
+                                <Label styleClass="info-title" text="📝 Hướng dẫn định dạng file:" />
+                                <Label styleClass="info-text" text="• Cột 1: Môn học (Toán học/Ngữ văn/Tiếng Anh)" />
+                                <Label styleClass="info-text" text="• Cột 2: Độ khó (Dễ/Trung bình/Khó)" />
+                                <Label styleClass="info-text" text="• Cột 3: Nội dung câu hỏi" />
+                                <Label styleClass="info-text" text="• Cột 4-7: Đáp án A, B, C, D" />
+                                <Label styleClass="info-text" text="• Cột 8: Đáp án đúng (A/B/C/D)" />
                             </VBox>
+                     <Hyperlink fx:id="DownloadSample" onAction="#handleDownloadSample" text="Tải mẫu định dạng" />
 
                         </VBox>
                     </content>
@@ -224,55 +226,49 @@
 
 
             <!-- Tab 3: Tạo bằng AI -->
-            <Tab text="🤖 Tạo bằng AI" styleClass="main-tab">
+            <Tab styleClass="main-tab" text="🤖 Tạo bằng AI">
                 <ScrollPane fitToWidth="true" styleClass="scroll-pane">
-                    <VBox spacing="25" styleClass="tab-content form-container" alignment="TOP_CENTER">
-                        <padding><Insets top="40" right="60" bottom="40" left="60"/></padding>
+                    <VBox alignment="TOP_CENTER" spacing="25" styleClass="tab-content form-container">
+                        <padding><Insets bottom="40" left="60" right="60" top="40" /></padding>
 
-                        <VBox spacing="10" alignment="CENTER">
-                            <Label text="🤖 Tạo câu hỏi tự động bằng AI" styleClass="section-title">
-                                <font><Font name="System Bold" size="20"/></font>
+                        <VBox alignment="CENTER" spacing="10">
+                            <Label styleClass="section-title" text="🤖 Tạo câu hỏi tự động bằng AI">
+                                <font><Font name="System Bold" size="20" /></font>
                             </Label>
-                            <Label text="Nhập mô tả và để AI tự động tạo câu hỏi cho bạn"
-                                   styleClass="subtitle"/>
+                            <Label styleClass="subtitle" text="Nhập mô tả và để AI tự động tạo câu hỏi cho bạn" />
                         </VBox>
 
-                        <VBox spacing="15" maxWidth="800" styleClass="ai-form-container">
+                        <VBox maxWidth="800" spacing="15" styleClass="ai-form-container">
                             <VBox spacing="8">
-                                <Label text="Chủ đề/Nội dung câu hỏi *" styleClass="form-label"/>
-                                <TextArea fx:id="aiPromptArea"
-                                          promptText="Ví dụ: Tạo câu hỏi về định lý Pythagoras, phương trình bậc 2, hoặc ngữ pháp tiếng Anh..."
-                                          prefRowCount="5" wrapText="true" styleClass="text-area"/>
+                                <Label styleClass="form-label" text="Chủ đề/Nội dung câu hỏi *" />
+                                <TextArea fx:id="aiPromptArea" prefRowCount="5" promptText="Ví dụ: Tạo câu hỏi về định lý Pythagoras, phương trình bậc 2, hoặc ngữ pháp tiếng Anh..." styleClass="text-area" wrapText="true" />
                             </VBox>
 
                             <HBox spacing="15">
                                 <VBox spacing="8" HBox.hgrow="ALWAYS">
-                                    <Label text="Môn học *" styleClass="form-label"/>
-                                    <ComboBox fx:id="aiSubjectCombo" styleClass="form-combo" maxWidth="Infinity"/>
+                                    <Label styleClass="form-label" text="Môn học *" />
+                                    <ComboBox fx:id="aiSubjectCombo" maxWidth="Infinity" styleClass="form-combo" />
                                 </VBox>
 
                                 <VBox spacing="8" HBox.hgrow="ALWAYS">
-                                    <Label text="Độ khó *" styleClass="form-label"/>
-                                    <ComboBox fx:id="aiDifficultyCombo" styleClass="form-combo" maxWidth="Infinity"/>
+                                    <Label styleClass="form-label" text="Độ khó *" />
+                                    <ComboBox fx:id="aiDifficultyCombo" maxWidth="Infinity" styleClass="form-combo" />
                                 </VBox>
 
                                 <VBox spacing="8">
-                                    <Label text="Số câu hỏi *" styleClass="form-label"/>
-                                    <TextField fx:id="aiQuantityField" text="5"
-                                               styleClass="text-field" prefWidth="100"/>
+                                    <Label styleClass="form-label" text="Số câu hỏi *" />
+                                    <TextField fx:id="aiQuantityField" prefWidth="100" styleClass="text-field" text="5" />
                                 </VBox>
                             </HBox>
 
-                            <VBox spacing="10" alignment="CENTER" styleClass="ai-info-box">
-                                <Label text="💡 Mẹo:" styleClass="info-title"/>
-                                <Label text="Càng mô tả chi tiết, AI sẽ tạo câu hỏi càng chính xác"
-                                       styleClass="info-text"/>
+                            <VBox alignment="CENTER" spacing="10" styleClass="ai-info-box">
+                                <Label styleClass="info-title" text="💡 Mẹo:" />
+                                <Label styleClass="info-text" text="Càng mô tả chi tiết, AI sẽ tạo câu hỏi càng chính xác" />
                             </VBox>
 
-                            <HBox spacing="10" alignment="CENTER">
-                                <padding><Insets top="10"/></padding>
-                                <Button text="✨ Tạo câu hỏi với AI" onAction="#handleGenerateWithAI"
-                                        styleClass="ai-button" prefWidth="250"/>
+                            <HBox alignment="CENTER" spacing="10">
+                                <padding><Insets top="10" /></padding>
+                                <Button onAction="#handleGenerateWithAI" prefWidth="250" styleClass="ai-button" text="✨ Tạo câu hỏi với AI" />
                             </HBox>
                         </VBox>
                     </VBox>

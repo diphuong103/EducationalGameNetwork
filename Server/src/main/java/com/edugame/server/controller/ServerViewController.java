@@ -18,6 +18,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -280,9 +281,21 @@ public class ServerViewController {
                 logToConsole("⚠️ Could not load CSS: " + cssError.getMessage());
             }
 
+            // Tạo cửa sổ
             Stage stage = new Stage();
             stage.setTitle("Question Bank Manager");
             stage.setScene(new Scene(root, 1400, 800));
+
+            // 🔥 Set icon nhỏ cho cửa sổ
+            try {
+                stage.getIcons().add(new Image(
+                        getClass().getResourceAsStream("/images/avatars/icon-question.png"),
+                        16, 16, true, true
+                ));
+            } catch (Exception e) {
+                System.out.println("⚠️ Icon not found");
+            }
+
             stage.initModality(Modality.NONE);
             stage.show();
 
@@ -294,6 +307,7 @@ public class ServerViewController {
             showAlert("Error", "Could not open Question Bank Manager", Alert.AlertType.ERROR);
         }
     }
+
 
     // ==================== USER MANAGEMENT ====================
 

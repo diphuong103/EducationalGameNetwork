@@ -69,15 +69,15 @@
                                 <Label text="Danh sách phòng" styleClass="panel-title"/>
                                 <Region HBox.hgrow="ALWAYS"/>
                                 <Label text="Tổng số phòng: " styleClass="info-text"/>
-                                <Label fx:id="totalRoomsLabel" text="5" styleClass="info-value-accent"/>
+                                <Label fx:id="totalRoomsLabel" text="0" styleClass="info-value-accent"/>
                             </HBox>
 
                             <HBox alignment="CENTER_LEFT" spacing="8">
                                 <Label text="Đang chơi: " styleClass="info-text-sm"/>
-                                <Label fx:id="playingRoomsLabel" text="3" styleClass="status-playing"/>
+                                <Label fx:id="playingRoomsLabel" text="0" styleClass="status-playing"/>
                                 <Region prefWidth="10"/>
                                 <Label text="Chờ: " styleClass="info-text-sm"/>
-                                <Label fx:id="waitingRoomsLabel" text="2" styleClass="status-waiting"/>
+                                <Label fx:id="waitingRoomsLabel" text="0" styleClass="status-waiting"/>
                             </HBox>
 
                             <Separator/>
@@ -109,7 +109,7 @@
                                     <HBox spacing="10" alignment="CENTER_LEFT">
                                         <Label fx:id="roomStatusBadge" text="WAITING"
                                                styleClass="status-badge,status-waiting"/>
-                                        <Label fx:id="roomIdLabel" text="#101" styleClass="room-id-text"/>
+                                        <Label fx:id="roomIdLabel" text="#" styleClass="room-id-text"/>
                                     </HBox>
                                 </VBox>
                                 <Button fx:id="closeRoomButton" text="✖" styleClass="btn-close-detail"

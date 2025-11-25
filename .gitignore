@@ -36,3 +36,21 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+
+# API Configuration - DO NOT COMMIT
+config.properties
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# Build files
+target/
+out/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
