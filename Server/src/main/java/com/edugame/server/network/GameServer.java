@@ -23,7 +23,7 @@ public class GameServer {
     private List<ClientHandler> connectedClients;
     private boolean running;
     private int port;
-    private final MatchmakingManager matchmakingManager;
+    private MatchmakingManager matchmakingManager;
     private final GameRoomManager roomManager;
     private static GameServer instance;
 
@@ -81,12 +81,16 @@ public class GameServer {
             serverSocket.setReuseAddress(true);
             running = true;
 
-
             System.out.println("========================================");
             System.out.println("🎮 MATH ADVENTURE SERVER");
             System.out.println("========================================");
             System.out.println("✓ Server started on port: " + port + " (TCP)");
             System.out.println("✓ Database connected");
+
+            GameRoomManager gameRoomManager = new GameRoomManager();
+
+            matchmakingManager = new MatchmakingManager(GameRoomManager.getInstance());
+
 
             // Start Voice Chat UDP Server
             System.out.println("🎙️ Starting Voice Chat Server...");
@@ -116,7 +120,7 @@ public class GameServer {
                     Socket clientSocket = serverSocket.accept();
 
                     // Create new client handler với reference đến server và voiceChatServer
-                    ClientHandler clientHandler = new ClientHandler(clientSocket, this);
+                    ClientHandler clientHandler = new ClientHandler(clientSocket, this, matchmakingManager);
                     connectedClients.add(clientHandler);
 
                     // Start client handler in new thread

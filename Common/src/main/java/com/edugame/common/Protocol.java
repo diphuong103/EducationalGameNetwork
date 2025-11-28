@@ -65,6 +65,7 @@ public class Protocol {
     public static final String GET_TRAINING_QUESTIONS = "GET_TRAINING_QUESTIONS";
     public static final String PLAYER_ANSWERED = "PLAYER_ANSWERED";
     public static final String PLAYER_PROGRESS = "PLAYER_PROGRESS";
+    public static final String GAME_START = "GAME_START";
 
     // ==================== SUBJECTS ====================
 
@@ -209,6 +210,12 @@ public class Protocol {
     public static final String EASY = "easy";
     public static final String MEDIUM = "medium";
     public static final String HARD = "hard";
+
+    // count player
+    public static final int TWO_PLAYER = 2;
+    public static final int FOUR_PLAYER = 4;
+
+
 
     // ============================================
     // GAME MECHANICS

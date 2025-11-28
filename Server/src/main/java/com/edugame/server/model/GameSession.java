@@ -238,31 +238,47 @@ public class GameSession {
      */
     public synchronized AnswerResult submitAnswer(int userId, String answer) {
         // Validate
+        System.out.println("📨 [submitAnswer] User " + userId + " submitted answer: " + answer);
+        System.out.println("   Current gameState: " + gameState);
+        System.out.println("   Question index: " + playerQuestionIndex.get(userId));
+
+        if (gameState == GameState.COUNTDOWN) {
+            System.err.println("⏰ [submitAnswer] Game still in COUNTDOWN - rejecting answer");
+            return new AnswerResult(false, "Please wait for countdown to finish", 0, 0);
+        }
         if (gameState != GameState.PLAYING) {
+            System.err.println("❌ [submitAnswer] Game not in PLAYING state: " + gameState);
             return new AnswerResult(false, "Game not in playing state", 0, 0);
         }
 
         if (finishedPlayers.contains(userId)) {
+            System.out.println("⚠️ [submitAnswer] User " + userId + " already finished");
             return new AnswerResult(false, "You already finished", 0, 0);
         }
 
         if (disconnectedPlayers.contains(userId)) {
+            System.out.println("⚠️ [submitAnswer] User " + userId + " disconnected");
             return new AnswerResult(false, "Player disconnected", 0, 0);
         }
 
         Integer currentIndex = playerQuestionIndex.get(userId);
         if (currentIndex == null || currentIndex >= questions.size()) {
+            System.err.println("❌ [submitAnswer] Invalid question index: " + currentIndex);
             return new AnswerResult(false, "No active question", 0, 0);
         }
+
+        System.out.println("✅ [submitAnswer] Validation passed - processing answer");
 
         // Cancel timeout timer
         ScheduledFuture<?> timer = playerQuestionTimers.remove(userId);
         if (timer != null) {
             timer.cancel(false);
+            System.out.println("   ⏱️ Cancelled timer for user " + userId);
         }
 
         PlayerGameState state = playerStates.get(userId);
         if (state == null) {
+            System.err.println("❌ [submitAnswer] Player state not found");
             return new AnswerResult(false, "Player not found", 0, 0);
         }
 
@@ -273,6 +289,10 @@ public class GameSession {
         Long startTime = playerQuestionStartTime.get(userId);
         long timeTaken = startTime != null ?
                 (System.currentTimeMillis() - startTime) : 0;
+
+        System.out.println("   📝 Question " + (currentIndex + 1) + ": " +
+                (isCorrect ? "✅ CORRECT" : "❌ WRONG"));
+        System.out.println("   ⏱️ Time taken: " + timeTaken + "ms");
 
         // Update player state
         state.lastAnswer = answer;
@@ -661,28 +681,53 @@ public class GameSession {
     public String getDifficulty() { return difficulty; }
     public GameState getGameState() { return gameState; }
 
+//    public Question getQuestionForPlayer(int userId) {
+//        Integer index = playerQuestionIndex.get(userId);
+//
+//        if (index == null) {
+//            System.out.println("⚠️ [getQuestion] Player " + userId + " has null index");
+//            return null;
+//        }
+//
+//        if (index < 0 || index >= questions.size()) {
+//            System.out.println("⚠️ [getQuestion] Player " + userId + " index out of bounds: " + index);
+//            return null;
+//        }
+//
+//        Question q = questions.get(index);
+//
+//        // ✅ Log để debug
+//        System.out.println("📖 [getQuestion] Player " + userId +
+//                " -> Q" + (index + 1) + " (ID: " +
+//                (q != null ? q.getQuestionId() : "null") + ")");
+//
+//        return q;
+//    }
+
     public Question getQuestionForPlayer(int userId) {
         Integer index = playerQuestionIndex.get(userId);
+        System.out.println("👉 [getQuestionForPlayer] user " + userId +
+                " index = " + index + ", total = " + questions.size());
 
         if (index == null) {
-            System.out.println("⚠️ [getQuestion] Player " + userId + " has null index");
-            return null;
+            System.out.println("⚠️ [getQuestionForPlayer] index null for user " + userId);
+            return null; // tránh NPE
         }
 
         if (index < 0 || index >= questions.size()) {
-            System.out.println("⚠️ [getQuestion] Player " + userId + " index out of bounds: " + index);
+            System.out.println("⚠️ [getQuestionForPlayer] index out of range: " +
+                    index + " / " + questions.size());
             return null;
         }
 
-        Question q = questions.get(index);
-
-        // ✅ Log để debug
-        System.out.println("📖 [getQuestion] Player " + userId +
-                " -> Q" + (index + 1) + " (ID: " +
-                (q != null ? q.getQuestionId() : "null") + ")");
-
-        return q;
+        try {
+            return questions.get(index);
+        } catch (Exception e) {
+            System.out.println("❌ [getQuestionForPlayer] ERROR: " + e.getMessage());
+            return null;
+        }
     }
+
 
     public int getQuestionIndexForPlayer(int userId) {
         return playerQuestionIndex.getOrDefault(userId, 0);

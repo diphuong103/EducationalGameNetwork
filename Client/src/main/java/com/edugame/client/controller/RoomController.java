@@ -2108,6 +2108,8 @@ public class RoomController {
     private void handleGameStartResponse(Map<String, Object> data) {
         Platform.runLater(() -> {
             try {
+                System.out.println("📦 [RoomController] START_GAME raw data: " + data);
+
                 boolean success = getBooleanValue(data.get("success"));
 
                 if (!success) {
@@ -2120,6 +2122,7 @@ public class RoomController {
 
                 // ✅ Chuyển sang màn hình game
                 switchToGameScene(data);
+
 
             } catch (Exception e) {
                 System.err.println("❌ [RoomController] Error handling START_GAME: " + e.getMessage());
@@ -2134,30 +2137,63 @@ public class RoomController {
      */
     private void switchToGameScene(Map<String, Object> gameData) {
         try {
-            System.out.println("🎮 [RoomController] Switching to MathGame scene...");
+            System.out.println("📦 [RoomController] switchToGameScene() received gameData: " + gameData);
 
-            // ✅ Load MathGame.fxml
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/MathGame.fxml"));
+            // Lấy subject từ data
+            String subject = String.valueOf(gameData.get("subject")).toLowerCase();
+
+            System.out.println("🎯 Subject received: " + subject);
+
+            FXMLLoader loader;
+
+            // 🔥 Chọn FXML theo subject
+            switch (subject) {
+                case "math":
+                    System.out.println("📘 Loading MathGame.fxml");
+                    loader = new FXMLLoader(getClass().getResource("/fxml/MathGame.fxml"));
+                    break;
+
+                case "english":
+                    System.out.println("📗 Loading EnglishGame.fxml");
+                    loader = new FXMLLoader(getClass().getResource("/fxml/EnglishGame.fxml"));
+                    break;
+
+                case "literature":
+                    System.out.println("📙 Loading LiteratureGame.fxml");
+                    loader = new FXMLLoader(getClass().getResource("/fxml/LiteratureGame.fxml"));
+                    break;
+
+                default:
+                    // Nếu subject không đúng → báo lỗi
+                    System.err.println("❌ Unknown subject: " + subject);
+                    showError("Subject không hợp lệ: " + subject);
+                    return;
+            }
+
+            // Load FXML tương ứng
             Parent root = loader.load();
 
-            // ✅ Get controller và initialize game
-            MathGameController gameController = loader.getController();
-            gameController.initializeGame(gameData);
+            // Lấy controller tương ứng
+            Object controller = loader.getController();
 
-            // ✅ Switch scene
+            // Gọi hàm initializeGame() trên controller
+            controller.getClass().getMethod("initializeGame", Map.class).invoke(controller, gameData);
+
+            // Chuyển scene
             SceneManager.getInstance().switchScene(root);
 
-            // ✅ Cleanup room controller
+            // Cleanup room scene
             cleanup();
 
-            System.out.println("✅ [RoomController] Switched to game scene successfully");
+            System.out.println("✅ [RoomController] Game scene loaded successfully!");
 
-        } catch (IOException e) {
-            System.err.println("❌ [RoomController] Error loading game scene: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("❌ [RoomController] Error switching game scene: " + e.getMessage());
             e.printStackTrace();
             showError("Không thể tải màn hình game!");
         }
     }
+
 
 
 

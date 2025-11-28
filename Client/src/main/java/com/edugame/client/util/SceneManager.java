@@ -13,7 +13,11 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
+/**
+ * ✅ FIXED: SceneManager with controller callback support
+ */
 public class SceneManager {
     private static SceneManager instance;
     private Stage primaryStage;
@@ -29,6 +33,10 @@ public class SceneManager {
         SCENE_CSS_MAP.put("Lobby.fxml", "Lobby.css");
         SCENE_CSS_MAP.put("Room.fxml", "Room.css");
         SCENE_CSS_MAP.put("Game.fxml", "Game.css");
+        SCENE_CSS_MAP.put("MathGame.fxml", "Game.css");
+        SCENE_CSS_MAP.put("EnglishGame.fxml", "Game.css");
+        SCENE_CSS_MAP.put("LiteratureGame.fxml", "Game.css");
+        SCENE_CSS_MAP.put("FindMatch.fxml", "FindMatch.css");
         SCENE_CSS_MAP.put("Result.fxml", "Result.css");
     }
 
@@ -52,20 +60,48 @@ public class SceneManager {
     }
 
     /**
-     * Switch to a new scene with fade transition
+     * ✅ ORIGINAL: Switch to a new scene with fade transition
      */
     public void switchScene(String fxmlFile) throws IOException {
-        Scene scene = getScene(fxmlFile);
+        switchScene(fxmlFile, null);
+    }
 
+    /**
+     * ✅ NEW: Switch scene with controller initialization callback
+     * @param fxmlFile FXML file name
+     * @param controllerInitializer Callback to initialize controller after loading
+     */
+    public void switchScene(String fxmlFile, Consumer<Object> controllerInitializer) throws IOException {
+        if (primaryStage == null) {
+            throw new IllegalStateException("Primary stage not set!");
+        }
+
+        // ✅ Load scene (không dùng cache cho game scenes)
+        SceneData sceneData = loadScene(fxmlFile);
+        Scene scene = sceneData.scene;
+        Object controller = sceneData.controller;
+
+        // ✅ Initialize controller if callback provided
+        if (controllerInitializer != null && controller != null) {
+            System.out.println("🎮 [SceneManager] Initializing controller: " +
+                    controller.getClass().getSimpleName());
+            try {
+                controllerInitializer.accept(controller);
+            } catch (Exception e) {
+                System.err.println("❌ [SceneManager] Controller init error: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        // ✅ Apply fade transition
         if (primaryStage.getScene() != null) {
             // Fade out current scene
-            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), primaryStage.getScene().getRoot());
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(200),
+                    primaryStage.getScene().getRoot());
             fadeOut.setFromValue(1.0);
             fadeOut.setToValue(0.0);
             fadeOut.setOnFinished(event -> {
                 primaryStage.setScene(scene);
-
-                // 🔹 AUTO REFRESH HOME CONTROLLER
                 notifySceneShown();
 
                 // Fade in new scene
@@ -78,30 +114,21 @@ public class SceneManager {
         } else {
             // First scene, no transition
             primaryStage.setScene(scene);
-
-            // 🔹 AUTO REFRESH HOME CONTROLLER
             notifySceneShown();
         }
+
+        System.out.println("✅ [SceneManager] Scene switched to: " + fxmlFile);
     }
 
     /**
      * 🔹 Notify controller when scene is shown (for auto-refresh)
      */
-//    private void notifySceneShown() {
-//        if (currentController instanceof HomeController) {
-//            ((HomeController) currentController).onSceneShown();
-//            System.out.println("🔄 HomeController auto-refreshed");
-//        }
-//    }
-
     private void notifySceneShown() {
         if (currentController == null) {
-            System.err.println("⚠️ notifySceneShown() called but controller is null");
             return;
         }
 
         try {
-            // Chạy sau 1 tick để đảm bảo scene đã hiển thị xong
             Platform.runLater(() -> {
                 if (currentController instanceof HomeController home) {
                     home.onSceneShown();
@@ -113,44 +140,35 @@ public class SceneManager {
         }
     }
 
-
     /**
-     * Get scene from cache or load it
+     * ✅ IMPROVED: Load scene with proper cache handling
+     * Game scenes are never cached to ensure fresh state
      */
-    private Scene getScene(String fxmlFile) throws IOException {
-        // 🔹 KHÔNG CACHE HOME.FXML để luôn load mới và refresh
-        if ("home.fxml".equalsIgnoreCase(fxmlFile) || "Home.fxml".equals(fxmlFile)) {
+    private SceneData loadScene(String fxmlFile) throws IOException {
+        // 🔹 Don't cache these scenes (need fresh state)
+        boolean shouldCache = !fxmlFile.matches("(?i)(home|.*game|findmatch)\\.fxml");
+
+        if (!shouldCache) {
             sceneCache.remove(fxmlFile);
         }
 
         // Check cache first
         if (sceneCache.containsKey(fxmlFile)) {
             System.out.println("📦 Using cached scene: " + fxmlFile);
-            return sceneCache.get(fxmlFile);
+            Scene cachedScene = sceneCache.get(fxmlFile);
+            return new SceneData(cachedScene, currentController);
         }
 
         System.out.println("🔨 Loading new scene: " + fxmlFile);
 
-        // Try to find FXML file
-        String fxmlPath = "/fxml/" + fxmlFile;
-        URL fxmlUrl = getClass().getResource(fxmlPath);
-
-        // If not found, try root path
-        if (fxmlUrl == null) {
-            System.out.println("⚠️ Not found at: " + fxmlPath);
-            fxmlPath = "/" + fxmlFile;
-            fxmlUrl = getClass().getResource(fxmlPath);
-        }
+        // ✅ Find FXML file with multiple path attempts
+        URL fxmlUrl = findFxmlUrl(fxmlFile);
 
         if (fxmlUrl == null) {
-            System.err.println("❌ FXML file not found: " + fxmlFile);
-            System.err.println("   Tried paths:");
-            System.err.println("   - /fxml/" + fxmlFile);
-            System.err.println("   - /" + fxmlFile);
             throw new IOException("FXML file not found: " + fxmlFile);
         }
 
-        System.out.println("✅ Found FXML at: " + fxmlPath);
+        System.out.println("✅ Found FXML at: " + fxmlUrl);
 
         // Load FXML
         FXMLLoader loader = new FXMLLoader(fxmlUrl);
@@ -164,15 +182,43 @@ public class SceneManager {
         // 🎨 Add CSS files
         loadCssForScene(scene, fxmlFile);
 
-        // Cache scene (except home.fxml)
-        if (!"home.fxml".equalsIgnoreCase(fxmlFile) && !"Home.fxml".equals(fxmlFile)) {
+        // Cache scene if appropriate
+        if (shouldCache) {
             sceneCache.put(fxmlFile, scene);
             System.out.println("💾 Scene cached: " + fxmlFile);
         } else {
-            System.out.println("🔄 Scene not cached (Home.fxml)");
+            System.out.println("🔄 Scene not cached: " + fxmlFile);
         }
 
-        return scene;
+        return new SceneData(scene, currentController);
+    }
+
+    /**
+     * ✅ Find FXML URL with multiple path attempts
+     */
+    private URL findFxmlUrl(String fxmlFile) {
+        // Try multiple paths
+        String[] paths = {
+                "/fxml/" + fxmlFile,
+                "/com/edugame/client/view/" + fxmlFile,
+                "/" + fxmlFile
+        };
+
+        for (String path : paths) {
+            URL url = getClass().getResource(path);
+            if (url != null) {
+                System.out.println("   ✅ Found at: " + path);
+                return url;
+            }
+        }
+
+        System.err.println("❌ FXML file not found: " + fxmlFile);
+        System.err.println("   Tried paths:");
+        for (String path : paths) {
+            System.err.println("   - " + path);
+        }
+
+        return null;
     }
 
     /**
@@ -183,42 +229,40 @@ public class SceneManager {
         System.out.println("🎨 Loading CSS for: " + fxmlFile);
 
         // 1️⃣ Load common CSS (if exists)
-        try {
-            URL commonCssUrl = getClass().getResource("/css/client-style.css");
-            if (commonCssUrl != null) {
-                scene.getStylesheets().add(commonCssUrl.toExternalForm());
-                System.out.println("   ✅ Common CSS loaded: client-style.css");
-            }
-        } catch (Exception e) {
-            System.err.println("   ⚠️ Common CSS not found: " + e.getMessage());
-        }
+        loadCssFile(scene, "/css/client-style.css", "Common CSS");
 
         // 2️⃣ Load scene-specific CSS
         String specificCss = SCENE_CSS_MAP.get(fxmlFile);
         if (specificCss != null) {
-            try {
-                // Try /css/ folder first
-                URL cssUrl = getClass().getResource("/css/" + specificCss);
-
-                // If not found, try root
-                if (cssUrl == null) {
-                    cssUrl = getClass().getResource("/" + specificCss);
-                }
-
-                if (cssUrl != null) {
-                    scene.getStylesheets().add(cssUrl.toExternalForm());
-                    System.out.println("   ✅ Scene CSS loaded: " + specificCss);
-                } else {
-                    System.err.println("   ⚠️ Scene CSS not found: " + specificCss);
-                    System.err.println("      Tried paths:");
-                    System.err.println("      - /css/" + specificCss);
-                    System.err.println("      - /" + specificCss);
-                }
-            } catch (Exception e) {
-                System.err.println("   ⚠️ Failed to load scene CSS: " + e.getMessage());
-            }
+            loadCssFile(scene, "/css/" + specificCss, "Scene CSS (" + specificCss + ")");
         } else {
             System.out.println("   ℹ️ No specific CSS defined for: " + fxmlFile);
+        }
+    }
+
+    /**
+     * ✅ Load a single CSS file safely
+     */
+    private void loadCssFile(Scene scene, String cssPath, String description) {
+        try {
+            URL cssUrl = getClass().getResource(cssPath);
+
+            // Try without /css/ prefix if not found
+            if (cssUrl == null && cssPath.startsWith("/css/")) {
+                cssUrl = getClass().getResource(cssPath.substring(4));
+            }
+
+            if (cssUrl != null) {
+                String cssString = cssUrl.toExternalForm();
+                if (!scene.getStylesheets().contains(cssString)) {
+                    scene.getStylesheets().add(cssString);
+                    System.out.println("   ✅ " + description + " loaded");
+                }
+            } else {
+                System.out.println("   ℹ️ " + description + " not found (optional)");
+            }
+        } catch (Exception e) {
+            System.err.println("   ⚠️ Failed to load " + description + ": " + e.getMessage());
         }
     }
 
@@ -227,30 +271,41 @@ public class SceneManager {
      * Useful for passing data to controllers
      */
     public <T> T switchSceneWithController(String fxmlFile) throws IOException {
-        Scene scene = getScene(fxmlFile);
+        switchScene(fxmlFile, null);
+
+        @SuppressWarnings("unchecked")
+        T controller = (T) currentController;
+        return controller;
+    }
+
+    /**
+     * 🆕 Switch scene using pre-loaded Parent (manual load)
+     */
+    public void switchScene(Parent root) {
+        if (primaryStage == null) {
+            throw new IllegalStateException("PrimaryStage not initialized!");
+        }
+
+        Scene newScene = new Scene(root);
 
         if (primaryStage.getScene() != null) {
-            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), primaryStage.getScene().getRoot());
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(200),
+                    primaryStage.getScene().getRoot());
             fadeOut.setFromValue(1.0);
             fadeOut.setToValue(0.0);
             fadeOut.setOnFinished(event -> {
-                primaryStage.setScene(scene);
-                notifySceneShown();
+                primaryStage.setScene(newScene);
 
-                FadeTransition fadeIn = new FadeTransition(Duration.millis(200), scene.getRoot());
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(200), root);
                 fadeIn.setFromValue(0.0);
                 fadeIn.setToValue(1.0);
                 fadeIn.play();
             });
             fadeOut.play();
         } else {
-            primaryStage.setScene(scene);
-            notifySceneShown();
+            primaryStage.setScene(newScene);
+            primaryStage.show();
         }
-
-        @SuppressWarnings("unchecked")
-        T controller = (T) currentController;
-        return controller;
     }
 
     /**
@@ -274,37 +329,16 @@ public class SceneManager {
         return primaryStage;
     }
 
-
     /**
-     * 🆕 Switch scene bằng Parent (đã load thủ công)
-     * Dùng khi bạn đã tự load FXML bằng FXMLLoader.
+     * ✅ Helper class to hold scene and controller together
      */
-    public void switchScene(Parent root) {
-        if (primaryStage == null) {
-            throw new IllegalStateException("PrimaryStage chưa được khởi tạo!");
-        }
+    private static class SceneData {
+        final Scene scene;
+        final Object controller;
 
-        // Tạo scene mới
-        Scene newScene = new Scene(root);
-
-        // Hiệu ứng fade transition
-        if (primaryStage.getScene() != null) {
-            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), primaryStage.getScene().getRoot());
-            fadeOut.setFromValue(1.0);
-            fadeOut.setToValue(0.0);
-            fadeOut.setOnFinished(event -> {
-                primaryStage.setScene(newScene);
-
-                FadeTransition fadeIn = new FadeTransition(Duration.millis(200), root);
-                fadeIn.setFromValue(0.0);
-                fadeIn.setToValue(1.0);
-                fadeIn.play();
-            });
-            fadeOut.play();
-        } else {
-            primaryStage.setScene(newScene);
-            primaryStage.show();
+        SceneData(Scene scene, Object controller) {
+            this.scene = scene;
+            this.controller = controller;
         }
     }
-
 }

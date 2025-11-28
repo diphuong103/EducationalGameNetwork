@@ -52,6 +52,7 @@ public class ServerConnection {
     private int wins;
     private int currentLevel;
 
+
     private User currentUser;
 
     //Heartbeat fields
@@ -78,8 +79,13 @@ public class ServerConnection {
     private Consumer<JsonObject> gameChatCallback;             // Chat trong game
     private Map<String, Consumer<JsonObject>> messageHandlers = new ConcurrentHashMap<>();
     private String selectedSubject;
+    private String selectedDifficulty;
+    private int selectedCountPlayer;
     private Consumer<Map<String, Object>> playerJoinedCallback;
     private JoinRoomCallback joinRoomCallback;
+
+    private String currentRoomId;
+    private JsonObject opponentInfo;
 
     private Consumer<Map<String, Object>> playerLeftCallback;
     private Consumer<Map<String, Object>> playerReadyCallback;
@@ -89,12 +95,19 @@ public class ServerConnection {
     private Consumer<Map<String, Object>> playerAnsweredCallback;
     private Consumer<Map<String, Object>> playerProgressCallback;
 
+
     public void setQuestionResultCallback(Consumer<Map<String, Object>> callback) {
         this.questionResultCallback = callback;
     }
 
+    public void setOpponentInfo(JsonObject opponent) {
+        this.opponentInfo = opponent;
+    }
 
-
+    public JsonObject getOpponentInfo() {
+        return this.opponentInfo;
+    }
+    
     @FunctionalInterface
     public interface JoinRoomCallback {
         void onResult(boolean success, String message, Map<String, Object> roomData);
@@ -107,6 +120,19 @@ public class ServerConnection {
     public void setPlayerJoinedCallback(Consumer<Map<String, Object>> callback) {
         this.playerJoinedCallback = callback;
     }
+
+    private Consumer<JsonObject> matchFoundCallback;
+    private Consumer<JsonObject> findMatchResponseCallback;
+
+    public void setCurrentRoomId(String roomId) {
+        this.currentRoomId = roomId;
+        System.out.println("📌 Current room set: " + roomId);
+    }
+
+    public String getCurrentRoomId() {
+        return currentRoomId;
+    }
+
 
     public void setPlayerLeftCallback(Consumer<Map<String, Object>> callback) {
         this.playerLeftCallback = callback;
@@ -437,6 +463,22 @@ public class ServerConnection {
 //                }
 //                break;
 
+            // ==================== MATCHMAKING ====================
+            case Protocol.FIND_MATCH:
+                handleFindMatchResponse(json);
+                break;
+
+            case Protocol.MATCH_FOUND:
+                handleMatchFoundResponse(json);
+                break;
+
+            case Protocol.CANCEL_FIND_MATCH:
+                handleCancelFindMatchResponse(json);
+                break;
+
+            case Protocol.MATCH_FAILED:
+                handleMatchFailedResponse(json);
+                break;
 
             // GLOBAL CHAT
             case Protocol.GLOBAL_CHAT:
@@ -568,6 +610,155 @@ public class ServerConnection {
         }
     }
 
+    /**
+     * Xử lý response từ FIND_MATCH
+     */
+    private void handleFindMatchResponse(JsonObject json) {
+        System.out.println("🔍 [CLIENT] FIND_MATCH response received");
+
+        boolean success = json.has("success") && json.get("success").getAsBoolean();
+        String message = json.has("message") ? json.get("message").getAsString() : "";
+
+        if (!success) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Lỗi");
+                alert.setHeaderText("Không thể tìm trận");
+                alert.setContentText(message);
+                alert.showAndWait();
+            });
+        } else {
+            System.out.println("✅ " + message);
+        }
+
+        // Gọi callback nếu có
+        if (findMatchResponseCallback != null) {
+            Platform.runLater(() -> findMatchResponseCallback.accept(json));
+        }
+    }
+
+    /**
+     * Xử lý response từ MATCH_FOUND
+     */
+    private void handleMatchFoundResponse(JsonObject json) {
+        System.out.println("🎮 [CLIENT] MATCH_FOUND response received");
+        System.out.println("📦 Raw JSON: " + json.toString());
+
+        Platform.runLater(() -> {
+            try {
+                boolean success = json.has("success") && json.get("success").getAsBoolean();
+
+                if (!success) {
+                    String message = json.has("message") ? json.get("message").getAsString() : "Không tìm thấy đối thủ";
+                    System.err.println("❌ MATCH_FOUND failed: " + message);
+
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Lỗi");
+                    alert.setHeaderText("Ghép trận thất bại");
+                    alert.setContentText(message);
+                    alert.showAndWait();
+                    return;
+                }
+
+                // ✅ Parse với null checks
+                String roomId = json.has("roomId") && !json.get("roomId").isJsonNull()
+                        ? json.get("roomId").getAsString()
+                        : "unknown";
+
+                String subject = json.has("subject") && !json.get("subject").isJsonNull()
+                        ? json.get("subject").getAsString()
+                        : "unknown";
+
+                String difficulty = json.has("difficulty") && !json.get("difficulty").isJsonNull()
+                        ? json.get("difficulty").getAsString()
+                        : "medium";
+
+                System.out.println("✅ Match found!");
+                System.out.println("   Room: " + roomId);
+                System.out.println("   Subject: " + subject);
+                System.out.println("   Difficulty: " + difficulty);
+
+                // ✅ Parse opponent with null checks
+                JsonObject opponent = json.has("opponent") && !json.get("opponent").isJsonNull()
+                        ? json.getAsJsonObject("opponent")
+                        : new JsonObject();
+
+                String opponentUsername = opponent.has("username") && !opponent.get("username").isJsonNull()
+                        ? opponent.get("username").getAsString()
+                        : "Unknown";
+
+                String opponentFullName = opponent.has("fullName") && !opponent.get("fullName").isJsonNull()
+                        ? opponent.get("fullName").getAsString()
+                        : opponentUsername;
+
+                int opponentScore = opponent.has("totalScore") && !opponent.get("totalScore").isJsonNull()
+                        ? opponent.get("totalScore").getAsInt()
+                        : 0;
+
+                System.out.println("   Opponent: " + opponentUsername + " (" + opponentFullName + ")");
+                System.out.println("   Score: " + opponentScore);
+
+                // ✅ Lưu room ID
+                setCurrentRoomId(roomId);
+
+                // ✅ Dừng timer nếu có
+                // TODO: Add your timer stop code here if needed
+
+                // ✅ Hiển thị thông báo
+                System.out.println("🎉 Đã tìm thấy đối thủ!");
+                System.out.println("   Đối thủ: " + opponentFullName);
+                System.out.println("   Điểm: " + opponentScore);
+                System.out.println("   Môn: " + subject + " (" + difficulty + ")");
+                System.out.println("   ⏳ Đợi START_GAME từ server...");
+
+                // ✅ Update UI if you have UI elements
+                // TODO: Update your UI labels here
+
+            } catch (Exception e) {
+                System.err.println("❌ Error in handleMatchFound: " + e.getMessage());
+                e.printStackTrace();
+
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Lỗi");
+                alert.setHeaderText("Lỗi xử lý kết quả");
+                alert.setContentText("Không thể xử lý kết quả ghép trận: " + e.getMessage());
+                alert.showAndWait();
+            }
+        });
+    }
+
+    /**
+     * Xử lý response từ CANCEL_FIND_MATCH
+     */
+    private void handleCancelFindMatchResponse(JsonObject json) {
+        System.out.println("❌ [CLIENT] CANCEL_FIND_MATCH response received");
+
+        boolean success = json.has("success") && json.get("success").getAsBoolean();
+        String message = json.has("message") ? json.get("message").getAsString() : "";
+
+        if (success) {
+            System.out.println("✅ " + message);
+        } else {
+            System.out.println("⚠️ " + message);
+        }
+    }
+
+    /**
+     * Xử lý response từ MATCH_FAILED
+     */
+    private void handleMatchFailedResponse(JsonObject json) {
+        System.out.println("❌ [CLIENT] MATCH_FAILED response received");
+
+        String message = json.has("message") ? json.get("message").getAsString() : "Không thể tạo trận đấu";
+
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Lỗi");
+            alert.setHeaderText("Ghép trận thất bại");
+            alert.setContentText(message);
+            alert.showAndWait();
+        });
+    }
     private void handleHeartbeatAck() {
         lastHeartbeatTime = System.currentTimeMillis();
         missedHeartbeats = 0;
@@ -666,12 +857,40 @@ public class ServerConnection {
         System.out.println("📚 Selected subject: " + subject);
     }
 
+    public void setSelectedDifficulty(String difficulty) {
+        this.selectedDifficulty = difficulty;
+        System.out.println("📚 Selected subject: " + difficulty);
+    }
+
+    public void setSelectedcountPlayer(int countPlayer) {
+        this.selectedCountPlayer  = countPlayer;
+        System.out.println("📚 Selected subject: " + countPlayer);
+    }
+
     /**
      * Lấy môn học đang được chọn
      */
     public String getSelectedSubject() {
         return selectedSubject;
     }
+    /**
+     * Lấy môn học đang được chọn
+     */
+    public String getSelectedDifficulty() {
+        return selectedDifficulty;
+    }
+
+
+    public void setSelectedCountPlayer(int count) {
+        this.selectedCountPlayer = count;
+    }
+    public int getSelectedCountPlayer() {
+        return selectedCountPlayer;
+    }
+
+
+
+
 
 
     /**
@@ -707,19 +926,19 @@ public class ServerConnection {
      * @param subject Môn học (MATH, ENGLISH, LITERATURE)
      * @param difficulty Độ khó (EASY, MEDIUM, HARD)
      */
-    public void findMatch(String subject, String difficulty) {
-        if (!isConnected()) {
-            System.err.println("❌ Cannot find match - not connected");
-            return;
-        }
+    public void findMatch(String subject, String difficulty, int countPlayer) {
+        this.selectedSubject = subject;
+        this.selectedDifficulty = difficulty;
+        this.selectedCountPlayer = countPlayer;
 
-        System.out.println("🔍 Finding match: " + subject + " (" + difficulty + ")");
+        JsonObject request = new JsonObject();
+        request.addProperty("type", Protocol.FIND_MATCH);
+        request.addProperty("subject", subject);
+        request.addProperty("difficulty", difficulty);
+        request.addProperty("countPlayer", countPlayer);
 
-        Map<String, Object> request = new HashMap<>();
-        request.put("type", Protocol.FIND_MATCH);
-        request.put("subject", subject);
-        request.put("difficulty", difficulty);
-        sendJson(request);
+        sendMessage(request.toString());
+        System.out.println("🔍 Sent FIND_MATCH: " + subject + "/" + difficulty + "/" + countPlayer);
     }
 
     /**
@@ -733,9 +952,11 @@ public class ServerConnection {
 
         System.out.println("❌ Canceling matchmaking...");
 
-        Map<String, Object> request = new HashMap<>();
-        request.put("type", Protocol.CANCEL_FIND_MATCH);
-        sendJson(request);
+        JsonObject request = new JsonObject();
+        request.addProperty("type", Protocol.CANCEL_FIND_MATCH);
+
+        sendMessage(request.toString());
+        System.out.println("❌ Sent CANCEL_FIND_MATCH");
     }
 
         /**
@@ -858,6 +1079,7 @@ public class ServerConnection {
                     question.put("optionC", qObj.get("optionC").getAsString());
                     question.put("optionD", qObj.get("optionD").getAsString());
                     question.put("correctAnswer", qObj.get("correctAnswer").getAsString());
+//                    qMap.put("correctAnswer", q.getCorrectAnswer());
                     question.put("difficulty", qObj.get("difficulty").getAsString());
 
                     questions.add(question);
@@ -3228,6 +3450,7 @@ public class ServerConnection {
         sessionToken = null;
 
         selectedSubject = null;
+        selectedDifficulty = null;
         clearAllHandlers();
 
         // Clear ALL callbacks

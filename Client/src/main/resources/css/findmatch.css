@@ -1,0 +1,103 @@
+/* ================================
+   GLOBAL STYLE
+================================ */
+.root {
+    -fx-background-color: #f5f6fa;
+    -fx-font-family: "Segoe UI", sans-serif;
+}
+
+/* ================================
+   HEADER
+================================ */
+.card {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 12, 0, 0, 3);
+}
+
+.title {
+    -fx-text-fill: #2d3436;
+}
+
+.subtitle {
+    -fx-text-fill: #636e72;
+}
+
+/* ================================
+   MAIN CONTAINER
+================================ */
+.container {
+    -fx-background-color: transparent;
+}
+
+/* ================================
+   PROGRESS INDICATOR
+================================ */
+.progress {
+    -fx-progress-color: #0984e3;
+}
+
+/* ================================
+   TIMER
+================================ */
+.timer-label {
+    -fx-text-fill: #2d3436;
+}
+
+/* ================================
+   STATUS BOX
+================================ */
+.status-box {
+    -fx-background-color: #dfe6e9;
+    -fx-background-radius: 12;
+}
+
+.status-label {
+    -fx-text-fill: #2d3436;
+}
+
+.info-label {
+    -fx-text-fill: #636e72;
+}
+
+/* ================================
+   CANCEL BUTTON
+================================ */
+.button-danger {
+    -fx-background-color: #d63031;
+    -fx-text-fill: white;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+.button-danger:hover {
+    -fx-background-color: #b71c1c;
+}
+
+.button-danger:pressed {
+    -fx-background-color: #c62828;
+}
+
+/* ================================
+   TIPS SECTION
+================================ */
+.tips-box {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 10, 0, 0, 3);
+}
+
+.tips-title {
+    -fx-text-fill: #2d3436;
+}
+
+.tips-text {
+    -fx-text-fill: #636e72;
+}
+
+/* ================================
+   SCROLL FIX (nếu có)
+================================ */
+.scroll-pane {
+    -fx-background-color: transparent;
+}

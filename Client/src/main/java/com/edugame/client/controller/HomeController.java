@@ -775,7 +775,7 @@ public class HomeController {
     @FXML
     private void handleQuickMatch() {
         try {
-            cleanup(); // Clean up before switching
+//            cleanup(); // Clean up before switching
             showSubjectSelectionPopup(
                     SubjectSelectionController.SelectionMode.QUICK_MATCH,
                     this::startQuickMatch
@@ -829,12 +829,13 @@ public class HomeController {
     /**
      * Bắt đầu chế độ luyện tập với môn học đã chọn
      */
-    private void startTrainingMode(String subject) {
+    private void startTrainingMode(String subject, String difficulty, int countPlayer) {
         System.out.println("🎓 Starting Training Mode: " + subject);
 
         try {
             // Lưu subject vào session
            serverConnection.setSelectedSubject(subject);
+           serverConnection.setSelectedDifficulty(difficulty);
 
             // Chuyển sang màn hình luyện tập
             cleanup();
@@ -849,25 +850,19 @@ public class HomeController {
     /**
      * Bắt đầu tìm trận nhanh với môn học đã chọn
      */
-    private void startQuickMatch(String subject) {
+    private void startQuickMatch(String subject, String difficulty, int countPlayer) {
         System.out.println("🔍 Starting Quick Match: " + subject);
 
         try {
             // Lưu subject vào session
             serverConnection.setSelectedSubject(subject);
+            serverConnection.setSelectedDifficulty(difficulty);
+            serverConnection.setSelectedcountPlayer(countPlayer);
 
-            // Gửi request tìm trận đến server
-            String request = String.format(
-                    "{\"type\":\"%s\",\"subject\":\"%s\",\"difficulty\":\"%s\"}",
-                    Protocol.FIND_MATCH,
-                    subject,
-                    Protocol.MEDIUM  // Default difficulty
-            );
-
-            serverConnection.sendMessage(request);
+            serverConnection.findMatch(subject, difficulty, countPlayer);
 
             // Chuyển sang màn hình tìm trận (có loading + countdown)
-            cleanup();
+//            cleanup();
             SceneManager.getInstance().switchScene("FindMatch.fxml");
 
         } catch (Exception e) {
@@ -877,11 +872,12 @@ public class HomeController {
     }
 
 
+
     /**
      * Bắt đầu tạo phòng với môn học đã chọn
      */
-    private void startCreateRoom(String subject) {
-        handleCreateRoom(subject, "medium");
+    private void startCreateRoom(String subject, String difficulty, int countPlayer ) {
+        handleCreateRoom(subject, difficulty);
     }
 
     @FXML
@@ -902,6 +898,7 @@ public class HomeController {
         serverConnection.createRoom(subject, difficulty, roomData -> {
             Platform.runLater(() -> {
                 hideLoadingDialog();
+
 
                 if (roomData == null) {
                     System.err.println("❌ Room data is null");

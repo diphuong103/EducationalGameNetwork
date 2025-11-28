@@ -17,7 +17,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * GameManager - FIXED: Proper session_id handling and flow
+ * ✅ FIXED: GameManager with startGameWithQuestions() for matchmaking
  */
 public class GameManager {
 
@@ -49,14 +49,13 @@ public class GameManager {
     }
 
     /**
-     * ✅ FIXED: Create database session FIRST, then GameSession with sessionId
+     * ✅ ORIGINAL: Start game (load questions from DB)
      */
     public boolean startGame(String roomId, String subject, String difficulty,
                              List<ClientHandler> players) {
         try {
             logWithTime("🎮 [GameManager] Starting game for room: " + roomId);
 
-            // Validate
             if (players.size() < 2) {
                 logWithTime("❌ Not enough players: " + players.size());
                 return false;
@@ -67,7 +66,7 @@ public class GameManager {
                 return false;
             }
 
-            // ✅ 1. CREATE DATABASE SESSION FIRST
+            // Create database session
             int sessionId = gameSessionDAO.createSession(
                     roomId,
                     subject,
@@ -82,7 +81,7 @@ public class GameManager {
 
             logWithTime("✅ Database session created: ID=" + sessionId);
 
-            // ✅ 2. Load questions
+            // Load questions from DB
             List<Question> questions = loadQuestions(subject, difficulty);
             if (questions.isEmpty()) {
                 logWithTime("❌ No questions found for " + subject + "/" + difficulty);
@@ -90,9 +89,79 @@ public class GameManager {
             }
 
             Collections.shuffle(questions);
-
             logWithTime("🎲 Questions shuffled: " + questions.size());
 
+            // Use shared method
+            return createGameSession(roomId, sessionId, subject, difficulty,
+                    questions, players);
+
+        } catch (Exception e) {
+            logWithTime("❌ [GameManager] Error starting game: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * ✅ NEW: Start game with pre-loaded questions (for matchmaking)
+     */
+    public boolean startGameWithQuestions(String roomId, String subject,
+                                          String difficulty,
+                                          List<ClientHandler> players,
+                                          List<Question> questions) {
+        try {
+            logWithTime("🎮 [GameManager] Starting game WITH QUESTIONS for room: " + roomId);
+
+            if (players.size() < 2) {
+                logWithTime("❌ Not enough players: " + players.size());
+                return false;
+            }
+
+            if (activeSessions.containsKey(roomId)) {
+                logWithTime("⚠️ Game already active for room: " + roomId);
+                return false;
+            }
+
+            if (questions == null || questions.size() < Protocol.QUESTIONS_PER_GAME) {
+                logWithTime("❌ Invalid questions: " +
+                        (questions != null ? questions.size() : "null"));
+                return false;
+            }
+
+            // Create database session
+            int sessionId = gameSessionDAO.createSession(
+                    roomId,
+                    subject,
+                    difficulty,
+                    Protocol.QUESTIONS_PER_GAME
+            );
+
+            if (sessionId <= 0) {
+                logWithTime("❌ Failed to create database session");
+                return false;
+            }
+
+            logWithTime("✅ Database session created: ID=" + sessionId);
+            logWithTime("✅ Using pre-loaded questions: " + questions.size());
+
+            // Use shared method
+            return createGameSession(roomId, sessionId, subject, difficulty,
+                    questions, players);
+
+        } catch (Exception e) {
+            logWithTime("❌ [GameManager] Error starting game with questions: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * ✅ SHARED: Create GameSession (used by both methods)
+     */
+    private boolean createGameSession(String roomId, int sessionId, String subject,
+                                      String difficulty, List<Question> questions,
+                                      List<ClientHandler> players) {
+        try {
             // Get player IDs
             List<Integer> playerIds = new ArrayList<>();
             for (ClientHandler handler : players) {
@@ -102,7 +171,7 @@ public class GameManager {
                 }
             }
 
-            // ✅ 3. Create GameSession WITH sessionId
+            // Create GameSession
             GameSession session = new GameSession(
                     roomId,
                     sessionId,
@@ -113,62 +182,8 @@ public class GameManager {
                     playerIds
             );
 
-            // ✅ 4. Setup callbacks
-            session.setQuestionSender((rid, userId, questionIndex) -> {
-                for (ClientHandler handler : players) {
-                    if (handler.getCurrentUser() != null &&
-                            handler.getCurrentUser().getUserId() == userId) {
-                        handler.sendQuestionToPlayerDirect(rid, userId, questionIndex);
-                        break;
-                    }
-                }
-            });
-
-            session.setPositionBroadcaster((rid) -> {
-                if (!players.isEmpty()) {
-                    players.get(0).broadcastPositions(rid, players);
-                }
-            });
-
-            session.setAnswerBroadcaster((rid, userId, isCorrect, timeTaken, position, score, gotNitro) -> {
-                for (ClientHandler handler : players) {
-                    if (handler.getCurrentUser() != null) {
-                        handler.broadcastAnswerResult(rid, userId, isCorrect, timeTaken,
-                                position, score, gotNitro, players);
-                        break;
-                    }
-                }
-            });
-
-            session.setProgressBroadcaster((rid, userId, questionIndex) -> {
-                for (ClientHandler handler : players) {
-                    if (handler.getCurrentUser() != null) {
-                        handler.broadcastQuestionProgress(rid, userId, questionIndex, players);
-                        break;
-                    }
-                }
-            });
-
-            session.setPlayerFinishNotifier((rid, userId, rank) -> {
-                for (ClientHandler handler : players) {
-                    if (handler.getCurrentUser() != null &&
-                            handler.getCurrentUser().getUserId() == userId) {
-                        handler.notifyPlayerFinish(rid, userId, rank);
-                        break;
-                    }
-                }
-            });
-
-            // ✅ FIXED: Game end callback - save and send results together
-            session.setGameEndNotifier((rid, reason) -> {
-                logWithTime("🏁 [GameEndNotifier] Game ending: " + reason);
-
-                // Save results and send notifications in one place
-                GameSession endingSession = activeSessions.get(rid);
-                if (endingSession != null) {
-                    saveAndBroadcastResults(rid, endingSession, players, reason);
-                }
-            });
+            // Setup callbacks
+            setupSessionCallbacks(session, players);
 
             activeSessions.put(roomId, session);
 
@@ -184,22 +199,88 @@ public class GameManager {
             return true;
 
         } catch (Exception e) {
-            logWithTime("❌ [GameManager] Error starting game: " + e.getMessage());
+            logWithTime("❌ [GameManager] Error creating game session: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
 
     /**
+     * ✅ SHARED: Setup all session callbacks
+     */
+    private void setupSessionCallbacks(GameSession session, List<ClientHandler> players) {
+        String roomId = session.getRoomId();
+
+        // Question sender
+        session.setQuestionSender((rid, userId, questionIndex) -> {
+            for (ClientHandler handler : players) {
+                if (handler.getCurrentUser() != null &&
+                        handler.getCurrentUser().getUserId() == userId) {
+                    handler.sendQuestionToPlayerDirect(rid, userId, questionIndex);
+                    break;
+                }
+            }
+        });
+
+        // Position broadcaster
+        session.setPositionBroadcaster((rid) -> {
+            if (!players.isEmpty()) {
+                players.get(0).broadcastPositions(rid, players);
+            }
+        });
+
+        // Answer broadcaster
+        session.setAnswerBroadcaster((rid, userId, isCorrect, timeTaken, position, score, gotNitro) -> {
+            for (ClientHandler handler : players) {
+                if (handler.getCurrentUser() != null) {
+                    handler.broadcastAnswerResult(rid, userId, isCorrect, timeTaken,
+                            position, score, gotNitro, players);
+                    break;
+                }
+            }
+        });
+
+        // Progress broadcaster
+        session.setProgressBroadcaster((rid, userId, questionIndex) -> {
+            for (ClientHandler handler : players) {
+                if (handler.getCurrentUser() != null) {
+                    handler.broadcastQuestionProgress(rid, userId, questionIndex, players);
+                    break;
+                }
+            }
+        });
+
+        // Player finish notifier
+        session.setPlayerFinishNotifier((rid, userId, rank) -> {
+            for (ClientHandler handler : players) {
+                if (handler.getCurrentUser() != null &&
+                        handler.getCurrentUser().getUserId() == userId) {
+                    handler.notifyPlayerFinish(rid, userId, rank);
+                    break;
+                }
+            }
+        });
+
+        // Game end notifier
+        session.setGameEndNotifier((rid, reason) -> {
+            logWithTime("🏁 [GameEndNotifier] Game ending: " + reason);
+
+            GameSession endingSession = activeSessions.get(rid);
+            if (endingSession != null) {
+                saveAndBroadcastResults(rid, endingSession, players, reason);
+            }
+        });
+    }
+
+    /**
      * Lấy danh sách tất cả các session đang hoạt động
-     * @return Collection of active game sessions
      */
     public Collection<GameSession> getAllSessions() {
         return activeSessions.values();
     }
 
     /**
-     * ✅ NEW: Save results and broadcast in ONE method - called BEFORE session cleanup
+     * ✅ Save results and broadcast in ONE method
      */
     private void saveAndBroadcastResults(String roomId, GameSession session,
                                          List<ClientHandler> players, String reason) {
@@ -208,7 +289,6 @@ public class GameManager {
 
             int sessionId = session.getSessionId();
 
-            // Validate sessionId
             if (sessionId <= 0) {
                 logWithTime("❌ Invalid session ID: " + sessionId);
                 return;
@@ -216,15 +296,12 @@ public class GameManager {
 
             logWithTime("   Session ID: " + sessionId);
 
-            // Calculate time taken
             long startTime = session.getStartTimeMillis();
             long endTime = System.currentTimeMillis();
             int timeTaken = (int)((endTime - startTime) / 1000);
 
-            // Get player states
             Map<Integer, GameSession.PlayerGameState> playerStates = session.getPlayerStates();
 
-            // Sort by position DESC, then score DESC
             List<GameSession.PlayerGameState> sortedStates = new ArrayList<>(playerStates.values());
             sortedStates.sort((a, b) -> {
                 int posCompare = Double.compare(b.position, a.position);
@@ -232,16 +309,13 @@ public class GameManager {
                 return Integer.compare(b.score, a.score);
             });
 
-            // Prepare rankings for broadcast
             List<Map<String, Object>> rankings = new ArrayList<>();
 
-            // Save each player's results
             for (int i = 0; i < sortedStates.size(); i++) {
                 GameSession.PlayerGameState state = sortedStates.get(i);
                 int rank = i + 1;
                 state.finalRank = rank;
 
-                // Get player info
                 String username = "";
                 String fullName = "";
                 for (ClientHandler handler : players) {
@@ -253,7 +327,6 @@ public class GameManager {
                     }
                 }
 
-                // Build ranking data for broadcast
                 Map<String, Object> rankData = new HashMap<>();
                 rankData.put("rank", rank);
                 rankData.put("userId", state.userId);
@@ -267,7 +340,6 @@ public class GameManager {
 
                 rankings.add(rankData);
 
-                // ✅ Save to game_results
                 try {
                     boolean saved = gameResultDAO.saveGameResult(
                             sessionId,
@@ -286,7 +358,6 @@ public class GameManager {
                     logWithTime("   💾 ❌ Failed to save user " + state.userId + ": " + e.getMessage());
                 }
 
-                // ✅ Update user statistics
                 try {
                     userDAO.updateTotalScore(state.userId, state.score);
                     userDAO.updateSubjectScore(state.userId, session.getSubject(), state.score);
@@ -298,7 +369,6 @@ public class GameManager {
                 }
             }
 
-            // ✅ Mark session as finished
             try {
                 gameSessionDAO.finishSession(sessionId);
                 logWithTime("   🏁 Session " + sessionId + " marked as finished");
@@ -306,7 +376,6 @@ public class GameManager {
                 logWithTime("   ⚠️ Could not mark session finished: " + e.getMessage());
             }
 
-            // ✅ Broadcast GAME_END to all players
             Map<String, Object> endGameData = new HashMap<>();
             endGameData.put("type", Protocol.GAME_END);
             endGameData.put("roomId", roomId);
@@ -342,7 +411,7 @@ public class GameManager {
     }
 
     /**
-     * ✅ SIMPLIFIED: Just cleanup session after results are saved
+     * Cleanup session after results are saved
      */
     public void endGame(String roomId, List<ClientHandler> players) {
         GameSession session = activeSessions.get(roomId);
@@ -351,7 +420,6 @@ public class GameManager {
         try {
             logWithTime("🧹 [GameManager] Cleaning up session: " + roomId);
 
-            // Cleanup
             session.cleanup();
             activeSessions.remove(roomId);
 
@@ -362,8 +430,6 @@ public class GameManager {
             e.printStackTrace();
         }
     }
-
-    // ==================== OTHER METHODS ====================
 
     public void beginGameAfterCountdown(String roomId) {
         GameSession session = activeSessions.get(roomId);

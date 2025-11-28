@@ -1,0 +1,34 @@
+/* Style chung cho 3 nút */
+.toggle-button {
+    -fx-background-radius: 10;
+    -fx-text-fill: white;
+    -fx-font-size: 14;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    -fx-border-width: 3;
+    -fx-border-color: transparent;
+}
+
+/* Easy */
+#easyButton {
+    -fx-background-color: #2ecc71;
+}
+#easyButton:selected {
+    -fx-border-color: #27ae60;
+}
+
+/* Medium */
+#mediumButton {
+    -fx-background-color: #f39c12;
+}
+#mediumButton:selected {
+    -fx-border-color: #d35400;
+}
+
+/* Hard */
+#hardButton {
+    -fx-background-color: #e74c3c;
+}
+#hardButton:selected {
+    -fx-border-color: #c0392b;
+}

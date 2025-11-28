@@ -1,124 +1,142 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.ProgressIndicator?>
-<?import javafx.scene.effect.DropShadow?>
+<?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.shape.Circle?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.edugame.client.controller.FindMatchController"
-            style="-fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2);">
+            stylesheets="@../css/common.css, "
+            styleClass="root">
 
-    <center>
-        <VBox alignment="CENTER" spacing="40" BorderPane.alignment="CENTER">
+    <top>
+        <!-- Header -->
+        <VBox styleClass="card" spacing="10">
             <padding>
-                <Insets top="50" right="50" bottom="50" left="50"/>
+                <Insets top="20" right="20" bottom="20" left="20"/>
             </padding>
 
-            <!-- Main Card -->
-            <VBox alignment="CENTER" spacing="30"
-                  style="-fx-background-color: white; -fx-background-radius: 25; -fx-padding: 50;"
-                  maxWidth="600">
+            <Label text="🎮 TÌM TRẬN ĐẤU" styleClass="title">
+                <font>
+                    <Font name="System Bold" size="28"/>
+                </font>
+            </Label>
 
-                <effect>
-                    <DropShadow color="rgba(0, 0, 0, 0.3)" radius="40" spread="0.2"/>
-                </effect>
+            <Label fx:id="subjectLabel" text="Môn: Đang tải..." styleClass="subtitle">
+                <font>
+                    <Font size="18"/>
+                </font>
+            </Label>
+        </VBox>
+    </top>
 
-                <!-- Animated Search Icon -->
-                <StackPane>
-                    <Circle radius="80" fill="rgba(102, 126, 234, 0.1)"/>
-                    <Circle radius="60" fill="rgba(102, 126, 234, 0.2)"/>
-                    <ProgressIndicator fx:id="progressIndicator" prefWidth="120" prefHeight="120"
-                                       style="-fx-progress-color: #667eea;"/>
-                    <Label text="🔍" style="-fx-font-size: 50;"/>
-                </StackPane>
+    <center>
+        <!-- Main Content -->
+        <VBox alignment="CENTER" spacing="30" styleClass="container">
+            <padding>
+                <Insets top="40" right="40" bottom="40" left="40"/>
+            </padding>
 
-                <!-- Title -->
-                <VBox alignment="CENTER" spacing="10">
-                    <Label text="Đang Tìm Đối Thủ" textFill="#2C3E50"
-                           style="-fx-font-weight: bold;">
-                        <font>
-                            <Font size="32"/>
-                        </font>
-                    </Label>
+            <!-- Progress Indicator -->
+            <ProgressIndicator fx:id="progressIndicator"
+                               prefWidth="120"
+                               prefHeight="120"
+                               styleClass="progress"/>
 
-                    <Label fx:id="subjectLabel" text="Môn: Toán Học" textFill="#667eea"
-                           style="-fx-font-weight: bold;">
-                        <font>
-                            <Font size="18"/>
-                        </font>
-                    </Label>
-                </VBox>
+            <!-- Timer -->
+            <VBox alignment="CENTER" spacing="10">
+                <Label text="Thời gian đã chờ:" styleClass="label">
+                    <font>
+                        <Font size="14"/>
+                    </font>
+                </Label>
 
-                <!-- Status Message -->
-                <VBox alignment="CENTER" spacing="15">
-                    <Label fx:id="statusLabel" text="Đang tìm kiếm đối thủ phù hợp..."
-                           textFill="#7F8C8D" textAlignment="CENTER" wrapText="true">
-                        <font>
-                            <Font size="16"/>
-                        </font>
-                    </Label>
+                <Label fx:id="timerLabel" text="00:00" styleClass="timer-label">
+                    <font>
+                        <Font name="System Bold" size="48"/>
+                    </font>
+                </Label>
+            </VBox>
 
-                    <!-- Timer -->
-                    <HBox alignment="CENTER" spacing="10">
-                        <Label text="⏱️" style="-fx-font-size: 20;"/>
-                        <Label fx:id="timerLabel" text="00:00" textFill="#667eea"
-                               style="-fx-font-weight: bold; -fx-font-size: 24;"/>
-                        <Label text="/ 00:30" textFill="#95a5a6"
-                               style="-fx-font-size: 16;"/>
-                    </HBox>
-                </VBox>
+            <!-- Status -->
+            <VBox alignment="CENTER" spacing="15" styleClass="status-box">
+                <padding>
+                    <Insets top="20" right="30" bottom="20" left="30"/>
+                </padding>
 
-                <!-- Info Box -->
-                <VBox spacing="12"
-                      style="-fx-background-color: #f8f9fa; -fx-background-radius: 15; -fx-padding: 20;">
+                <Label fx:id="statusLabel"
+                       text="🔍 Đang tìm kiếm đối thủ..."
+                       styleClass="status-label"
+                       wrapText="true"
+                       textAlignment="CENTER">
+                    <font>
+                        <Font size="16"/>
+                    </font>
+                </Label>
 
-                    <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="👥" style="-fx-font-size: 20;"/>
-                        <Label text="Hệ thống đang tìm người chơi có trình độ tương đương với bạn"
-                               textFill="#5a6c7d" wrapText="true">
-                            <font>
-                                <Font size="13"/>
-                            </font>
-                        </Label>
-                    </HBox>
+                <Label fx:id="infoLabel"
+                       text="🔍 Đang tìm đối thủ phù hợp...&#10;Bạn có thể hủy bất cứ lúc nào"
+                       styleClass="info-label"
+                       wrapText="true"
+                       textAlignment="CENTER">
+                    <font>
+                        <Font size="14"/>
+                    </font>
+                </Label>
+            </VBox>
 
-                    <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="⚡" style="-fx-font-size: 20;"/>
-                        <Label text="Thời gian tìm kiếm tối đa: 30 giây"
-                               textFill="#5a6c7d">
-                            <font>
-                                <Font size="13"/>
-                            </font>
-                        </Label>
-                    </HBox>
+            <!-- Cancel Button -->
+            <Button fx:id="cancelButton"
+                    text="❌ Hủy Tìm Kiếm"
+                    onAction="#handleCancel"
+                    styleClass="button-danger"
+                    prefWidth="200"
+                    prefHeight="50">
+                <font>
+                    <Font name="System Bold" size="16"/>
+                </font>
+            </Button>
 
-                    <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="🎯" style="-fx-font-size: 20;"/>
-                        <Label fx:id="playerCountLabel" text="Đang có 5 người chơi đang tìm trận"
-                               textFill="#5a6c7d">
-                            <font>
-                                <Font size="13"/>
-                            </font>
-                        </Label>
-                    </HBox>
-                </VBox>
+            <!-- Tips -->
+            <VBox alignment="CENTER" spacing="8" styleClass="tips-box">
+                <padding>
+                    <Insets top="15" right="25" bottom="15" left="25"/>
+                </padding>
 
-                <!-- Cancel Button -->
-                <Button fx:id="cancelButton" text="Hủy Tìm Kiếm" onAction="#handleCancel"
-                        prefWidth="200" prefHeight="50"
-                        style="-fx-background-color: #e74c3c; -fx-text-fill: white;
-                               -fx-background-radius: 25; -fx-cursor: hand;
-                               -fx-font-size: 16; -fx-font-weight: bold;">
-                    <effect>
-                        <DropShadow color="rgba(231, 76, 60, 0.4)" radius="10" spread="0.3"/>
-                    </effect>
-                </Button>
+                <Label text="💡 Mẹo:" styleClass="tips-title">
+                    <font>
+                        <Font name="System Bold" size="14"/>
+                    </font>
+                </Label>
 
+                <Label text="• Hệ thống sẽ ghép bạn với người có điểm số tương đương (±200)"
+                       wrapText="true"
+                       textAlignment="CENTER"
+                       styleClass="tips-text">
+                    <font>
+                        <Font size="12"/>
+                    </font>
+                </Label>
+
+                <Label text="• Thời gian chờ KHÔNG GIỚI HẠN - Bạn có thể hủy bất cứ lúc nào"
+                       wrapText="true"
+                       textAlignment="CENTER"
+                       styleClass="tips-text">
+                    <font>
+                        <Font size="12"/>
+                    </font>
+                </Label>
+
+                <Label text="• Nếu chờ quá lâu, có thể chưa có người chơi phù hợp"
+                       wrapText="true"
+                       textAlignment="CENTER"
+                       styleClass="tips-text">
+                    <font>
+                        <Font size="12"/>
+                    </font>
+                </Label>
             </VBox>
 
         </VBox>

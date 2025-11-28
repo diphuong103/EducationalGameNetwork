@@ -3,16 +3,19 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.control.ToggleGroup?>
 <?import javafx.scene.effect.DropShadow?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
 
 <StackPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.edugame.client.controller.SubjectSelectionController"
+           stylesheets="@../css/subject.css, @../css/common.css"
            style="-fx-background-color: rgba(0, 0, 0, 0.7);">
 
     <VBox alignment="CENTER" spacing="30" style="-fx-background-color: white; -fx-background-radius: 20;"
-          maxWidth="500" maxHeight="450">
+          maxWidth="500" maxHeight="600">
         <padding>
             <Insets top="40" right="40" bottom="40" left="40"/>
         </padding>
@@ -94,6 +97,45 @@
             </Button>
 
         </VBox>
+
+        <!-- Difficulty Selection -->
+        <VBox spacing="12" alignment="CENTER" >
+            <Label text="Chọn Độ Khó" textFill="#2C3E50"
+                   style="-fx-font-weight: bold; -fx-font-size: 16;"/>
+
+            <HBox spacing="12" alignment="CENTER">
+                <fx:define>
+                    <ToggleGroup fx:id="difficultyGroup"/>
+                </fx:define>
+
+                <ToggleButton fx:id="easyButton" text="Dễ" toggleGroup="$difficultyGroup"
+                              prefWidth="120" prefHeight="45"/>
+                <ToggleButton fx:id="mediumButton" text="Bình Thường" toggleGroup="$difficultyGroup"
+                              prefWidth="120" prefHeight="45"/>
+                <ToggleButton fx:id="hardButton" text="Khó" toggleGroup="$difficultyGroup"
+                              prefWidth="120" prefHeight="45"/>
+
+            </HBox>
+        </VBox>
+
+        <!-- Player Count (Chỉ hiện trong QUICK_MATCH) -->
+        <VBox fx:id="playerCountBox" spacing="12" alignment="CENTER" visible="false" managed="false">
+            <Label text="Số người chơi" textFill="#2C3E50"
+                   style="-fx-font-weight: bold; -fx-font-size: 16;"/>
+
+            <HBox spacing="12" alignment="CENTER">
+                <fx:define>
+                    <ToggleGroup fx:id="playerCountGroup"/>
+                </fx:define>
+
+                <ToggleButton fx:id="player2Button" text="2 Người" toggleGroup="$playerCountGroup"
+                              prefWidth="120" prefHeight="45"/>
+
+                <ToggleButton fx:id="player4Button" text="4 Người" toggleGroup="$playerCountGroup"
+                              prefWidth="120" prefHeight="45"/>
+            </HBox>
+        </VBox>
+
 
         <!-- Cancel Button -->
         <Button text="Hủy" onAction="#handleCancel"

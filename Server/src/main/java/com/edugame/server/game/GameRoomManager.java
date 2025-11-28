@@ -21,7 +21,7 @@ public class GameRoomManager {
     private final Map<String, GameRoom> rooms;
     private final AtomicInteger roomIdCounter;
 
-    private GameRoomManager() {
+    public GameRoomManager() {
         this.rooms = new ConcurrentHashMap<>();
         this.roomIdCounter = new AtomicInteger(1);
         logWithTime("✅ GameRoomManager initialized");
