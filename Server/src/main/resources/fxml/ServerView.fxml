@@ -1,49 +1,65 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import java.lang.String?>
+<?import javafx.collections.FXCollections?>
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
 
-<BorderPane xmlns="http://javafx.com/javafx/17"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.edugame.server.controller.ServerViewController"
-            stylesheets="@../css/server-style.css"
-            styleClass="root-pane">
+<BorderPane styleClass="root-pane" stylesheets="@../css/server-style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.edugame.server.controller.ServerViewController">
 
     <!-- Top: Header Bar -->
     <top>
-        <HBox styleClass="header-bar" spacing="15">
+        <HBox spacing="15" styleClass="header-bar">
             <padding>
-                <Insets top="20" right="25" bottom="20" left="25"/>
+                <Insets bottom="10" left="25" right="25" top="10" />
             </padding>
 
             <VBox spacing="5" HBox.hgrow="ALWAYS">
-                <Label text="🎮 MATH ADVENTURE SERVER" styleClass="header-title"/>
-                <Label fx:id="serverStatusLabel" text="● Server Running" styleClass="status-label"/>
+                <Label styleClass="header-title" text="EDUGAMESERVER" />
+                <Label fx:id="serverStatusLabel" styleClass="status-label" text="● Server Running" />
             </VBox>
 
             <VBox alignment="CENTER_RIGHT" spacing="8">
-                <HBox spacing="15" alignment="CENTER_RIGHT">
+                <HBox alignment="CENTER_RIGHT" spacing="15">
                     <VBox alignment="CENTER" spacing="3" styleClass="stat-box">
-                        <Label text="CONNECTIONS" styleClass="stat-label"/>
-                        <Label fx:id="connectionsLabel" text="0" styleClass="stat-value"/>
+                        <Label styleClass="stat-label" text="CONNECTIONS" />
+                        <Label fx:id="connectionsLabel" styleClass="stat-value" text="0" />
                     </VBox>
 
                     <VBox alignment="CENTER" spacing="3" styleClass="stat-box">
-                        <Label text="ROOMS" styleClass="stat-label"/>
-                        <Label fx:id="roomsLabel" text="0" styleClass="stat-value"/>
+                        <Label styleClass="stat-label" text="ROOMS" />
+                        <Label fx:id="roomsLabel" styleClass="stat-value" text="0" />
                     </VBox>
 
                     <VBox alignment="CENTER" spacing="3" styleClass="stat-box">
-                        <Label text="PLAYERS" styleClass="stat-label"/>
-                        <Label fx:id="playersLabel" text="0" styleClass="stat-value"/>
+                        <Label styleClass="stat-label" text="PLAYERS" />
+                        <Label fx:id="playersLabel" styleClass="stat-value" text="0" />
                     </VBox>
                 </HBox>
 
                 <HBox spacing="10">
-                    <Button fx:id="startButton" text="▶ Start" styleClass="btn-success" onAction="#handleStart"/>
-                    <Button fx:id="stopButton" text="⏸ Stop" styleClass="btn-danger" onAction="#handleStop" disable="true"/>
-                    <Button fx:id="questionBankButton" text="📝 Questions" styleClass="btn-primary" onAction="#handleOpenQuestionBank"/>
+                    <Button fx:id="startButton" onAction="#handleStart" styleClass="btn-success" text="▶ Start" />
+                    <Button fx:id="stopButton" disable="true" onAction="#handleStop" styleClass="btn-danger" text="⏸ Stop" />
+                    <Button fx:id="questionBankButton" onAction="#handleOpenQuestionBank" styleClass="btn-primary" text="📝 Questions" />
                 </HBox>
             </VBox>
         </HBox>
@@ -54,225 +70,208 @@
         <TabPane fx:id="mainTabPane" styleClass="main-tabs" tabClosingPolicy="UNAVAILABLE">
 
             <!-- Tab 1: Room Management -->
-            <Tab text="📦 Room Management">
+            <Tab text="📦 Quản lý phòng">
                 <BorderPane styleClass="room-management-container">
 
                     <!-- Left: Room List -->
                     <left>
-                        <VBox styleClass="room-list-panel" prefWidth="320" spacing="12">
+                        <VBox prefWidth="310" spacing="12" styleClass="room-list-panel">
                             <padding>
-                                <Insets top="20" right="15" bottom="20" left="20"/>
+                                <Insets bottom="10" left="10" right="15" top="10" />
                             </padding>
 
                             <!-- Header -->
                             <HBox alignment="CENTER_LEFT" spacing="10">
-                                <Label text="Danh sách phòng" styleClass="panel-title"/>
-                                <Region HBox.hgrow="ALWAYS"/>
-                                <Label text="Tổng số phòng: " styleClass="info-text"/>
-                                <Label fx:id="totalRoomsLabel" text="0" styleClass="info-value-accent"/>
+                                <Label styleClass="panel-title" text="Danh sách phòng" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Label styleClass="info-text" text="Tổng số phòng: " />
+                                <Label fx:id="totalRoomsLabel" styleClass="info-value-accent" text="0" />
                             </HBox>
 
                             <HBox alignment="CENTER_LEFT" spacing="8">
-                                <Label text="Đang chơi: " styleClass="info-text-sm"/>
-                                <Label fx:id="playingRoomsLabel" text="0" styleClass="status-playing"/>
-                                <Region prefWidth="10"/>
-                                <Label text="Chờ: " styleClass="info-text-sm"/>
-                                <Label fx:id="waitingRoomsLabel" text="0" styleClass="status-waiting"/>
+                                <Label styleClass="info-text-sm" text="Đang chơi: " />
+                                <Label fx:id="playingRoomsLabel" styleClass="status-playing" text="0" />
+                                <Region prefWidth="10" />
+                                <Label styleClass="info-text-sm" text="Chờ: " />
+                                <Label fx:id="waitingRoomsLabel" styleClass="status-waiting" text="0" />
                             </HBox>
 
-                            <Separator/>
+                            <Separator />
 
                             <!-- Refresh Button -->
-                            <Button text="🔄 Làm mới" styleClass="btn-refresh-rooms"
-                                    onAction="#handleRefreshRooms" maxWidth="Infinity"/>
+                            <Button maxWidth="Infinity" onAction="#handleRefreshRooms" styleClass="btn-refresh-rooms" text="🔄 Làm mới" />
 
                             <!-- Room List ScrollPane -->
-                            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS"
-                                        styleClass="room-list-scroll">
-                                <VBox fx:id="roomListContainer" spacing="10" styleClass="room-cards-container"/>
+                            <ScrollPane fitToWidth="true" styleClass="room-list-scroll" VBox.vgrow="ALWAYS">
+                                <VBox fx:id="roomListContainer" spacing="10" styleClass="room-cards-container" />
                             </ScrollPane>
                         </VBox>
                     </left>
 
                     <!-- Right: Room Details & Progress -->
                     <center>
-                        <VBox styleClass="room-detail-panel" spacing="20">
+                        <VBox spacing="10" styleClass="room-detail-panel">
                             <padding>
-                                <Insets top="20" right="20" bottom="20" left="20"/>
+                                <Insets bottom="10" left="10" right="10" top="10" />
                             </padding>
 
                             <!-- Room Header -->
                             <HBox alignment="CENTER_LEFT" spacing="15" styleClass="room-header">
                                 <VBox spacing="5" HBox.hgrow="ALWAYS">
-                                    <Label fx:id="selectedRoomTitle" text="Chọn một phòng để xem chi tiết"
-                                           styleClass="room-title"/>
-                                    <HBox spacing="10" alignment="CENTER_LEFT">
-                                        <Label fx:id="roomStatusBadge" text="WAITING"
-                                               styleClass="status-badge,status-waiting"/>
-                                        <Label fx:id="roomIdLabel" text="#" styleClass="room-id-text"/>
+                                    <Label fx:id="selectedRoomTitle" styleClass="room-title" text="Chọn một phòng để xem chi tiết" />
+                                    <HBox alignment="CENTER_LEFT" spacing="10">
+                                        <Label fx:id="roomStatusBadge" styleClass="status-badge status-waiting" text="WAITING" />
+
+                                        <Label fx:id="roomIdLabel" styleClass="room-id-text" text="#" />
                                     </HBox>
                                 </VBox>
-                                <Button fx:id="closeRoomButton" text="✖" styleClass="btn-close-detail"
-                                        onAction="#handleCloseRoom" visible="false"/>
+                                <Button fx:id="closeRoomButton" onAction="#handleCloseRoom" styleClass="btn-close-detail" text="✖" visible="false" />
                             </HBox>
 
-                            <Separator/>
+                            <Separator />
 
                             <!-- Empty State -->
-                            <VBox fx:id="emptyState" alignment="CENTER" spacing="20" VBox.vgrow="ALWAYS">
-                                <Region VBox.vgrow="ALWAYS"/>
-                                <Label text="📦" style="-fx-font-size: 64px; -fx-opacity: 0.5;"/>
+                            <VBox fx:id="emptyState" alignment="CENTER" spacing="10" VBox.vgrow="ALWAYS">
+                                <Region VBox.vgrow="ALWAYS" />
+                                <Label style="-fx-font-size: 64px; -fx-opacity: 0.5;" text="📦" />
                                 <VBox alignment="CENTER" spacing="8">
-                                    <Label text="Chưa chọn phòng nào" styleClass="empty-title"/>
-                                    <Label text="Nhấp vào phòng ở danh sách bên trái để xem chi tiết"
-                                           styleClass="empty-subtitle"/>
+                                    <Label styleClass="empty-title" text="Chưa chọn phòng nào" />
+                                    <Label styleClass="empty-subtitle" text="Nhấp vào phòng ở danh sách bên trái để xem chi tiết" />
                                 </VBox>
-                                <Region VBox.vgrow="ALWAYS"/>
+                                <Region VBox.vgrow="ALWAYS" />
                             </VBox>
 
                             <!-- Room Content (Hidden by default) -->
-                            <VBox fx:id="roomContent" spacing="20" VBox.vgrow="ALWAYS" visible="false">
+                            <VBox fx:id="roomContent" spacing="10" visible="false" VBox.vgrow="ALWAYS">
 
                                 <!-- Room Info Grid -->
-                                <GridPane fx:id="roomInfoGrid" styleClass="room-info-grid"
-                                          hgap="20" vgap="12">
+                                <GridPane fx:id="roomInfoGrid" hgap="10" styleClass="room-info-grid" vgap="12">
                                     <columnConstraints>
-                                        <ColumnConstraints percentWidth="50"/>
-                                        <ColumnConstraints percentWidth="50"/>
+                                        <ColumnConstraints percentWidth="50" />
+                                        <ColumnConstraints percentWidth="50" />
                                     </columnConstraints>
 
                                     <!-- Row 1 -->
                                     <VBox spacing="5" GridPane.columnIndex="0" GridPane.rowIndex="0">
-                                        <Label text="Host" styleClass="info-label"/>
-                                        <HBox spacing="8" alignment="CENTER_LEFT">
-                                            <Label text="👤" style="-fx-font-size: 16px;"/>
-                                            <Label fx:id="hostLabel" text="MathKing99" styleClass="info-value"/>
+                                        <Label styleClass="info-label" text="Host" />
+                                        <HBox alignment="CENTER_LEFT" spacing="8">
+                                            <Label style="-fx-font-size: 16px;" text="👤" />
+                                            <Label fx:id="hostLabel" styleClass="info-value" text="MathKing99" />
                                         </HBox>
                                     </VBox>
 
                                     <VBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="0">
-                                        <Label text="Môn học" styleClass="info-label"/>
-                                        <HBox spacing="8" alignment="CENTER_LEFT">
-                                            <Label fx:id="subjectIconLabel" text="🔢" style="-fx-font-size: 16px;"/>
-                                            <Label fx:id="subjectLabel" text="Toán" styleClass="info-value"/>
+                                        <Label styleClass="info-label" text="Môn học" />
+                                        <HBox alignment="CENTER_LEFT" spacing="8">
+                                            <Label fx:id="subjectIconLabel" style="-fx-font-size: 16px;" text="🔢" />
+                                            <Label fx:id="subjectLabel" styleClass="info-value" text="Toán" />
                                         </HBox>
                                     </VBox>
 
                                     <!-- Row 2 -->
                                     <VBox spacing="5" GridPane.columnIndex="0" GridPane.rowIndex="1">
-                                        <Label text="Độ khó" styleClass="info-label"/>
-                                        <Label fx:id="difficultyLabel" text="Trung bình" styleClass="difficulty-badge"/>
+                                        <Label styleClass="info-label" text="Độ khó" />
+                                        <Label fx:id="difficultyLabel" styleClass="difficulty-badge" text="Trung bình" />
                                     </VBox>
 
                                     <VBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                        <Label text="Số người chơi" styleClass="info-label"/>
-                                        <HBox spacing="8" alignment="CENTER_LEFT">
-                                            <Label text="👥" style="-fx-font-size: 16px;"/>
-                                            <Label fx:id="playerCountLabel" text="3/4" styleClass="info-value"/>
+                                        <Label styleClass="info-label" text="Số người chơi" />
+                                        <HBox alignment="CENTER_LEFT" spacing="8">
+                                            <Label style="-fx-font-size: 16px;" text="👥" />
+                                            <Label fx:id="playerCountLabel" styleClass="info-value" text="3/4" />
                                         </HBox>
                                     </VBox>
+                           <rowConstraints>
+                              <RowConstraints />
+                              <RowConstraints />
+                           </rowConstraints>
                                 </GridPane>
 
-                                <Separator/>
+                                <Separator />
 
                                 <!-- Progress Section -->
                                 <VBox spacing="15" styleClass="progress-section">
                                     <HBox alignment="CENTER_LEFT" spacing="10">
-                                        <Label text="📊 Tiến độ trận đấu" styleClass="section-title"/>
-                                        <Region HBox.hgrow="ALWAYS"/>
-                                        <Label fx:id="currentQuestionLabel" text="Câu 5/10" styleClass="progress-text"/>
+                                        <Label styleClass="section-title" text="📊 Tiến độ trận đấu" />
+                                        <Region HBox.hgrow="ALWAYS" />
+                                        <Label fx:id="currentQuestionLabel" styleClass="progress-text" text="Câu 5/10" />
                                     </HBox>
 
                                     <!-- Progress Bar -->
                                     <VBox spacing="8">
-                                        <ProgressBar fx:id="gameProgressBar" progress="0.5"
-                                                     maxWidth="Infinity" prefHeight="12"
-                                                     styleClass="game-progress-bar"/>
+                                        <ProgressBar fx:id="gameProgressBar" maxWidth="Infinity" prefHeight="12" progress="0.5" styleClass="game-progress-bar" />
                                         <HBox alignment="CENTER_LEFT" spacing="15">
-                                            <Label text="⏱️" style="-fx-font-size: 14px;"/>
-                                            <Label fx:id="timeRemainingLabel" text="30s còn lại"
-                                                   styleClass="time-text"/>
+                                            <Label style="-fx-font-size: 14px;" text="⏱️" />
+                                            <Label fx:id="timeRemainingLabel" styleClass="time-text" text="30s còn lại" />
                                         </HBox>
                                     </VBox>
 
                                     <!-- Game Stats -->
-                                    <GridPane hgap="15" vgap="10" styleClass="stats-grid">
+                                    <GridPane hgap="15" styleClass="stats-grid" vgap="10">
                                         <columnConstraints>
-                                            <ColumnConstraints percentWidth="33.33"/>
-                                            <ColumnConstraints percentWidth="33.33"/>
-                                            <ColumnConstraints percentWidth="33.33"/>
+                                            <ColumnConstraints percentWidth="33.33" />
+                                            <ColumnConstraints percentWidth="33.33" />
+                                            <ColumnConstraints percentWidth="33.33" />
                                         </columnConstraints>
 
-                                        <VBox alignment="CENTER" spacing="5" styleClass="stat-card"
-                                              GridPane.columnIndex="0" GridPane.rowIndex="0">
-                                            <Label text="🎯" style="-fx-font-size: 20px;"/>
-                                            <Label fx:id="correctAnswersLabel" text="12" styleClass="stat-value"/>
-                                            <Label text="Đúng" styleClass="stat-label"/>
+                                        <VBox alignment="CENTER" spacing="5" styleClass="stat-card" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                                            <Label style="-fx-font-size: 10px;" text="🎯" />
+                                            <Label fx:id="correctAnswersLabel" styleClass="stat-value" text="12" />
+                                            <Label styleClass="stat-label" text="Đúng" />
                                         </VBox>
 
-                                        <VBox alignment="CENTER" spacing="5" styleClass="stat-card"
-                                              GridPane.columnIndex="1" GridPane.rowIndex="0">
-                                            <Label text="❌" style="-fx-font-size: 20px;"/>
-                                            <Label fx:id="wrongAnswersLabel" text="3" styleClass="stat-value"/>
-                                            <Label text="Sai" styleClass="stat-label"/>
+                                        <VBox alignment="CENTER" spacing="5" styleClass="stat-card" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                            <Label style="-fx-font-size: 10px;" text="❌" />
+                                            <Label fx:id="wrongAnswersLabel" styleClass="stat-value" text="3" />
+                                            <Label styleClass="stat-label" text="Sai" />
                                         </VBox>
 
-                                        <VBox alignment="CENTER" spacing="5" styleClass="stat-card"
-                                              GridPane.columnIndex="2" GridPane.rowIndex="0">
-                                            <Label text="⏭️" style="-fx-font-size: 20px;"/>
-                                            <Label fx:id="skippedLabel" text="1" styleClass="stat-value"/>
-                                            <Label text="Bỏ qua" styleClass="stat-label"/>
+                                        <VBox alignment="CENTER" spacing="5" styleClass="stat-card" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                                            <Label style="-fx-font-size: 10px;" text="⏭️" />
+                                            <Label fx:id="skippedLabel" styleClass="stat-value" text="1" />
+                                            <Label styleClass="stat-label" text="Bỏ qua" />
                                         </VBox>
+                              <rowConstraints>
+                                 <RowConstraints />
+                              </rowConstraints>
                                     </GridPane>
                                 </VBox>
 
-                                <Separator/>
+                                <Separator />
 
                                 <!-- Players in Room -->
-                                <VBox spacing="12" fx:id="playersSection">
-                                    <Label text="👥 Người chơi trong phòng" styleClass="section-title"/>
-                                    <ScrollPane fitToWidth="true" prefHeight="200"
-                                                styleClass="players-scroll">
-                                        <VBox fx:id="playerListContainer" spacing="8"/>
+                                <VBox fx:id="playersSection" spacing="12">
+                                    <Label styleClass="section-title" text="👥 Người chơi trong phòng" />
+                                    <ScrollPane fitToWidth="true" prefHeight="100" styleClass="players-scroll">
+                                        <VBox fx:id="playerListContainer" spacing="8" />
                                     </ScrollPane>
                                 </VBox>
 
-                                <Separator/>
+                                <Separator />
 
                                 <!-- Admin Actions -->
-                                <VBox spacing="12" fx:id="adminActionsSection">
-                                    <Label text="⚙️ Hành động quản trị" styleClass="section-title"/>
+                                <VBox fx:id="adminActionsSection" spacing="12">
+                                    <Label styleClass="section-title" text="⚙️ Hành động quản trị" />
 
                                     <GridPane hgap="10" vgap="10">
                                         <columnConstraints>
-                                            <ColumnConstraints percentWidth="50"/>
-                                            <ColumnConstraints percentWidth="50"/>
+                                            <ColumnConstraints percentWidth="50" />
+                                            <ColumnConstraints percentWidth="50" />
                                         </columnConstraints>
 
-                                        <Button fx:id="pauseButton" text="⏸️ Tạm dừng"
-                                                styleClass="btn-warning" maxWidth="Infinity"
-                                                onAction="#handlePauseGame"
-                                                GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                                        <Button fx:id="pauseButton" maxWidth="Infinity" onAction="#handlePauseGame" styleClass="btn-warning" text="⏸️ Tạm dừng" GridPane.columnIndex="0" GridPane.rowIndex="0" />
 
-                                        <Button fx:id="resumeButton" text="▶️ Tiếp tục"
-                                                styleClass="btn-success" maxWidth="Infinity"
-                                                onAction="#handleResumeGame" visible="false"
-                                                GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                                        <Button fx:id="resumeButton" maxWidth="Infinity" onAction="#handleResumeGame" styleClass="btn-success" text="▶️ Tiếp tục" visible="false" GridPane.columnIndex="0" GridPane.rowIndex="0" />
 
-                                        <Button fx:id="announceButton" text="📢 Thông báo"
-                                                styleClass="btn-primary" maxWidth="Infinity"
-                                                onAction="#handleAnnounce"
-                                                GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                                        <Button fx:id="announceButton" maxWidth="Infinity" onAction="#handleAnnounce" styleClass="btn-primary" text="📢 Thông báo" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-                                        <Button fx:id="kickPlayerButton" text="👊 Kick người chơi"
-                                                styleClass="btn-warning-outline" maxWidth="Infinity"
-                                                onAction="#handleKickPlayer"
-                                                GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                                        <Button fx:id="kickPlayerButton" maxWidth="Infinity" onAction="#handleKickPlayer" styleClass="btn-warning-outline" text="👊 Kick người chơi" GridPane.columnIndex="0" GridPane.rowIndex="1" />
 
-                                        <Button fx:id="destroyButton" text="💣 Hủy phòng"
-                                                styleClass="btn-danger" maxWidth="Infinity"
-                                                onAction="#handleDestroyRoom"
-                                                GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                                        <Button fx:id="destroyButton" maxWidth="Infinity" onAction="#handleDestroyRoom" styleClass="btn-danger" text="💣 Hủy phòng" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                              <rowConstraints>
+                                 <RowConstraints />
+                                 <RowConstraints />
+                              </rowConstraints>
                                     </GridPane>
                                 </VBox>
                             </VBox>
@@ -283,40 +282,39 @@
             </Tab>
 
             <!-- Tab 2: User Management -->
-            <Tab text="👥 User Management">
+            <Tab text="👥 Quản lý người dùng">
                 <BorderPane styleClass="user-management-container">
 
                     <!-- Top Toolbar -->
                     <top>
                         <VBox spacing="15">
                             <padding>
-                                <Insets top="15" right="15" bottom="15" left="15"/>
+                                <Insets bottom="15" left="15" right="15" top="15" />
                             </padding>
 
                             <!-- Title and Stats -->
-                            <HBox spacing="10" alignment="CENTER_LEFT">
-                                <Label text="USER MANAGEMENT" styleClass="section-title"/>
-                                <Region HBox.hgrow="ALWAYS"/>
-                                <Label fx:id="totalUsersLabel" text="Total: 0 users" styleClass="info-value"/>
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <Label styleClass="section-title" text="QUẢN LÝ NGƯỜI DÙNG" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Label fx:id="totalUsersLabel" styleClass="info-value" text="Total: 0 users" />
                             </HBox>
 
                             <!-- Search and Actions -->
-                            <HBox spacing="10" alignment="CENTER_LEFT">
-                                <TextField fx:id="userSearchField" promptText="🔍 Search by username or email..."
-                                           prefWidth="300" styleClass="search-field"/>
-                                <Button text="Search" styleClass="btn-primary" onAction="#handleSearchUsers"/>
-                                <Button text="🔄 Refresh" styleClass="btn-secondary" onAction="#handleRefreshUsers"/>
-                                <Region HBox.hgrow="ALWAYS"/>
-                                <Button text="➕ Add User" styleClass="btn-success" onAction="#handleAddUser"/>
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <TextField fx:id="userSearchField" prefWidth="300" promptText="🔍 Search by username or email..." styleClass="search-field" />
+                                <Button onAction="#handleSearchUsers" styleClass="btn-primary" text="Search" />
+                                <Button onAction="#handleRefreshUsers" styleClass="btn-secondary" text="🔄 Refresh" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button onAction="#handleAddUser" styleClass="btn-success" text="➕ Add User" />
                             </HBox>
 
                             <!-- Filters -->
-                            <HBox spacing="15" alignment="CENTER_LEFT" styleClass="filter-bar">
-                                <Label text="Filter:" styleClass="filter-label"/>
-                                <ComboBox fx:id="userStatusFilter" promptText="All Status" prefWidth="120"/>
-                                <ComboBox fx:id="userSortFilter" promptText="Sort By" prefWidth="150"/>
-                                <Region HBox.hgrow="ALWAYS"/>
-                                <Label fx:id="filteredCountLabel" text="Showing: 0 users" styleClass="filter-label"/>
+                            <HBox alignment="CENTER_LEFT" spacing="15" styleClass="filter-bar">
+                                <Label styleClass="filter-label" text="Filter:" />
+                                <ComboBox fx:id="userStatusFilter" onAction="#handleFilterUsers" prefWidth="110" promptText="All Status" />
+                                <ComboBox fx:id="userSortFilter" onAction="#handleFilterUsers" prefWidth="150" promptText="Sort By" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Label fx:id="filteredCountLabel" styleClass="filter-label" text="Showing: 0 users" />
                             </HBox>
                         </VBox>
                     </top>
@@ -325,7 +323,7 @@
                     <center>
                         <TableView fx:id="userTable" styleClass="data-table">
                             <padding>
-                                <Insets top="0" right="15" bottom="15" left="15"/>
+                                <Insets bottom="15" left="15" right="15" top="0" />
                             </padding>
                         </TableView>
                     </center>
@@ -333,93 +331,333 @@
             </Tab>
 
             <!-- Tab 3: Server Console -->
-            <Tab text="🖥️ Console">
+            <Tab text="🖥️ Bảng điều khiển">
                 <VBox spacing="10" styleClass="console-container">
                     <padding>
-                        <Insets top="15" right="15" bottom="15" left="15"/>
+                        <Insets bottom="15" left="15" right="15" top="15" />
                     </padding>
 
                     <HBox alignment="CENTER_LEFT" spacing="10">
-                        <Label text="SERVER LOG" styleClass="section-title"/>
-                        <Region HBox.hgrow="ALWAYS"/>
-                        <Button text="🗑️ Clear" styleClass="btn-secondary" onAction="#handleClearLog"/>
+                        <Label styleClass="section-title" text="SERVER LOG" />
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Button onAction="#handleClearLog" styleClass="btn-secondary" text="🗑️ Clear" />
                     </HBox>
 
-                    <TextArea fx:id="consoleArea" editable="false" wrapText="true"
-                              VBox.vgrow="ALWAYS" styleClass="console-text"/>
+                    <TextArea fx:id="consoleArea" editable="false" styleClass="console-text" wrapText="true" VBox.vgrow="ALWAYS" />
                 </VBox>
             </Tab>
 
             <!-- Tab 4: Statistics -->
-            <Tab text="📊 Statistics">
+            <Tab text="📊 Thống kê">
                 <ScrollPane fitToWidth="true" styleClass="stats-scroll">
-                    <VBox spacing="20" styleClass="stats-container">
+                    <VBox spacing="10" styleClass="stats-container">
                         <padding>
-                            <Insets top="20" right="20" bottom="20" left="20"/>
+                            <Insets bottom="10" left="10" right="10" top="10" />
                         </padding>
 
-                        <Label text="SERVER STATISTICS" styleClass="section-title"/>
+                        <Label styleClass="section-title" text="THỐNG KÊ MÁY CHỦ" />
 
-                        <GridPane hgap="20" vgap="20" styleClass="stats-grid">
+                        <GridPane hgap="10" styleClass="stats-grid" vgap="10">
                             <!-- Row 1 -->
                             <VBox styleClass="stat-card" GridPane.columnIndex="0" GridPane.rowIndex="0">
-                                <Label text="Total Connections" styleClass="stat-card-title"/>
-                                <Label fx:id="totalConnectionsLabel" text="0" styleClass="stat-card-value"/>
-                                <Label text="Since server start" styleClass="stat-card-subtitle"/>
+                                <Label styleClass="stat-card-title" text="Tổng số kết nối" />
+                                <Label fx:id="totalConnectionsLabel" styleClass="stat-card-value" text="0" />
+                                <Label styleClass="stat-card-subtitle" text="Since server start" />
                             </VBox>
 
                             <VBox styleClass="stat-card" GridPane.columnIndex="1" GridPane.rowIndex="0">
-                                <Label text="Total Games" styleClass="stat-card-title"/>
-                                <Label fx:id="totalGamesLabel" text="0" styleClass="stat-card-value"/>
-                                <Label text="Completed matches" styleClass="stat-card-subtitle"/>
+                                <Label styleClass="stat-card-title" text="Tổng số trò chơi" />
+                                <Label fx:id="totalGamesLabel" styleClass="stat-card-value" text="0" />
+                                <Label styleClass="stat-card-subtitle" text="Completed matches" />
                             </VBox>
 
                             <VBox styleClass="stat-card" GridPane.columnIndex="2" GridPane.rowIndex="0">
-                                <Label text="Peak Players" styleClass="stat-card-title"/>
-                                <Label fx:id="peakPlayersLabel" text="0" styleClass="stat-card-value"/>
-                                <Label text="Maximum concurrent" styleClass="stat-card-subtitle"/>
+                                <Label styleClass="stat-card-title" text="Người chơi đỉnh cao" />
+                                <Label fx:id="peakPlayersLabel" styleClass="stat-card-value" text="0" />
+                                <Label styleClass="stat-card-subtitle" text="Maximum concurrent" />
                             </VBox>
 
                             <!-- Row 2 -->
                             <VBox styleClass="stat-card" GridPane.columnIndex="0" GridPane.rowIndex="1">
-                                <Label text="Uptime" styleClass="stat-card-title"/>
-                                <Label fx:id="uptimeLabel" text="00:00:00" styleClass="stat-card-value"/>
-                                <Label text="Server running time" styleClass="stat-card-subtitle"/>
+                                <Label styleClass="stat-card-title" text="Thời gian hoạt động" />
+                                <Label fx:id="uptimeLabel" styleClass="stat-card-value" text="00:00:00" />
+                                <Label styleClass="stat-card-subtitle" text="Server running time" />
                             </VBox>
 
                             <VBox styleClass="stat-card" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                <Label text="Messages Sent" styleClass="stat-card-title"/>
-                                <Label fx:id="messagesSentLabel" text="0" styleClass="stat-card-value"/>
-                                <Label text="Total packets" styleClass="stat-card-subtitle"/>
+                                <Label styleClass="stat-card-title" text="Tin nhắn đã gửi" />
+                                <Label fx:id="messagesSentLabel" styleClass="stat-card-value" text="0" />
+                                <Label styleClass="stat-card-subtitle" text="Total packets" />
                             </VBox>
 
                             <VBox styleClass="stat-card" GridPane.columnIndex="2" GridPane.rowIndex="1">
-                                <Label text="Average Response" styleClass="stat-card-title"/>
-                                <Label fx:id="avgResponseLabel" text="0ms" styleClass="stat-card-value"/>
-                                <Label text="Server latency" styleClass="stat-card-subtitle"/>
+                                <Label styleClass="stat-card-title" text="Phản hồi trung bình" />
+                                <Label fx:id="avgResponseLabel" styleClass="stat-card-value" text="0ms" />
+                                <Label styleClass="stat-card-subtitle" text="Server latency" />
                             </VBox>
+                     <columnConstraints>
+                        <ColumnConstraints />
+                        <ColumnConstraints />
+                        <ColumnConstraints />
+                     </columnConstraints>
+                     <rowConstraints>
+                        <RowConstraints />
+                        <RowConstraints />
+                     </rowConstraints>
                         </GridPane>
                     </VBox>
                 </ScrollPane>
             </Tab>
 
+            <!-- Tab 5: Server Messages - OPTIMIZED UI -->
+            <Tab text="💬 Tin nhắn máy chủ">
+                <BorderPane styleClass="chat-container">
+
+                    <!-- LEFT PANEL: USER RECIPIENT LIST -->
+                    <left>
+                        <VBox prefWidth="380" spacing="12" styleClass="client-list-panel" VBox.vgrow="ALWAYS">
+                            <padding>
+                                <Insets bottom="10" left="10" right="15" top="10" />
+                            </padding>
+
+                            <!-- Header -->
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <Label styleClass="panel-title" text="📋 Chọn người nhận" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button onAction="#handleRefreshRecipients"
+                                        styleClass="btn-icon"
+                                        style="-fx-padding: 4 8; -fx-font-size: 12px;"
+                                        text="🔄" />
+                            </HBox>
+
+                            <Separator />
+
+                            <!-- Quick Filter -->
+                            <HBox spacing="10">
+                                <TextField fx:id="recipientSearchField"
+                                           promptText="🔍 Search users..."
+                                           styleClass="search-field"
+                                           HBox.hgrow="ALWAYS" />
+
+                                <ComboBox fx:id="recipientStatusFilter"
+                                          onAction="#handleFilterRecipients"
+                                          prefWidth="100"
+                                          promptText="All Status">
+                                    <items>
+                                        <FXCollections fx:factory="observableArrayList">
+                                            <String fx:value="All" />
+                                            <String fx:value="Online" />
+                                            <String fx:value="Offline" />
+                                        </FXCollections>
+                                    </items>
+                                </ComboBox>
+                            </HBox>
+
+                            <!-- Table -->
+                            <TableView fx:id="recipientTable"
+                                       styleClass="data-table"
+                                       VBox.vgrow="ALWAYS">
+                                <placeholder>
+                                    <Label styleClass="empty-subtitle" text="No users available" />
+                                </placeholder>
+                                <columnResizePolicy>
+                                    <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                                </columnResizePolicy>
+                            </TableView>
+
+                            <!-- Selection Info -->
+                            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="selection-info">
+                                <Label styleClass="info-label" text="📊 Selected:" />
+                                <Label fx:id="selectedUsersCountLabel" styleClass="info-value-accent" text="0 users" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button onAction="#handleClearSelection"
+                                        styleClass="btn-secondary-sm"
+                                        style="-fx-padding: 4 10; -fx-font-size: 12px;"
+                                        text="Clear" />
+                            </HBox>
+                        </VBox>
+                    </left>
+
+                    <!-- RIGHT PANEL: MESSAGE COMPOSER -->
+                    <center>
+                        <VBox spacing="14" styleClass="message-composer-panel" VBox.vgrow="ALWAYS">
+                            <padding>
+                                <Insets bottom="10" left="10" right="10" top="10" />
+                            </padding>
+
+                            <!-- Header -->
+                            <VBox spacing="6">
+                                <Label styleClass="section-title" text="✉️ Soạn tin nhắn máy chủ" />
+                                <Label styleClass="section-subtitle"
+                                       text="Gửi thông báo hoặc tin nhắn riêng tư cho người dùng" />
+                            </VBox>
+
+                            <Separator />
+
+                            <!-- Message Type Buttons -->
+                            <VBox spacing="10">
+                                <Label styleClass="info-label" text="Loại tin nhắn:" />
+
+                                <HBox spacing="10">
+                                    <Button fx:id="sendBroadcastButton"
+                                            onAction="#handleSendBroadcast"
+                                            styleClass="btn-broadcast"
+                                            style="-fx-padding: 6 12; -fx-font-size: 12px;"
+                                            text="Tất cả người dùng"
+                                            HBox.hgrow="ALWAYS" />
+
+                                    <Button fx:id="sendGroupButton"
+                                            onAction="#handleSendGroup"
+                                            styleClass="btn-group"
+                                            style="-fx-padding: 6 12; -fx-font-size: 12px;"
+                                            text="Người được chọn"
+                                            HBox.hgrow="ALWAYS" />
+
+                                    <Button fx:id="sendPrivateButton"
+                                            onAction="#handleSendPrivate"
+                                            styleClass="btn-private"
+                                            style="-fx-padding: 6 12; -fx-font-size: 12px;"
+                                            text="Gửi riêng"
+                                            HBox.hgrow="ALWAYS" />
+                                </HBox>
+                            </VBox>
+
+                            <!-- MESSAGE INPUT -->
+                            <VBox spacing="10" VBox.vgrow="ALWAYS">
+                                <HBox alignment="CENTER_LEFT" spacing="10">
+                                    <Label styleClass="info-label" text="Nội dung tin nhắn" />
+                                    <Region HBox.hgrow="ALWAYS" />
+                                    <CheckBox fx:id="importantCheckBox"
+                                              styleClass="important-checkbox"
+                                              text="*Đánh dấu quan trọng" />
+                                </HBox>
+
+                                <TextArea fx:id="serverMessageInput"
+                                          promptText="Nhập tin nhắn tại đây..."
+                                          styleClass="message-textarea"
+                                          wrapText="true"
+                                          prefHeight="220"
+                                          maxHeight="Infinity"
+                                          VBox.vgrow="ALWAYS" />
+
+                                <!-- Char counter -->
+                                <HBox alignment="CENTER_LEFT" spacing="15">
+                                    <HBox spacing="5" alignment="CENTER_LEFT">
+                                        <Label style="-fx-font-size: 12px;" text="📝" />
+                                        <Label fx:id="charCountLabel"
+                                               styleClass="char-count-label"
+                                               text="0 / 500 characters" />
+                                    </HBox>
+
+                                    <Region HBox.hgrow="ALWAYS" />
+
+                                    <Button onAction="#handleClearMessageInput"
+                                            styleClass="btn-secondary"
+                                            style="-fx-padding: 6 12; -fx-font-size: 12px;"
+                                            text="Làm mới" />
+                                </HBox>
+                            </VBox>
+
+                            <Separator />
+
+                            <!-- QUICK TEMPLATES -->
+                            <VBox spacing="10">
+                                <Label styleClass="info-label" text="📋 Quick Templates:" />
+
+                                <HBox spacing="8">
+                                    <Button onAction="#handleTemplateWelcome"
+                                            styleClass="btn-template-sm"
+                                            style="-fx-padding: 4 10; -fx-font-size: 11px;"
+                                            text="🎉 Welcome" />
+
+                                    <Button onAction="#handleTemplateMaintenance"
+                                            styleClass="btn-template-sm"
+                                            style="-fx-padding: 4 10; -fx-font-size: 11px;"
+                                            text="⚠️ Maintenance" />
+
+                                    <Button onAction="#handleTemplateEvent"
+                                            styleClass="btn-template-sm"
+                                            style="-fx-padding: 4 10; -fx-font-size: 11px;"
+                                            text="🎮 Event" />
+
+                                    <Button onAction="#handleTemplateAnnouncement"
+                                            styleClass="btn-template-sm"
+                                            style="-fx-padding: 4 10; -fx-font-size: 11px;"
+                                            text="📢 Announcement" />
+                                </HBox>
+                            </VBox>
+
+                            <Separator />
+
+                            <!-- HISTORY -->
+                            <VBox spacing="10" VBox.vgrow="ALWAYS">
+                                <HBox alignment="CENTER_LEFT" spacing="10">
+                                    <Label styleClass="info-label" text="📜 Recent Messages" />
+
+                                    <Region HBox.hgrow="ALWAYS" />
+
+                                    <Button onAction="#handleRefreshMessageHistory"
+                                            styleClass="btn-icon-sm"
+                                            style="-fx-padding: 4 8; -fx-font-size: 12px;"
+                                            text="🔄" />
+
+                                    <Button onAction="#handleViewFullHistory"
+                                            styleClass="btn-secondary-sm"
+                                            style="-fx-padding: 4 10; -fx-font-size: 12px;"
+                                            text="📖 View Full History" />
+                                </HBox>
+
+                                <ScrollPane fitToWidth="true"
+                                            prefHeight="260"
+                                            maxHeight="320"
+                                            styleClass="message-history-scroll"
+                                            VBox.vgrow="ALWAYS">
+                                    <VBox fx:id="messageHistoryContainer"
+                                          spacing="8"
+                                          styleClass="message-history-container">
+                                    </VBox>
+                                </ScrollPane>
+                            </VBox>
+
+                        </VBox>
+                    </center>
+
+                </BorderPane>
+            </Tab>
+
+
         </TabPane>
     </center>
 
-    <!-- Bottom: Status Bar -->
+    <!-- Bottom: Status Bar (FIXED) -->
     <bottom>
-        <HBox styleClass="status-bar" spacing="20" alignment="CENTER_LEFT">
+        <HBox alignment="CENTER_LEFT" spacing="10" styleClass="status-bar">
             <padding>
-                <Insets top="10" right="20" bottom="10" left="20"/>
+                <Insets bottom="10" left="10" right="10" top="10" />
             </padding>
 
-            <Label fx:id="portLabel" text="Port: 8888"/>
-            <Separator orientation="VERTICAL"/>
-            <Label fx:id="uptimeStatusLabel" text="Uptime: 00:00:00"/>
-            <Separator orientation="VERTICAL"/>
-            <Label fx:id="memoryLabel" text="Memory: 0 MB"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Label fx:id="timestampLabel" text="Last update: --:--:--" styleClass="timestamp-label"/>
+            <!-- IP Label (NEW) -->
+            <Label fx:id="ipLabel" styleClass="status-info" text="IP: Loading..." />
+            <Separator orientation="VERTICAL" />
+
+            <Label fx:id="portLabel" styleClass="status-info" text="Port: --" />
+            <Separator orientation="VERTICAL" />
+
+            <Label fx:id="uptimeStatusLabel" styleClass="status-info" text="Uptime: 00:00:00" />
+            <Separator orientation="VERTICAL" />
+
+            <Label fx:id="memoryLabel" styleClass="status-info" text="Memory: 0 MB" />
+
+            <Region HBox.hgrow="ALWAYS" />
+
+            <!-- Copy Connection Info Button (NEW) -->
+            <Button onAction="#handleCopyConnectionInfo" styleClass="btn-secondary-sm" text="📋 Copy IP:Port">
+                <tooltip>
+                    <Tooltip text="Copy connection info to clipboard" />
+                </tooltip>
+            </Button>
+
+            <Label fx:id="timestampLabel" styleClass="timestamp-label" text="Last update: --:--:--" />
         </HBox>
     </bottom>
 

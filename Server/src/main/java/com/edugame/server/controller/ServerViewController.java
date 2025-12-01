@@ -1,8 +1,10 @@
 package com.edugame.server.controller;
 
 import com.edugame.common.Protocol;
+import com.edugame.server.database.ServerMessageDAO;
 import com.edugame.server.database.UserDAO;
 import com.edugame.server.game.GameRoomManager;
+import com.edugame.server.model.ServerMessage;
 import com.edugame.server.model.User;
 import com.edugame.server.network.ClientHandler;
 import com.edugame.server.network.GameServer;
@@ -10,6 +12,7 @@ import javafx.application.Platform;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
@@ -102,6 +105,23 @@ public class ServerViewController {
     @FXML private VBox roomContent;
     @FXML private Button kickPlayerButton;
 
+    @FXML private Label selectedUsersCountLabel;
+    @FXML private Button sendBroadcastButton;
+    @FXML private Button sendGroupButton;
+    @FXML private Button sendPrivateButton;
+    @FXML private TextArea serverMessageInput;
+    @FXML private TableView<UserTableRow> recipientTable;
+    @FXML private CheckBox importantCheckBox;
+
+    // Server Chat injections
+    @FXML private TextField recipientSearchField;
+    @FXML private ComboBox<String> recipientStatusFilter;
+    @FXML private VBox messageHistoryContainer;
+
+    @FXML private Label charCountLabel;
+
+    private ServerMessageDAO serverMessageDAO;
+    private Set<Integer> selectedUserIds = new HashSet<>();
     // ==================== INSTANCE VARIABLES ====================
 
     private GameServer gameServer;
@@ -145,6 +165,14 @@ public class ServerViewController {
             e.printStackTrace();
         }
 
+        try {
+            serverMessageDAO = new ServerMessageDAO();
+            System.out.println("✅ ServerMessageDAO initialized");
+        } catch (Exception e) {
+            System.err.println("❌ Failed to initialize ServerMessageDAO: " + e.getMessage());
+        }
+
+
         // Setup components
         System.out.println("🔍 [DEBUG] Setting up UI components...");
         setupConsoleRedirect();
@@ -153,6 +181,7 @@ public class ServerViewController {
         setupUserFilters();
         startUpdateTimer();
         updateUIState(false);
+        setupServerChat();
 
         logToConsole("🎮 Server UI Ready");
         logToConsole("💡 Click 'Start' to begin server");
@@ -163,6 +192,8 @@ public class ServerViewController {
 
         System.out.println("🔍 [DEBUG] ========== Initialize Complete ==========");
     }
+
+
 
     public void setGameServer(GameServer server) {
         this.gameServer = server;
@@ -845,70 +876,9 @@ public class ServerViewController {
 
         dialog.showAndWait();
     }
+
     private void handleResetPassword(UserTableRow user) {
-        Dialog<ButtonType> dialog = new Dialog<>();
-        dialog.setTitle("Reset Password");
-        dialog.setHeaderText("Reset password for: " + user.getUsername());
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20));
-
-        PasswordField newPasswordField = new PasswordField();
-        newPasswordField.setPromptText("New Password");
-
-        PasswordField confirmField = new PasswordField();
-        confirmField.setPromptText("Confirm Password");
-
-        grid.add(new Label("New Password:"), 0, 0);
-        grid.add(newPasswordField, 1, 0);
-
-        grid.add(new Label("Confirm:"), 0, 1);
-        grid.add(confirmField, 1, 1);
-
-        Label hint = new Label("⚠️ Password must be at least 6 characters");
-        hint.setStyle("-fx-text-fill: #f59e0b;");
-        grid.add(hint, 0, 2, 2, 1);
-
-        dialog.getDialogPane().setContent(grid);
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-
-        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
-        okButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
-            String newPassword = newPasswordField.getText();
-            String confirm = confirmField.getText();
-
-            if (newPassword.isEmpty() || confirm.isEmpty()) {
-                showAlert("Validation Error", "Please enter password", Alert.AlertType.ERROR);
-                event.consume();
-                return;
-            }
-
-            if (newPassword.length() < 6) {
-                showAlert("Validation Error", "Password must be at least 6 characters", Alert.AlertType.ERROR);
-                event.consume();
-                return;
-            }
-
-            if (!newPassword.equals(confirm)) {
-                showAlert("Validation Error", "Passwords do not match!", Alert.AlertType.ERROR);
-                event.consume();
-                return;
-            }
-
-            boolean success = userDAO.resetPassword(user.getUserId(), newPassword);
-
-            if (success) {
-                logToConsole("🔑 Password reset for user: " + user.getUsername());
-                showNotification("Password reset successfully!", "success");
-            } else {
-                showAlert("Error", "Failed to reset password", Alert.AlertType.ERROR);
-                event.consume();
-            }
-        });
-
-        dialog.showAndWait();
     }
 
     private void handleDeleteUser(UserTableRow user) {
@@ -1123,6 +1093,724 @@ public class ServerViewController {
 
         return false;
     }
+// ==================== Chat MANAGEMENT ====================
+    /**
+     * Setup Server Chat tab with recipient table and message composer
+     */
+    private void setupServerChat() {
+        System.out.println("🔍 [DEBUG] Setting up Server Chat tab...");
+
+        if (recipientTable == null) {
+            System.err.println("❌ recipientTable is NULL!");
+            return;
+        }
+
+        // Setup recipient table columns
+        setupRecipientTable();
+
+        // Setup search and filter listeners
+        setupChatFilters();
+
+        // Load initial recipients
+        loadRecipients();
+
+        // Setup character counter for message input
+        setupCharacterCounter();
+
+        // Load recent message history
+        loadMessageHistory();
+
+        System.out.println("✅ Server Chat setup complete");
+    }
+
+    /**
+     * Setup recipient selection table with multi-select
+     */
+    private void setupRecipientTable() {
+        System.out.println("🔍 Setting up recipient table...");
+
+        // Clear existing columns
+        recipientTable.getColumns().clear();
+
+        // Enable multi-selection
+        recipientTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
+        // Selection change listener
+        recipientTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            updateSelectedUsers();
+            updateSelectedUsersCount();
+        });
+
+        // ==================== SELECT COLUMN (Checkbox) ====================
+        TableColumn<UserTableRow, Boolean> selectCol = new TableColumn<>("✓");
+        selectCol.setPrefWidth(40);
+        selectCol.setStyle("-fx-alignment: CENTER;");
+        selectCol.setCellFactory(col -> new TableCell<UserTableRow, Boolean>() {
+            private final CheckBox checkBox = new CheckBox();
+
+            {
+                checkBox.setOnAction(e -> {
+                    UserTableRow user = getTableView().getItems().get(getIndex());
+                    if (checkBox.isSelected()) {
+                        recipientTable.getSelectionModel().select(user);
+                    } else {
+                        recipientTable.getSelectionModel().clearSelection(getIndex());
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(Boolean item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    checkBox.setSelected(recipientTable.getSelectionModel().isSelected(getIndex()));
+                    setGraphic(checkBox);
+                }
+            }
+        });
+
+        // ==================== USERNAME COLUMN ====================
+        TableColumn<UserTableRow, String> usernameCol = new TableColumn<>("Username");
+        usernameCol.setCellValueFactory(cellData -> cellData.getValue().usernameProperty());
+        usernameCol.setPrefWidth(120);
+
+        // ==================== FULL NAME COLUMN ====================
+        TableColumn<UserTableRow, String> fullNameCol = new TableColumn<>("Full Name");
+        fullNameCol.setCellValueFactory(cellData -> cellData.getValue().fullNameProperty());
+        fullNameCol.setPrefWidth(150);
+
+        // ==================== STATUS COLUMN ====================
+        TableColumn<UserTableRow, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(cellData -> cellData.getValue().statusTextProperty());
+        statusCol.setPrefWidth(80);
+        statusCol.setStyle("-fx-alignment: CENTER;");
+        statusCol.setCellFactory(col -> new TableCell<UserTableRow, String>() {
+            @Override
+            protected void updateItem(String status, boolean empty) {
+                super.updateItem(status, empty);
+                if (empty || status == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(status);
+                    if (status.equals("Online")) {
+                        setStyle("-fx-text-fill: #4ade80; -fx-font-weight: bold;");
+                    } else {
+                        setStyle("-fx-text-fill: #94a3b8;");
+                    }
+                }
+            }
+        });
+
+        // Add all columns
+        recipientTable.getColumns().addAll(selectCol, usernameCol, fullNameCol, statusCol);
+
+        // Bind to filtered users
+        recipientTable.setItems(filteredUsers);
+
+        // Placeholder
+        Label placeholder = new Label("No users available");
+        placeholder.setStyle("-fx-text-fill: #94a3b8; -fx-font-size: 14px;");
+        recipientTable.setPlaceholder(placeholder);
+
+        System.out.println("✅ Recipient table setup complete");
+    }
+
+    /**
+     * Setup search and filter listeners for recipient selection
+     */
+    private void setupChatFilters() {
+        if (recipientSearchField != null) {
+            recipientSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
+                filterRecipients();
+            });
+        }
+
+        if (recipientStatusFilter != null) {
+            recipientStatusFilter.setItems(FXCollections.observableArrayList("All", "Online", "Offline"));
+            recipientStatusFilter.setValue("All");
+        }
+    }
+
+    /**
+     * Setup character counter for message input
+     */
+    private void setupCharacterCounter() {
+        if (serverMessageInput != null && charCountLabel != null) {
+            serverMessageInput.textProperty().addListener((obs, oldVal, newVal) -> {
+                int length = newVal.length();
+                charCountLabel.setText(length + " / 500 characters");
+
+                // Change color based on length
+                if (length > 450) {
+                    charCountLabel.setStyle("-fx-text-fill: #ef4444;");
+                } else if (length > 350) {
+                    charCountLabel.setStyle("-fx-text-fill: #f59e0b;");
+                } else {
+                    charCountLabel.setStyle("-fx-text-fill: #64748b;");
+                }
+
+                // Limit to 500 characters
+                if (length > 500) {
+                    serverMessageInput.setText(oldVal);
+                }
+            });
+        }
+    }
+
+    /**
+     * Load recipients (same as user list)
+     */
+    private void loadRecipients() {
+        System.out.println("🔍 Loading recipients...");
+        loadUsers(); // Reuse the existing loadUsers method
+    }
+
+    /**
+     * Update selected users from table
+     */
+    private void updateSelectedUsers() {
+        selectedUserIds.clear();
+
+        if (recipientTable != null) {
+            for (UserTableRow user : recipientTable.getSelectionModel().getSelectedItems()) {
+                selectedUserIds.add(user.getUserId());
+            }
+        }
+    }
+
+    /**
+     * Update selected users count label
+     */
+    private void updateSelectedUsersCount() {
+        if (selectedUsersCountLabel != null) {
+            selectedUsersCountLabel.setText(selectedUserIds.size() + " users");
+        }
+    }
+
+    /**
+     * Filter recipients based on search and status
+     */
+    @FXML
+    private void handleFilterRecipients() {
+        filterRecipients();
+    }
+
+    /**
+     * Filter recipients implementation
+     */
+    private void filterRecipients() {
+        String searchText = recipientSearchField != null ? recipientSearchField.getText().toLowerCase().trim() : "";
+        String statusFilter = recipientStatusFilter != null ? recipientStatusFilter.getValue() : "All";
+
+        List<UserTableRow> filtered = new ArrayList<>(allUsers);
+
+        // Apply search filter
+        if (!searchText.isEmpty()) {
+            filtered = filtered.stream()
+                    .filter(user ->
+                            user.getUsername().toLowerCase().contains(searchText) ||
+                                    user.getFullName().toLowerCase().contains(searchText))
+                    .collect(Collectors.toList());
+        }
+
+        // Apply status filter
+        if (statusFilter != null && !statusFilter.equals("All")) {
+            filtered = filtered.stream()
+                    .filter(user -> user.getStatusText().equals(statusFilter))
+                    .collect(Collectors.toList());
+        }
+
+        // Update filtered list
+        filteredUsers.clear();
+        filteredUsers.addAll(filtered);
+
+        recipientTable.refresh();
+    }
+
+    /**
+     * Refresh recipients list
+     */
+    @FXML
+    private void handleRefreshRecipients() {
+        loadRecipients();
+        showNotification("Recipients list refreshed", "info");
+    }
+
+    /**
+     * Clear selection
+     */
+    @FXML
+    private void handleClearSelection() {
+        if (recipientTable != null) {
+            recipientTable.getSelectionModel().clearSelection();
+        }
+        selectedUserIds.clear();
+        updateSelectedUsersCount();
+        showNotification("Selection cleared", "info");
+    }
+
+    /**
+     * Clear message input
+     */
+    @FXML
+    private void handleClearMessageInput() {
+        if (serverMessageInput != null) {
+            serverMessageInput.clear();
+        }
+        if (importantCheckBox != null) {
+            importantCheckBox.setSelected(false);
+        }
+    }
+
+// ==================== MESSAGE SENDING HANDLERS ====================
+
+    /**
+     * Handler: Send broadcast message (all users)
+     */
+    @FXML
+    private void handleSendBroadcast() {
+        String content = serverMessageInput.getText().trim();
+
+        if (content.isEmpty()) {
+            showAlert("Error", "Please enter a message!", Alert.AlertType.WARNING);
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Broadcast");
+        confirm.setHeaderText("Send broadcast to ALL users?");
+        confirm.setContentText("Message: " + (content.length() > 50 ? content.substring(0, 50) + "..." : content));
+
+        Optional<ButtonType> result = confirm.showAndWait();
+
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            boolean isImportant = importantCheckBox != null && importantCheckBox.isSelected();
+
+            // Save to database
+            ServerMessage msg = serverMessageDAO.sendBroadcast("Admin", content, isImportant);
+
+            if (msg != null) {
+                logToConsole("📢 Broadcast sent: " + content);
+
+                // Broadcast to all online clients
+                Map<String, Object> notification = new HashMap<>();
+                notification.put("type", Protocol.NEW_SERVER_MESSAGE);
+                notification.put("messageId", msg.getMessageId());
+                notification.put("messageType", "broadcast");
+                notification.put("senderName", msg.getSenderName());
+                notification.put("content", msg.getContent());
+                notification.put("sentAt", msg.getSentAt().toString());
+                notification.put("isImportant", msg.isImportant());
+
+                if (gameServer != null) {
+                    gameServer.broadcastToAll(notification);
+                }
+
+                serverMessageInput.clear();
+                if (importantCheckBox != null) importantCheckBox.setSelected(false);
+
+                loadMessageHistory(); // Refresh history
+                showNotification("Broadcast sent to all users!", "success");
+            } else {
+                showAlert("Error", "Failed to send broadcast!", Alert.AlertType.ERROR);
+            }
+        }
+    }
+
+    /**
+     * Handler: Send group message (selected users)
+     */
+    @FXML
+    private void handleSendGroup() {
+        String content = serverMessageInput.getText().trim();
+
+        if (content.isEmpty()) {
+            showAlert("Error", "Please enter a message!", Alert.AlertType.WARNING);
+            return;
+        }
+
+        if (selectedUserIds.isEmpty()) {
+            showAlert("Error", "Please select at least 1 recipient!", Alert.AlertType.WARNING);
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Group Message");
+        confirm.setHeaderText("Send to " + selectedUserIds.size() + " selected users?");
+        confirm.setContentText("Message: " + (content.length() > 50 ? content.substring(0, 50) + "..." : content));
+
+        Optional<ButtonType> result = confirm.showAndWait();
+
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            boolean isImportant = importantCheckBox != null && importantCheckBox.isSelected();
+
+            // Save to database
+            List<Integer> recipients = new ArrayList<>(selectedUserIds);
+            ServerMessage msg = serverMessageDAO.sendGroupMessage("Admin", content, recipients, isImportant);
+
+            if (msg != null) {
+                logToConsole("📬 Group message sent to " + recipients.size() + " users");
+
+                // Send to online recipients
+                Map<String, Object> notification = new HashMap<>();
+                notification.put("type", Protocol.NEW_SERVER_MESSAGE);
+                notification.put("messageId", msg.getMessageId());
+                notification.put("messageType", "group");
+                notification.put("senderName", msg.getSenderName());
+                notification.put("content", msg.getContent());
+                notification.put("sentAt", msg.getSentAt().toString());
+                notification.put("isImportant", msg.isImportant());
+
+                int sentCount = 0;
+                if (gameServer != null) {
+                    for (int userId : recipients) {
+                        boolean sent = gameServer.sendToUserId(userId, notification);
+                        if (sent) sentCount++;
+                    }
+                }
+
+                logToConsole("   → Sent to " + sentCount + "/" + recipients.size() + " online users");
+
+                serverMessageInput.clear();
+                if (importantCheckBox != null) importantCheckBox.setSelected(false);
+                selectedUserIds.clear();
+                if (recipientTable != null) recipientTable.getSelectionModel().clearSelection();
+                updateSelectedUsersCount();
+
+                loadMessageHistory(); // Refresh history
+                showNotification("Sent to " + recipients.size() + " users (" + sentCount + " online)!", "success");
+            } else {
+                showAlert("Error", "Failed to send group message!", Alert.AlertType.ERROR);
+            }
+        }
+    }
+
+    /**
+     * Handler: Send private message (1 user only)
+     */
+    @FXML
+    private void handleSendPrivate() {
+        String content = serverMessageInput.getText().trim();
+
+        if (content.isEmpty()) {
+            showAlert("Error", "Please enter a message!", Alert.AlertType.WARNING);
+            return;
+        }
+
+        if (selectedUserIds.size() != 1) {
+            showAlert("Error", "Please select EXACTLY 1 recipient for private message!", Alert.AlertType.WARNING);
+            return;
+        }
+
+        int userId = selectedUserIds.iterator().next();
+
+        // Get username for confirmation
+        String username = "User #" + userId;
+        if (recipientTable != null) {
+            UserTableRow selected = recipientTable.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                username = selected.getUsername();
+            }
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Private Message");
+        confirm.setHeaderText("Send private message to: " + username);
+        confirm.setContentText("Message: " + (content.length() > 50 ? content.substring(0, 50) + "..." : content));
+
+        Optional<ButtonType> result = confirm.showAndWait();
+
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            boolean isImportant = importantCheckBox != null && importantCheckBox.isSelected();
+
+            // Save to database
+            ServerMessage msg = serverMessageDAO.sendPrivateMessage("Admin", content, userId, isImportant);
+
+            if (msg != null) {
+                logToConsole("✉️ Private message sent to user #" + userId);
+
+                // Send to recipient if online
+                Map<String, Object> notification = new HashMap<>();
+                notification.put("type", Protocol.NEW_SERVER_MESSAGE);
+                notification.put("messageId", msg.getMessageId());
+                notification.put("messageType", "private");
+                notification.put("senderName", msg.getSenderName());
+                notification.put("content", msg.getContent());
+                notification.put("sentAt", msg.getSentAt().toString());
+                notification.put("isImportant", msg.isImportant());
+
+                boolean sent = false;
+                if (gameServer != null) {
+                    sent = gameServer.sendToUserId(userId, notification);
+                }
+
+                logToConsole("   → " + (sent ? "User online, sent immediately" : "User offline, saved to DB"));
+
+                serverMessageInput.clear();
+                if (importantCheckBox != null) importantCheckBox.setSelected(false);
+                selectedUserIds.clear();
+                if (recipientTable != null) recipientTable.getSelectionModel().clearSelection();
+                updateSelectedUsersCount();
+
+                loadMessageHistory(); // Refresh history
+                showNotification("Private message sent to " + username + "!", "success");
+            } else {
+                showAlert("Error", "Failed to send private message!", Alert.AlertType.ERROR);
+            }
+        }
+    }
+
+// ==================== TEMPLATE HANDLERS ====================
+
+    /**
+     * Template: Welcome message
+     */
+    @FXML
+    private void handleTemplateWelcome() {
+        String template = "🎉 Chào mừng bạn đến với Máy chủ Phiêu lưu Toán học!\n\n" +
+                "Chúng tôi rất vui mừng được chào đón bạn. Hãy sẵn sàng cho những trận chiến toán học thú vị và những trải nghiệm học tập bổ ích!\n\n" +
+                "Cần trợ giúp? Hãy liên hệ với đội ngũ hỗ trợ của chúng tôi bất cứ lúc nào.\n\n" +
+                "Chúc bạn chơi game vui vẻ! 🎮";
+
+        if (serverMessageInput != null) {
+            serverMessageInput.setText(template);
+        }
+    }
+
+    /**
+     * Template: Maintenance message
+     */
+    @FXML
+    private void handleTemplateMaintenance() {
+        String template = "⚠\uFE0F THÔNG BÁO BẢO TRÌ THEO LỊCH TRÌNH\\n\\n\" +\n" +
+                "\"Máy chủ của chúng tôi sẽ được bảo trì vào [NGÀY] từ [GIỜ BẮT ĐẦU] đến [GIỜ KẾT THÚC].\\n\\n\" +\n" +
+                "\"Trong thời gian này, trò chơi sẽ tạm thời không thể truy cập. Chúng tôi xin lỗi vì sự bất tiện này.\\n\\n\" +\n" +
+                "\"Cảm ơn sự kiên nhẫn và thông cảm của bạn!";
+
+        if (serverMessageInput != null) {
+            serverMessageInput.setText(template);
+        }
+    }
+
+    /**
+     * Template: Event announcement
+     */
+    @FXML
+    private void handleTemplateEvent() {
+        String template = "🎮 THÔNG BÁO SỰ KIỆN ĐẶC BIỆT!\n\n" +
+                "Tham gia [TÊN SỰ KIỆN] của chúng tôi bắt đầu từ [NGÀY]!\n\n" +
+                "🏆 Giải thưởng:\n" +
+                "- Giải Nhất: [GIẢI THƯỞNG]\n" +
+                "- Giải Nhì: [GIẢI THƯỞNG]\n" +
+                "- Giải Ba: [GIẢI THƯỞNG]\n\n" +
+                "Đừng bỏ lỡ cơ hội hấp dẫn này!\n\n" +
+                "Hẹn gặp lại bạn trong trò chơi! 🎯";
+
+        if (serverMessageInput != null) {
+            serverMessageInput.setText(template);
+        }
+    }
+
+    /**
+     * Template: General announcement
+     */
+    @FXML
+    private void handleTemplateAnnouncement() {
+        String template = "📢 THÔNG BÁO QUAN TRỌNG\n\n" +
+                "[Tin nhắn thông báo của bạn tại đây]\n\n" +
+                "Để biết thêm thông tin, vui lòng truy cập trang web của chúng tôi hoặc liên hệ với bộ phận hỗ trợ.\n\n" +
+                "Cảm ơn bạn!";
+
+        if (serverMessageInput != null) {
+            serverMessageInput.setText(template);
+        }
+    }
+
+// ==================== MESSAGE HISTORY ====================
+
+    /**
+     * Load recent message history (last 10 messages)
+     */
+    private void loadMessageHistory() {
+        if (messageHistoryContainer == null || serverMessageDAO == null) {
+            return;
+        }
+
+        Platform.runLater(() -> {
+            try {
+                messageHistoryContainer.getChildren().clear();
+
+                // Get recent messages from database
+                List<ServerMessage> recentMessages = serverMessageDAO.getRecentMessages(10);
+
+                if (recentMessages == null || recentMessages.isEmpty()) {
+                    Label emptyLabel = new Label("No recent messages");
+                    emptyLabel.setStyle("-fx-text-fill: #94a3b8; -fx-font-size: 12px; -fx-padding: 10;");
+                    messageHistoryContainer.getChildren().add(emptyLabel);
+                    return;
+                }
+
+                // Create message cards
+                for (ServerMessage msg : recentMessages) {
+                    VBox messageCard = createMessageCard(msg);
+                    messageHistoryContainer.getChildren().add(messageCard);
+                }
+
+            } catch (Exception e) {
+                System.err.println("❌ Error loading message history: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
+    }
+
+    /**
+     * Create a message card for history display
+     */
+    private VBox createMessageCard(ServerMessage msg) {
+        VBox card = new VBox(8);
+        card.getStyleClass().add("message-card");
+        card.setPadding(new Insets(12));
+
+        // Header: Type + Time
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        Label typeLabel = new Label(getMessageTypeIcon(msg.getMessageType()) + " " +
+                msg.getMessageType().toUpperCase());
+        typeLabel.getStyleClass().add("message-type-label");
+
+        if (msg.isImportant()) {
+            Label importantBadge = new Label("⭐");
+            importantBadge.setStyle("-fx-text-fill: #fbbf24;");
+            header.getChildren().add(importantBadge);
+        }
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Label timeLabel = new Label(formatMessageTime(msg.getSentAt()));
+        timeLabel.getStyleClass().add("message-time-label");
+
+        header.getChildren().addAll(typeLabel, spacer, timeLabel);
+
+        // Content
+        Label contentLabel = new Label(msg.getContent());
+        contentLabel.setWrapText(true);
+        contentLabel.getStyleClass().add("message-content-label");
+        contentLabel.setMaxWidth(Double.MAX_VALUE);
+
+        // Truncate if too long
+        if (msg.getContent().length() > 100) {
+            contentLabel.setText(msg.getContent().substring(0, 100) + "...");
+        }
+
+        // Footer: Recipients count
+        Label recipientsLabel = new Label("📧 Recipients: " + getRecipientCount(msg));
+        recipientsLabel.getStyleClass().add("message-recipients-label");
+
+        card.getChildren().addAll(header, contentLabel, recipientsLabel);
+
+        return card;
+    }
+
+    /**
+     * Get message type icon
+     */
+    private String getMessageTypeIcon(String type) {
+        switch (type.toLowerCase()) {
+            case "broadcast": return "📢";
+            case "group": return "📬";
+            case "private": return "✉️";
+            default: return "💬";
+        }
+    }
+
+    /**
+     * Format message timestamp
+     */
+    private String formatMessageTime(java.sql.Timestamp timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, HH:mm");
+        return sdf.format(timestamp);
+    }
+
+    /**
+     * Get recipient count for display
+     */
+    private int getRecipientCount(ServerMessage msg) {
+        if (msg.getMessageType().equals("broadcast")) {
+            return allUsers.size(); // All users
+        }
+        // For group/private, count recipients from database
+        // This is a simplified version
+        return 1;
+    }
+
+    /**
+     * Refresh message history
+     */
+    @FXML
+    private void handleRefreshMessageHistory() {
+        loadMessageHistory();
+        showNotification("Message history refreshed", "info");
+    }
+
+    /**
+     * View full message history in separate window
+     */
+    @FXML
+    private void handleViewFullHistory() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Message History");
+        alert.setHeaderText("Full Server Message History");
+
+        try {
+            List<ServerMessage> allMessages = serverMessageDAO.getRecentMessages(50);
+
+            if (allMessages == null || allMessages.isEmpty()) {
+                alert.setContentText("No messages found.");
+                alert.showAndWait();
+                return;
+            }
+
+            StringBuilder sb = new StringBuilder();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+            for (ServerMessage msg : allMessages) {
+                sb.append("═══════════════════════════════════════\n");
+                sb.append(String.format("[%s] %s %s\n",
+                        sdf.format(msg.getSentAt()),
+                        getMessageTypeIcon(msg.getMessageType()),
+                        msg.getMessageType().toUpperCase()));
+
+                if (msg.isImportant()) {
+                    sb.append("⭐ IMPORTANT MESSAGE\n");
+                }
+
+                sb.append("\nContent:\n");
+                sb.append(msg.getContent());
+                sb.append("\n\n");
+            }
+
+            TextArea textArea = new TextArea(sb.toString());
+            textArea.setEditable(false);
+            textArea.setWrapText(true);
+            textArea.setFont(javafx.scene.text.Font.font("Consolas", 12));
+            textArea.setPrefRowCount(25);
+            textArea.setPrefColumnCount(60);
+
+            alert.getDialogPane().setContent(textArea);
+            alert.showAndWait();
+
+        } catch (Exception e) {
+            System.err.println("❌ Error viewing message history: " + e.getMessage());
+            alert.setContentText("Error loading message history: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
 
     // ==================== ROOM MANAGEMENT ====================
 
@@ -1667,5 +2355,11 @@ public class ServerViewController {
         if (gameServer != null && gameServer.isRunning()) {
             gameServer.stop();
         }
+    }
+
+    public void handleClearMessageInput(ActionEvent actionEvent) {
+    }
+
+    public void handleCopyConnectionInfo(ActionEvent actionEvent) {
     }
 }

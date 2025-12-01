@@ -4,6 +4,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 
 public class AvatarUtil {
 
@@ -16,55 +18,68 @@ public class AvatarUtil {
         if (imageView == null) return;
 
         try {
-            Image avatarImage;
+            Image avatarImage = null;
 
             if (avatarFileName == null || avatarFileName.isBlank()) {
                 // 🔹 Không có ảnh → dùng mặc định
-                avatarImage = new Image(AvatarUtil.class.getResourceAsStream("/images/avatars/avatar4.png"));
+                avatarImage = loadDefaultAvatar();
             }
-            else if (avatarFileName.startsWith("http")) {
+            else if (avatarFileName.startsWith("http://") || avatarFileName.startsWith("https://")) {
                 // 🔹 URL từ internet (ImgBB, Firebase, v.v.)
+                System.out.println("🌐 Loading from URL: " + avatarFileName);
                 avatarImage = new Image(avatarFileName, true);
             }
-            else if (avatarFileName.contains(File.separator) || new File(avatarFileName).isAbsolute()) {
-                // 🔹 File từ máy tính (đường dẫn tuyệt đối)
+            else {
+                // 🔹 Thử load như file cục bộ trước
                 File avatarFile = new File(avatarFileName);
 
                 if (avatarFile.exists() && avatarFile.isFile()) {
-                    avatarImage = new Image(avatarFile.toURI().toString(), true);
-                    System.out.println("✅ Loaded local file: " + avatarFileName);
+                    // ✅ File tồn tại → load bằng FileInputStream để an toàn hơn
+                    System.out.println("💾 Loading local file: " + avatarFile.getAbsolutePath());
+                    try (InputStream fis = new FileInputStream(avatarFile)) {
+                        avatarImage = new Image(fis);
+                    }
                 } else {
-                    System.err.println("⚠️ Local file not found: " + avatarFileName);
-                    avatarImage = new Image(AvatarUtil.class.getResourceAsStream("/images/avatars/avatar4.png"));
+                    // 🔹 Không phải file → thử load từ resource
+                    String resourcePath = avatarFileName.startsWith("/")
+                            ? avatarFileName
+                            : "/images/avatars/" + avatarFileName;
+
+                    System.out.println("📦 Trying resource: " + resourcePath);
+                    InputStream inputStream = AvatarUtil.class.getResourceAsStream(resourcePath);
+
+                    if (inputStream != null) {
+                        avatarImage = new Image(inputStream);
+                        System.out.println("✅ Loaded from resource");
+                    } else {
+                        System.err.println("⚠️ Resource not found: " + resourcePath);
+                        avatarImage = loadDefaultAvatar();
+                    }
                 }
             }
-            else {
-                // 🔹 Ảnh trong resource (avatar1.png, avatar2.png...)
-                String resourcePath = "/images/avatars/" + avatarFileName;
-                var inputStream = AvatarUtil.class.getResourceAsStream(resourcePath);
 
-                if (inputStream != null) {
-                    avatarImage = new Image(inputStream);
-                } else {
-                    System.err.println("⚠️ Resource not found: " + resourcePath);
-                    avatarImage = new Image(AvatarUtil.class.getResourceAsStream("/images/avatars/avatar4.png"));
-                }
+            if (avatarImage != null) {
+                imageView.setImage(avatarImage);
+                imageView.setPreserveRatio(true);
+                imageView.setSmooth(true);
             }
-
-            imageView.setImage(avatarImage);
-            imageView.setPreserveRatio(true);
-            imageView.setSmooth(true);
 
         } catch (Exception e) {
             System.err.println("❌ Error loading avatar: " + e.getMessage());
             e.printStackTrace();
 
             try {
-                Image defaultAvatar = new Image(AvatarUtil.class.getResourceAsStream("/images/avatars/avatar4.png"));
-                imageView.setImage(defaultAvatar);
+                imageView.setImage(loadDefaultAvatar());
             } catch (Exception ex) {
                 System.err.println("❌ Failed to load default avatar fallback");
             }
         }
+    }
+
+    /**
+     * Load ảnh mặc định
+     */
+    private static Image loadDefaultAvatar() {
+        return new Image(AvatarUtil.class.getResourceAsStream("/images/avatars/avatar4.png"));
     }
 }

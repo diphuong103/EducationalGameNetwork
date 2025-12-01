@@ -80,6 +80,7 @@ public class ChatController {
         setupUI();
         loadFriendsList();
         loadSystemMessages();
+        setupGlobalServerMessageListener();
     }
 
     /**
@@ -325,7 +326,6 @@ public class ChatController {
         selectedFriendName = "Hệ Thống";
         selectedFriendAvatar = "may_chu.png";
 
-        // Restore normal header with ImageView
         StackPane currentAvatarContainer = (StackPane) chatFriendAvatar.getParent();
         currentAvatarContainer.getChildren().clear();
         currentAvatarContainer.getChildren().add(chatFriendAvatar);
@@ -336,7 +336,140 @@ public class ChatController {
         chatFriendStatus.setText("Đang hoạt động");
         chatFriendStatus.setStyle("-fx-fill: #718096; -fx-font-size: 12px;");
 
+        // ✅ CHỈ LOAD TIN NHẮN - Listener đã được setup ở initialize()
         loadSystemMessages();
+
+        // ✅ CLEAR UNREAD BADGE
+        clearSystemUserUnreadBadge();
+    }
+
+    private void clearSystemUserUnreadBadge() {
+        if (systemUserItem != null) {
+            systemUserItem.getChildren().removeIf(node ->
+                    node.getStyleClass().contains("unread-badge"));
+        }
+    }
+
+    private void setupGlobalServerMessageListener() {
+        System.out.println("🔔 [CHAT] Setting up GLOBAL server message listener...");
+
+        // ✅ ĐĂNG KÝ CALLBACK TOÀN CỤC (chỉ 1 lần khi mở chat)
+        server.setServerMessageCallback(message -> {
+            Platform.runLater(() -> {
+                try {
+                    String messageType = (String) message.get("messageType");
+                    String senderName = (String) message.get("senderName");
+                    String content = (String) message.get("content");
+                    String sentAt = (String) message.get("sentAt");
+                    boolean isImportant = (boolean) message.getOrDefault("isImportant", false);
+                    int messageId = (int) message.get("messageId");
+
+                    System.out.println("📨 [CHAT] New server message received (GLOBAL)");
+                    System.out.println("   Type: " + messageType);
+                    System.out.println("   Important: " + isImportant);
+                    System.out.println("   Content: " + content.substring(0, Math.min(50, content.length())));
+                    System.out.println("   Current selectedFriendId: " + selectedFriendId);
+
+                    // ✅ NẾU ĐANG XEM SYSTEM USER → HIỂN THỊ NGAY
+                    if (selectedFriendId == -1) {
+                        System.out.println("   ✅ Currently viewing System User - displaying message");
+                        addServerMessage(senderName, content, sentAt, isImportant, messageType);
+
+                        // Auto scroll to bottom
+                        Platform.runLater(() -> {
+                            chatMessagesScrollPane.layout();
+                            chatMessagesScrollPane.setVvalue(1.0);
+                        });
+
+                        // Mark as read
+                        server.markServerMessageAsRead(messageId);
+
+                    } else {
+                        // ✅ ĐANG XEM FRIEND KHÁC → SHOW NOTIFICATION + UPDATE BADGE
+                        System.out.println("   ℹ️ Currently viewing other friend - showing notification");
+                        showSystemMessageNotification(content, isImportant);
+
+                        // ✅ UPDATE UNREAD BADGE CHO SYSTEM USER
+                        updateSystemUserUnreadBadge();
+                    }
+
+                } catch (Exception e) {
+                    System.err.println("❌ [CHAT] Error handling server message: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            });
+        });
+
+        System.out.println("✅ [CHAT] GLOBAL server message listener registered");
+    }
+
+    private void showSystemMessageNotification(String content, boolean isImportant) {
+        // ✅ TẠO NOTIFICATION TOAST (không block UI)
+        javafx.stage.Stage stage = (javafx.stage.Stage) chatMessagesContainer.getScene().getWindow();
+
+        // Simple alert cho đơn giản
+        javafx.scene.control.Alert notification = new javafx.scene.control.Alert(
+                javafx.scene.control.Alert.AlertType.INFORMATION
+        );
+        notification.setTitle(isImportant ? "⭐ Thông báo quan trọng" : "📢 Thông báo hệ thống");
+        notification.setHeaderText(null);
+        notification.setContentText(content.substring(0, Math.min(100, content.length())) +
+                (content.length() > 100 ? "..." : ""));
+
+        // Non-blocking show
+        notification.show();
+
+        // Auto close after 5 seconds
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                Platform.runLater(() -> notification.close());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+
+    private void updateSystemUserUnreadBadge() {
+//        // ✅ LẤY SỐ TIN NHẮN CHƯA ĐỌC
+//        server.getUnreadServerMessageCount(count -> {
+//            Platform.runLater(() -> {
+//                if (count > 0) {
+//                    // ✅ HIỂN THỊ BADGE TRÊN SYSTEM USER ITEM
+//                    addUnreadBadgeToSystemUser(count);
+//                }
+//            });
+//        });
+    }
+
+    /**
+     * ✅ THÊM METHOD addUnreadBadgeToSystemUser() - Thêm badge số tin chưa đọc
+     */
+    private void addUnreadBadgeToSystemUser(int count) {
+        if (systemUserItem == null) return;
+
+        // Remove old badge if exists
+        systemUserItem.getChildren().removeIf(node ->
+                node.getStyleClass().contains("unread-badge"));
+
+        // Create new badge
+        StackPane badge = new StackPane();
+        badge.getStyleClass().add("unread-badge");
+        badge.setStyle("""
+        -fx-background-color: #dc2626;
+        -fx-background-radius: 10;
+        -fx-min-width: 20;
+        -fx-min-height: 20;
+        -fx-padding: 2 6;
+    """);
+
+        Text badgeText = new Text(String.valueOf(count));
+        badgeText.setStyle("-fx-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;");
+        badge.getChildren().add(badgeText);
+
+        // Add badge to system user item
+        systemUserItem.getChildren().add(badge);
     }
 
     /**
@@ -499,10 +632,178 @@ public class ChatController {
      * Load system messages
      */
     private void loadSystemMessages() {
+        System.out.println("📨 [CHAT] Loading server messages...");
+
         chatMessagesContainer.getChildren().clear();
 
+        // ✅ GỌI API LẤY TIN NHẮN TỪ SERVER
+        server.getServerMessages(50, messages -> {
+            Platform.runLater(() -> {
+                if (messages != null && !messages.isEmpty()) {
+                    System.out.println("✅ [CHAT] Loaded " + messages.size() + " server messages");
+
+                    // ✅ HIỂN THỊ TIN NHẮN
+                    String lastDate = "";
+
+                    for (Map<String, Object> msg : messages) {
+                        String messageType = (String) msg.get("messageType");
+                        String senderName = (String) msg.get("senderName");
+                        String content = (String) msg.get("content");
+                        String sentAt = (String) msg.get("sentAt");
+                        boolean isImportant = (boolean) msg.getOrDefault("isImportant", false);
+
+                        // Date separator
+                        String messageDate = extractDate(sentAt);
+                        if (!messageDate.equals(lastDate)) {
+                            addDateSeparator(messageDate);
+                            lastDate = messageDate;
+                        }
+
+                        // ✅ HIỂN THỊ TIN NHẮN TỪ SERVER
+                        addServerMessage(senderName, content, sentAt, isImportant, messageType);
+                    }
+
+                    Platform.runLater(() -> chatMessagesScrollPane.setVvalue(1.0));
+
+                } else {
+                    // ✅ NẾU CHƯA CÓ TIN NHẮN, HIỂN THỊ WELCOME MESSAGE
+                    showServerWelcomeMessage();
+                }
+            });
+        });
+    }
+
+    private void addServerMessage(String senderName, String content, String sentAt,
+                                  boolean isImportant, String messageType) {
+        VBox messageGroup = new VBox(8);
+        messageGroup.getStyleClass().add("message-group");
+        messageGroup.setPadding(new Insets(4, 0, 4, 0));
+
+        HBox msgContainer = new HBox(8);
+        msgContainer.setAlignment(Pos.CENTER_LEFT);
+
+        // ✅ AVATAR HỆ THỐNG
+        StackPane avatarPane = new StackPane();
+        avatarPane.setPrefSize(36, 36);
+        avatarPane.getStyleClass().add("message-avatar");
+
+        ImageView systemAvatar = new ImageView();
+        systemAvatar.setFitWidth(36);
+        systemAvatar.setFitHeight(36);
+        systemAvatar.setPreserveRatio(true);
+
+        // ✅ CHỌN AVATAR DỰA TRÊN MESSAGE TYPE
+        String avatarFile = getAvatarForMessageType(messageType);
+        AvatarUtil.loadAvatar(systemAvatar, avatarFile);
+
+        Circle clip = new Circle(18, 18, 18);
+        systemAvatar.setClip(clip);
+        avatarPane.getChildren().add(systemAvatar);
+
+        // ✅ NỘI DUNG TIN NHẮN
+        VBox contentBox = new VBox(5);
+        VBox.setVgrow(contentBox, Priority.ALWAYS);
+
+        // Sender name
+        HBox headerBox = new HBox(8);
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text senderText = new Text(senderName);
+        senderText.setStyle("-fx-fill: #667eea; -fx-font-weight: bold; -fx-font-size: 12px;");
+
+        // ✅ IMPORTANT BADGE
+        if (isImportant) {
+            StackPane importantBadge = new StackPane();
+            importantBadge.setStyle("""
+            -fx-background-color: #dc2626;
+            -fx-background-radius: 8;
+            -fx-padding: 2 8;
+        """);
+            Text importantText = new Text("⭐ QUAN TRỌNG");
+            importantText.setStyle("-fx-fill: white; -fx-font-size: 9px; -fx-font-weight: bold;");
+            importantBadge.getChildren().add(importantText);
+            headerBox.getChildren().addAll(senderText, importantBadge);
+        } else {
+            headerBox.getChildren().add(senderText);
+        }
+
+        // ✅ TYPE BADGE
+        StackPane typeBadge = new StackPane();
+        typeBadge.setStyle(getTypeBadgeStyle(messageType));
+        Text typeText = new Text(getTypeLabel(messageType));
+        typeText.setStyle("-fx-fill: white; -fx-font-size: 9px; -fx-font-weight: bold;");
+        typeBadge.getChildren().add(typeText);
+        headerBox.getChildren().add(typeBadge);
+
+        // ✅ MESSAGE BUBBLE
+        VBox bubble = new VBox(4);
+        bubble.setStyle(isImportant ?
+                """
+                -fx-background-color: linear-gradient(to right, #fef2f2, #fee2e2);
+                -fx-border-color: #dc2626;
+                -fx-border-width: 2;
+                -fx-background-radius: 18;
+                -fx-border-radius: 18;
+                -fx-padding: 12 16;
+                -fx-effect: dropshadow(gaussian, rgba(220,38,38,0.2), 4, 0, 0, 1);
+                """ :
+                """
+                -fx-background-color: white;
+                -fx-background-radius: 18;
+                -fx-padding: 10 14;
+                -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);
+                """);
+
+        Text msgText = new Text(content);
+        msgText.setStyle("-fx-fill: #2d3748; -fx-font-size: 14px; -fx-line-spacing: 2px;");
+        msgText.setWrappingWidth(400);
+        bubble.getChildren().add(msgText);
+
+        // ✅ TIMESTAMP
+        Text timestamp = new Text(formatTime(sentAt));
+        timestamp.setStyle("-fx-fill: #a0aec0; -fx-font-size: 10px;");
+
+        contentBox.getChildren().addAll(headerBox, bubble, timestamp);
+        msgContainer.getChildren().addAll(avatarPane, contentBox);
+        messageGroup.getChildren().add(msgContainer);
+
+        chatMessagesContainer.getChildren().add(messageGroup);
+    }
+
+
+    private String getAvatarForMessageType(String messageType) {
+        switch (messageType.toLowerCase()) {
+            case "broadcast": return "may_chu.png";
+            case "group": return "may_chu.png";
+            case "private": return "private_message.png";
+            default: return "may_chu.png";
+        }
+    }
+    private String getTypeBadgeStyle(String messageType) {
+        switch (messageType.toLowerCase()) {
+            case "broadcast":
+                return "-fx-background-color: #3b82f6; -fx-background-radius: 8; -fx-padding: 2 8;";
+            case "group":
+                return "-fx-background-color: #10b981; -fx-background-radius: 8; -fx-padding: 2 8;";
+            case "private":
+                return "-fx-background-color: #8b5cf6; -fx-background-radius: 8; -fx-padding: 2 8;";
+            default:
+                return "-fx-background-color: #6b7280; -fx-background-radius: 8; -fx-padding: 2 8;";
+        }
+    }
+
+    private String getTypeLabel(String messageType) {
+        switch (messageType.toLowerCase()) {
+            case "broadcast": return "📢 THÔNG BÁO CHUNG";
+            case "group": return "📬";
+            case "private": return "✉️";
+            default: return "💬 TIN NHẮN";
+        }
+    }
+    private void showServerWelcomeMessage() {
         VBox welcomeMsg = new VBox(8);
-        welcomeMsg.getStyleClass().addAll("message-group", "message-received");
+        welcomeMsg.getStyleClass().add("message-group");
+        welcomeMsg.setPadding(new Insets(8, 0, 8, 0));
 
         HBox msgContainer = new HBox(8);
         msgContainer.setAlignment(Pos.CENTER_LEFT);
@@ -514,25 +815,26 @@ public class ChatController {
         ImageView systemAvatar = new ImageView();
         systemAvatar.setFitWidth(36);
         systemAvatar.setFitHeight(36);
-        systemAvatar.setPreserveRatio(true);
         AvatarUtil.loadAvatar(systemAvatar, "may_chu.png");
-
+        Circle clip = new Circle(18, 18, 18);
+        systemAvatar.setClip(clip);
         avatar.getChildren().add(systemAvatar);
 
         VBox contentBox = new VBox(5);
-
         Text senderName = new Text("Hệ Thống");
         senderName.setStyle("-fx-fill: #667eea; -fx-font-weight: bold; -fx-font-size: 12px;");
 
         VBox bubble = new VBox(4);
         bubble.setStyle("""
-            -fx-background-color: white;
-            -fx-background-radius: 18;
-            -fx-padding: 10 14;
-            -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);
-        """);
+        -fx-background-color: white;
+        -fx-background-radius: 18;
+        -fx-padding: 10 14;
+        -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);
+    """);
 
-        Text msgText = new Text("Chào mừng bạn đến với EduGame! 🎉");
+        Text msgText = new Text("Chào mừng bạn đến với EduGame! 🎉\n\n" +
+                "Đây là kênh thông báo chính thức từ hệ thống.\n" +
+                "Bạn sẽ nhận được các thông báo quan trọng tại đây.");
         msgText.setStyle("-fx-fill: #2d3748; -fx-font-size: 14px;");
         msgText.setWrappingWidth(400);
         bubble.getChildren().add(msgText);
@@ -541,11 +843,61 @@ public class ChatController {
         timestamp.setStyle("-fx-fill: #a0aec0; -fx-font-size: 10px;");
 
         contentBox.getChildren().addAll(senderName, bubble, timestamp);
-
         msgContainer.getChildren().addAll(avatar, contentBox);
         welcomeMsg.getChildren().add(msgContainer);
 
         chatMessagesContainer.getChildren().add(welcomeMsg);
+    }
+
+
+    private void setupServerMessageListener() {
+        System.out.println("🔔 [CHAT] Setting up server message listener...");
+
+        // ✅ ĐĂNG KÝ CALLBACK
+        server.setServerMessageCallback(message -> {
+            // ✅ CHỈ HIỂN THỊ NẾU ĐANG XEM SYSTEM USER
+            if (selectedFriendId == -1) {
+                Platform.runLater(() -> {
+                    String messageType = (String) message.get("messageType");
+                    String senderName = (String) message.get("senderName");
+                    String content = (String) message.get("content");
+                    String sentAt = (String) message.get("sentAt");
+                    boolean isImportant = (boolean) message.getOrDefault("isImportant", false);
+
+                    System.out.println("📨 [CHAT] New server message received");
+                    System.out.println("   Type: " + messageType);
+                    System.out.println("   Content: " + content.substring(0, Math.min(50, content.length())));
+
+                    // ✅ HIỂN THỊ TIN NHẮN MỚI
+                    addServerMessage(senderName, content, sentAt, isImportant, messageType);
+
+                    // ✅ AUTO SCROLL
+                    Platform.runLater(() -> chatMessagesScrollPane.setVvalue(1.0));
+
+                    // ✅ ĐÁNH DẤU ĐÃ ĐỌC
+                    int messageId = (int) message.get("messageId");
+                    server.markServerMessageAsRead(messageId);
+                });
+            } else {
+                // ✅ NẾU ĐANG XEM FRIEND KHÁC, CHỈ SHOW NOTIFICATION
+                Platform.runLater(() -> {
+                    String content = (String) message.get("content");
+                    showNotification("📢 Tin nhắn hệ thống: " +
+                            content.substring(0, Math.min(50, content.length())));
+                });
+            }
+        });
+
+        System.out.println("✅ [CHAT] Server message listener ready");
+    }
+
+
+    private void showNotification(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Thông báo");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.show(); // Non-blocking
     }
 
     /**
@@ -1190,10 +1542,15 @@ public class ChatController {
     public void cleanup() {
         System.out.println("🧹 [CHAT] Cleaning up chat controller...");
 
+        // ✅ XÓA FRIEND LISTENER
         if (selectedFriendId > 0) {
             server.removePrivateChatListener(selectedFriendId);
             System.out.println("✅ [CHAT] Removed listener for friendId=" + selectedFriendId);
         }
+
+        // ✅ XÓA SERVER MESSAGE LISTENER
+        server.clearServerMessageCallback();
+        System.out.println("✅ [CHAT] Removed server message listener");
 
         friendItemsMap.clear();
         selectedFriendId = -1;

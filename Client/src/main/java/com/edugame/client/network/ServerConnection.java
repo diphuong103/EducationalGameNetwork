@@ -51,6 +51,8 @@ public class ServerConnection {
     private int totalGames;
     private int wins;
     private int currentLevel;
+    private Consumer<Map<String, Object>> serverMessageCallback;
+    private boolean isLoadingServerMessages = false;
 
 
     private User currentUser;
@@ -94,7 +96,21 @@ public class ServerConnection {
 
     private Consumer<Map<String, Object>> playerAnsweredCallback;
     private Consumer<Map<String, Object>> playerProgressCallback;
+    /**
+     * Set callback for new server messages (real-time)
+     */
+    public void setServerMessageCallback(Consumer<Map<String, Object>> callback) {
+        this.serverMessageCallback = callback;
+        System.out.println("✅ Server message callback registered");
+    }
 
+    /**
+     * Clear server message callback
+     */
+    public void clearServerMessageCallback() {
+        this.serverMessageCallback = null;
+        System.out.println("🗑️ Server message callback cleared");
+    }
 
     public void setQuestionResultCallback(Consumer<Map<String, Object>> callback) {
         this.questionResultCallback = callback;
@@ -107,7 +123,7 @@ public class ServerConnection {
     public JsonObject getOpponentInfo() {
         return this.opponentInfo;
     }
-    
+
     @FunctionalInterface
     public interface JoinRoomCallback {
         void onResult(boolean success, String message, Map<String, Object> roomData);
@@ -393,7 +409,7 @@ public class ServerConnection {
             case Protocol.HEARTBEAT_ACK:
                 handleHeartbeatAck();
                 break;
-                
+
             case Protocol.GET_PROFILE:
                 if (profileCallback != null) {
                     profileCallback.accept(json);
@@ -493,15 +509,23 @@ public class ServerConnection {
             case Protocol.NEW_MESSAGE:
                 handleNewPrivateMessage(json);
                 break;
+            case Protocol.NEW_SERVER_MESSAGE:
+                handleNewServerMessage(json);
+                break;
 
+            case Protocol.GET_SERVER_MESSAGES:
+            case Protocol.MARK_SERVER_MESSAGE_READ:
+            case Protocol.GET_ONLINE_USERS:
             case Protocol.GET_MESSAGES:
             case Protocol.SEND_MESSAGE:
-            case Protocol.MESSAGE_READ:
+            case Protocol.MESSAGE_READ: {
                 Consumer<JsonObject> callback = pendingRequests.remove(type);
                 if (callback != null) {
                     callback.accept(json);
                 }
                 break;
+            }
+
 
             // ROOM CHAT
             case Protocol.ROOM_CHAT:
@@ -609,6 +633,257 @@ public class ServerConnection {
             dynamicHandler.accept(json);
         }
     }
+
+    /**
+     * Handle new server message (real-time notification)
+     */
+    private void handleNewServerMessage(JsonObject json) {
+        try {
+            int messageId = json.get("messageId").getAsInt();
+            String messageType = json.get("messageType").getAsString();
+            String senderName = json.get("senderName").getAsString();
+            String content = json.get("content").getAsString();
+            String sentAt = json.get("sentAt").getAsString();
+            boolean isImportant = json.has("isImportant") && json.get("isImportant").getAsBoolean();
+
+            System.out.println("📨 [SERVER MESSAGE] New message received");
+            System.out.println("   Type: " + messageType);
+            System.out.println("   From: " + senderName);
+            System.out.println("   Content: " + content.substring(0, Math.min(50, content.length())));
+
+            // Convert to Map
+            Map<String, Object> message = new HashMap<>();
+            message.put("messageId", messageId);
+            message.put("messageType", messageType);
+            message.put("senderName", senderName);
+            message.put("content", content);
+            message.put("sentAt", sentAt);
+            message.put("isImportant", isImportant);
+
+            // Trigger callback
+            if (serverMessageCallback != null) {
+                System.out.println("✅ [SERVER MESSAGE] Calling callback");
+                serverMessageCallback.accept(message);
+            } else {
+                System.out.println("⚠️ [SERVER MESSAGE] No callback registered");
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Error handling new server message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Get server messages
+     */
+    public void getServerMessages(int limit, Consumer<List<Map<String, Object>>> callback) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot get server messages - not connected");
+            callback.accept(new ArrayList<>());
+            return;
+        }
+
+        if (isLoadingServerMessages) {
+            System.out.println("⏭️ Already loading server messages, skipping");
+            return;
+        }
+        isLoadingServerMessages = true;
+
+        System.out.println("📨 [SERVER MESSAGES] Getting messages (limit=" + limit + ")");
+
+        removePendingCallback(Protocol.GET_SERVER_MESSAGES);
+        final boolean[] callbackCalled = new boolean[]{false};
+
+        setPendingCallback(Protocol.GET_SERVER_MESSAGES, (json) -> {
+            try {
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) return;
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.GET_SERVER_MESSAGES);
+
+                boolean success = json.get("success").getAsBoolean();
+                if (!success) {
+                    callback.accept(new ArrayList<>());
+                    return;
+                }
+
+                JsonArray arr = json.getAsJsonArray("messages");
+                List<Map<String, Object>> messages = new ArrayList<>();
+
+                for (int i = 0; i < arr.size(); i++) {
+                    JsonObject msgObj = arr.get(i).getAsJsonObject();
+                    Map<String, Object> message = new HashMap<>();
+
+                    message.put("messageId", msgObj.get("messageId").getAsInt());
+                    message.put("messageType", msgObj.get("messageType").getAsString());
+                    message.put("senderName", msgObj.get("senderName").getAsString());
+                    message.put("content", msgObj.get("content").getAsString());
+                    message.put("sentAt", msgObj.get("sentAt").getAsString());
+                    message.put("isImportant", msgObj.get("isImportant").getAsBoolean());
+
+                    if (msgObj.has("isRead")) {
+                        message.put("isRead", msgObj.get("isRead").getAsBoolean());
+                    }
+                    if (msgObj.has("readAt")) {
+                        message.put("readAt", msgObj.get("readAt").getAsString());
+                    }
+
+                    messages.add(message);
+                }
+
+                System.out.println("✅ [SERVER MESSAGES] Loaded " + messages.size() + " messages");
+                callback.accept(messages);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error parsing server messages: " + e.getMessage());
+                e.printStackTrace();
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(new ArrayList<>());
+                    }
+                }
+            } finally {
+                isLoadingServerMessages = false;
+            }
+        });
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GET_SERVER_MESSAGES);
+        request.put("limit", limit);
+        sendJson(request);
+
+        // Timeout
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.GET_SERVER_MESSAGES);
+                        System.err.println("⚠️ Get server messages timeout");
+                        callback.accept(new ArrayList<>());
+                    }
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                isLoadingServerMessages = false;
+            }
+        }, "GetServerMessagesTimeout").start();
+    }
+
+    /**
+     * Mark server message as read
+     */
+    public void markServerMessageAsRead(int messageId) {
+        if (!isConnected()) return;
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.MARK_SERVER_MESSAGE_READ);
+        request.put("messageId", messageId);
+        sendJson(request);
+
+        System.out.println("✅ [SERVER MESSAGES] Marked message " + messageId + " as read");
+    }
+
+    /**
+     * Mark all server messages as read
+     */
+    public void markAllServerMessagesAsRead() {
+        if (!isConnected()) return;
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.MARK_SERVER_MESSAGE_READ);
+        sendJson(request);
+
+        System.out.println("✅ [SERVER MESSAGES] Marked all messages as read");
+    }
+
+    /**
+     * Get online users
+     */
+    public void getOnlineUsers(Consumer<List<Map<String, Object>>> callback) {
+        if (!isConnected()) {
+            callback.accept(new ArrayList<>());
+            return;
+        }
+
+        System.out.println("👥 [ONLINE USERS] Requesting online users");
+
+        removePendingCallback(Protocol.GET_ONLINE_USERS);
+        final boolean[] callbackCalled = new boolean[]{false};
+
+        setPendingCallback(Protocol.GET_ONLINE_USERS, (json) -> {
+            try {
+                synchronized (callbackCalled) {
+                    if (callbackCalled[0]) return;
+                    callbackCalled[0] = true;
+                }
+
+                removePendingCallback(Protocol.GET_ONLINE_USERS);
+
+                boolean success = json.get("success").getAsBoolean();
+                if (!success) {
+                    callback.accept(new ArrayList<>());
+                    return;
+                }
+
+                JsonArray arr = json.getAsJsonArray("users");
+                List<Map<String, Object>> users = new ArrayList<>();
+
+                for (int i = 0; i < arr.size(); i++) {
+                    JsonObject userObj = arr.get(i).getAsJsonObject();
+                    Map<String, Object> user = new HashMap<>();
+
+                    user.put("userId", userObj.get("userId").getAsInt());
+                    user.put("username", userObj.get("username").getAsString());
+                    user.put("fullName", userObj.get("fullName").getAsString());
+                    user.put("avatarUrl", userObj.get("avatarUrl").getAsString());
+                    user.put("totalScore", userObj.get("totalScore").getAsInt());
+                    user.put("isOnline", true);
+
+                    users.add(user);
+                }
+
+                System.out.println("✅ [ONLINE USERS] Found " + users.size() + " online users");
+                callback.accept(users);
+
+            } catch (Exception e) {
+                System.err.println("❌ Error parsing online users: " + e.getMessage());
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        callback.accept(new ArrayList<>());
+                    }
+                }
+            }
+        });
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("type", Protocol.GET_ONLINE_USERS);
+        sendJson(request);
+
+        // Timeout
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                synchronized (callbackCalled) {
+                    if (!callbackCalled[0]) {
+                        callbackCalled[0] = true;
+                        removePendingCallback(Protocol.GET_ONLINE_USERS);
+                        callback.accept(new ArrayList<>());
+                    }
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "GetOnlineUsersTimeout").start();
+    }
+
 
     /**
      * Xử lý response từ FIND_MATCH
@@ -959,52 +1234,52 @@ public class ServerConnection {
         System.out.println("❌ Sent CANCEL_FIND_MATCH");
     }
 
-        /**
-         * Gửi message đơn giản (dùng cho các request không có callback phức tạp)
-         * @param message JSON string hoặc raw message
-         */
-        public void sendMessage(String message) {
-            if (!isConnected()) {
-                System.err.println("❌ Cannot send message - not connected");
-                return;
-            }
-
-            if (writer != null && !writer.checkError()) {
-                writer.println(message);
-                writer.flush();
-                System.out.println("📤 Sent: " + message);
-            }
+    /**
+     * Gửi message đơn giản (dùng cho các request không có callback phức tạp)
+     * @param message JSON string hoặc raw message
+     */
+    public void sendMessage(String message) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot send message - not connected");
+            return;
         }
 
-        /**
-         * Gửi request đến server (JsonObject hoặc Map<String, Object>)
-         */
-        private void sendRequest(Object request) {
-            if (!isConnected()) {
-                System.err.println("❌ Cannot send request - not connected");
-                return;
-            }
-
-            try {
-                String jsonString;
-
-                if (request instanceof JsonObject json) {
-                    jsonString = json.toString();
-                } else if (request instanceof Map<?, ?> map) {
-                    // Chuyển Map sang JSON string
-                    jsonString = new Gson().toJson(map);
-                } else {
-                    throw new IllegalArgumentException("Unsupported request type: " + request.getClass());
-                }
-
-                // Gửi trực tiếp bằng sendMessage
-                sendMessage(jsonString);
-
-            } catch (Exception e) {
-                System.err.println("❌ Failed to send request: " + e.getMessage());
-                e.printStackTrace();
-            }
+        if (writer != null && !writer.checkError()) {
+            writer.println(message);
+            writer.flush();
+            System.out.println("📤 Sent: " + message);
         }
+    }
+
+    /**
+     * Gửi request đến server (JsonObject hoặc Map<String, Object>)
+     */
+    private void sendRequest(Object request) {
+        if (!isConnected()) {
+            System.err.println("❌ Cannot send request - not connected");
+            return;
+        }
+
+        try {
+            String jsonString;
+
+            if (request instanceof JsonObject json) {
+                jsonString = json.toString();
+            } else if (request instanceof Map<?, ?> map) {
+                // Chuyển Map sang JSON string
+                jsonString = new Gson().toJson(map);
+            } else {
+                throw new IllegalArgumentException("Unsupported request type: " + request.getClass());
+            }
+
+            // Gửi trực tiếp bằng sendMessage
+            sendMessage(jsonString);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send request: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
 
     // ============== TRAINING MODE METHODS ==============/

@@ -881,3 +881,608 @@
 .btn-warning-outline:hover {
     -fx-background-color: rgba(245, 158, 11, 0.1);
 }
+
+/* Status Bar Styling */
+.status-bar {
+    -fx-background-color: #1e293b;
+    -fx-border-color: #334155;
+    -fx-border-width: 1 0 0 0;
+}
+
+.status-info {
+    -fx-text-fill: #94a3b8;
+    -fx-font-size: 12px;
+    -fx-font-weight: 500;
+}
+
+.btn-secondary-sm {
+    -fx-background-color: #475569;
+    -fx-text-fill: white;
+    -fx-font-size: 11px;
+    -fx-padding: 4 12 4 12;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+
+.btn-secondary-sm:hover {
+    -fx-background-color: #64748b;
+}
+
+.timestamp-label {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 11px;
+    -fx-font-style: italic;
+}
+
+/* ==================== CHAT TAB STYLES ==================== */
+
+/* Chat Container */
+.chat-container {
+    -fx-background-color: #f8fafc;
+}
+
+/* Client List Panel */
+.client-list-panel {
+    -fx-background-color: white;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 1 0 0;
+}
+
+.client-list-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.client-list-scroll .viewport {
+    -fx-background-color: transparent;
+}
+
+.client-list-scroll .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8px;
+}
+
+.client-list-scroll .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.client-list-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: #cbd5e0;
+    -fx-background-radius: 4px;
+}
+
+.client-list-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #a0aec0;
+}
+
+/* Client Chat Items */
+.client-cards-container {
+    -fx-padding: 5;
+}
+
+.client-chat-item {
+    -fx-cursor: hand;
+}
+
+.client-chat-item:hover {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 6, 0, 0, 2);
+}
+
+/* Chat Detail Panel */
+.chat-detail-panel {
+    -fx-background-color: white;
+}
+
+/* Chat Header */
+.chat-header {
+    -fx-background-color: white;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 0 1 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 3, 0, 0, 1);
+}
+
+.chat-avatar-container {
+    -fx-background-color: #667eea;
+    -fx-background-radius: 50%;
+    -fx-pref-width: 45px;
+    -fx-pref-height: 45px;
+    -fx-effect: dropshadow(gaussian, rgba(102,126,234,0.3), 4, 0, 0, 1);
+}
+
+.chat-client-name {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2d3748;
+}
+
+.status-online {
+    -fx-text-fill: #31a24c;
+    -fx-font-size: 16px;
+}
+
+.status-text {
+    -fx-text-fill: #718096;
+    -fx-font-size: 13px;
+}
+
+/* Chat Messages */
+.chat-messages-scroll {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: transparent;
+}
+
+.chat-messages-scroll .viewport {
+    -fx-background-color: #f8fafc;
+}
+
+.chat-messages-scroll .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8px;
+}
+
+.chat-messages-scroll .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+.chat-messages-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: #cbd5e0;
+    -fx-background-radius: 4px;
+}
+
+.chat-messages-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #a0aec0;
+}
+
+.chat-messages-container {
+    -fx-background-color: #f8fafc;
+}
+
+/* Message Input Area */
+.message-input-area {
+    -fx-background-color: white;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 1 0 0 0;
+}
+
+.message-input {
+    -fx-background-color: #f7fafc;
+    -fx-background-radius: 20px;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 20px;
+    -fx-border-width: 1px;
+    -fx-padding: 10 15;
+    -fx-font-size: 14px;
+    -fx-text-fill: #2d3748;
+}
+
+.message-input:focused {
+    -fx-border-color: #667eea;
+    -fx-background-color: white;
+    -fx-effect: dropshadow(gaussian, rgba(102,126,234,0.2), 4, 0, 0, 0);
+}
+
+/* Emoji Button */
+.btn-emoji {
+    -fx-background-color: #f7fafc;
+    -fx-background-radius: 50%;
+    -fx-border-color: transparent;
+    -fx-font-size: 20px;
+    -fx-pref-width: 40px;
+    -fx-pref-height: 40px;
+    -fx-cursor: hand;
+}
+
+.btn-emoji:hover {
+    -fx-background-color: #eef2ff;
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+.btn-emoji:pressed {
+    -fx-scale-x: 0.95;
+    -fx-scale-y: 0.95;
+}
+
+/* Icon Button */
+.btn-icon {
+    -fx-background-color: transparent;
+    -fx-font-size: 18px;
+    -fx-text-fill: #718096;
+    -fx-cursor: hand;
+    -fx-pref-width: 36px;
+    -fx-pref-height: 36px;
+    -fx-background-radius: 50%;
+}
+
+.btn-icon:hover {
+    -fx-background-color: #f7fafc;
+    -fx-text-fill: #667eea;
+}
+
+.btn-icon:pressed {
+    -fx-background-color: #eef2ff;
+}
+
+/* Empty State */
+.empty-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #4a5568;
+}
+
+.empty-subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: #718096;
+    -fx-wrap-text: true;
+    -fx-text-alignment: center;
+}
+
+/* Search Field */
+.search-field {
+    -fx-background-color: #f7fafc;
+    -fx-background-radius: 10px;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 10px;
+    -fx-border-width: 1px;
+    -fx-padding: 10 15;
+    -fx-font-size: 14px;
+    -fx-text-fill: #2d3748;
+    -fx-prompt-text-fill: #a0aec0;
+}
+
+.search-field:focused {
+    -fx-border-color: #667eea;
+    -fx-background-color: white;
+    -fx-effect: dropshadow(gaussian, rgba(102,126,234,0.15), 4, 0, 0, 0);
+}
+
+/* Animations */
+@keyframes slideIn {
+    from {
+        -fx-opacity: 0;
+        -fx-translate-x: -20;
+    }
+    to {
+        -fx-opacity: 1;
+        -fx-translate-x: 0;
+    }
+}
+
+.client-chat-item {
+    -fx-animation: slideIn 0.3s ease-out;
+}
+
+/* Scrollbar Styles */
+.scroll-pane {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: derive(#cbd5e0, 30%);
+    -fx-background-radius: 4px;
+}
+
+.scroll-pane .scroll-bar:vertical .increment-button,
+.scroll-pane .scroll-bar:vertical .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .client-list-panel {
+        -fx-pref-width: 280px;
+    }
+
+    .chat-client-name {
+        -fx-font-size: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .client-list-panel {
+        -fx-pref-width: 240px;
+    }
+
+    .message-input {
+        -fx-font-size: 13px;
+    }
+}
+
+/* ==================== SERVER CHAT TAB STYLES ==================== */
+
+/* Chat Container */
+.chat-container {
+    -fx-background-color: #0f172a;
+}
+
+/* Client List Panel */
+.client-list-panel {
+    -fx-background-color: #1e293b;
+    -fx-border-color: #334155;
+    -fx-border-width: 0 1 0 0;
+}
+
+/* Message Composer Panel */
+.message-composer-panel {
+    -fx-background-color: #0f172a;
+}
+
+/* Message Type Buttons */
+.btn-broadcast {
+    -fx-background-color: #8b5cf6;
+    -fx-text-fill: white;
+    -fx-padding: 12 20;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(139, 92, 246, 0.3), 8, 0, 0, 2);
+}
+
+.btn-broadcast:hover {
+    -fx-background-color: #7c3aed;
+    -fx-scale-y: 1.05;
+    -fx-scale-x: 1.05;
+}
+
+.btn-group {
+    -fx-background-color: #3b82f6;
+    -fx-text-fill: white;
+    -fx-padding: 12 20;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(59, 130, 246, 0.3), 8, 0, 0, 2);
+}
+
+.btn-group:hover {
+    -fx-background-color: #2563eb;
+    -fx-scale-y: 1.05;
+    -fx-scale-x: 1.05;
+}
+
+.btn-private {
+    -fx-background-color: #10b981;
+    -fx-text-fill: white;
+    -fx-padding: 12 20;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(16, 185, 129, 0.3), 8, 0, 0, 2);
+}
+
+.btn-private:hover {
+    -fx-background-color: #059669;
+    -fx-scale-y: 1.05;
+    -fx-scale-x: 1.05;
+}
+
+/* Template Buttons */
+.btn-template-sm {
+    -fx-background-color: #334155;
+    -fx-text-fill: #e2e8f0;
+    -fx-padding: 6 12;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 11px;
+}
+
+.btn-template-sm:hover {
+    -fx-background-color: #475569;
+}
+
+/* Message Textarea */
+.message-textarea {
+    -fx-background-color: #2568d5;
+    -fx-text-fill: #000000;
+    -fx-prompt-text-fill: #114498;
+    -fx-background-radius: 8;
+    -fx-border-color: #692687;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-font-size: 13px;
+    -fx-padding: 4;
+}
+
+.message-textarea:focused {
+    -fx-border-color: #3b82f6;
+    -fx-border-width: 2;
+}
+
+/* Important Checkbox */
+.important-checkbox {
+    -fx-text-fill: #f59e0b;
+    -fx-font-weight: bold;
+}
+
+.important-checkbox .box {
+    -fx-background-color: #1e293b;
+    -fx-border-color: #f59e0b;
+    -fx-border-radius: 4;
+}
+
+.important-checkbox:selected .box {
+    -fx-background-color: #f59e0b;
+}
+
+.important-checkbox:selected .mark {
+    -fx-background-color: white;
+}
+
+/* Character Counter */
+.char-count-label {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 12px;
+}
+
+/* Selection Info */
+.selection-info {
+    -fx-background-color: #334155;
+    -fx-padding: 10;
+    -fx-background-radius: 6;
+}
+
+.info-value-accent {
+    -fx-text-fill: #3b82f6;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+}
+
+/* Message History */
+.message-history-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: #334155;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+}
+
+.message-history-container {
+    -fx-padding: 10;
+}
+
+/* Message Cards */
+.message-card {
+    -fx-background-color: #1e293b;
+    -fx-background-radius: 8;
+    -fx-border-color: #334155;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 4, 0, 0, 2);
+}
+
+.message-card:hover {
+    -fx-border-color: #475569;
+    -fx-background-color: #334155;
+}
+
+.message-type {
+    -fx-text-fill: #3b82f6;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+}
+
+.message-time {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 11px;
+}
+
+.message-important {
+    -fx-text-fill: #f59e0b;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+    -fx-background-color: rgba(245, 158, 11, 0.1);
+    -fx-padding: 2 8;
+    -fx-background-radius: 4;
+}
+
+.message-content {
+    -fx-text-fill: #e2e8f0;
+    -fx-font-size: 13px;
+    -fx-padding: 8 0 0 0;
+}
+
+/* Search Field */
+.search-field {
+    -fx-background-color: #1e293b;
+    -fx-text-fill: #e2e8f0;
+    -fx-prompt-text-fill: #64748b;
+    -fx-background-radius: 6;
+    -fx-border-color: #334155;
+    -fx-border-radius: 6;
+    -fx-padding: 8 12;
+}
+
+.search-field:focused {
+    -fx-border-color: #3b82f6;
+}
+
+/* Icon Buttons */
+.btn-icon {
+    -fx-background-color: #334155;
+    -fx-text-fill: #e2e8f0;
+    -fx-padding: 8 12;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+
+.btn-icon:hover {
+    -fx-background-color: #475569;
+}
+
+.btn-icon-sm {
+    -fx-background-color: #334155;
+    -fx-text-fill: #e2e8f0;
+    -fx-padding: 4 8;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+    -fx-font-size: 11px;
+}
+
+.btn-icon-sm:hover {
+    -fx-background-color: #475569;
+}
+
+/* Secondary Buttons */
+.btn-secondary-sm {
+    -fx-background-color: #475569;
+    -fx-text-fill: white;
+    -fx-padding: 6 12;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.btn-secondary-sm:hover {
+    -fx-background-color: #64748b;
+}
+
+/* Recipient Filter ComboBox */
+.combo-box {
+    -fx-background-color: #1e293b;
+    -fx-background-radius: 6;
+}
+
+.combo-box .list-cell {
+    -fx-background-color: #1e293b;
+    -fx-text-fill: #e2e8f0;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: #1e293b;
+    -fx-border-color: #334155;
+}
+
+.combo-box-popup .list-view .list-cell:hover {
+    -fx-background-color: #334155;
+}
+
+/* Scrollbar for Message History */
+.message-history-scroll .scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.message-history-scroll .scroll-bar .thumb {
+    -fx-background-color: #475569;
+    -fx-background-radius: 4;
+}
+
+.message-history-scroll .scroll-bar .thumb:hover {
+    -fx-background-color: #64748b;
+}
+
+/* Transitions */
+.btn-broadcast,
+.btn-group,
+.btn-private,
+.message-card {
+    -fx-transition: all 0.2s ease;
+}

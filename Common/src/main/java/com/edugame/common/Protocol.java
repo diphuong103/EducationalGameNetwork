@@ -111,6 +111,23 @@ public class Protocol {
     public static final String GET_UNREAD_COUNT = "GET_UNREAD_COUNT";
     public static final String GET_UNREAD_COUNT_RESPONSE = "GET_UNREAD_COUNT_RESPONSE";
 
+    // ==================== SERVER CHAT ====================
+    public static final String SERVER_MESSAGE = "SERVER_MESSAGE";
+    public static final String SERVER_MESSAGE_SENT = "SERVER_MESSAGE_SENT";
+    public static final String MARK_SERVER_MESSAGES_READ = "MARK_SERVER_MESSAGES_READ";
+    public static final String GET_SERVER_MESSAGES = "GET_SERVER_MESSAGES";
+    public static final String SERVER_MESSAGE_BROADCAST = "SERVER_MESSAGE_BROADCAST";
+    public static final String SERVER_MESSAGE_GROUP = "SERVER_MESSAGE_GROUP";
+    public static final String SERVER_MESSAGE_PRIVATE = "SERVER_MESSAGE_PRIVATE";
+    public static final String NEW_SERVER_MESSAGE = "NEW_SERVER_MESSAGE";
+    public static final String MARK_SERVER_MESSAGE_READ = "MARK_SERVER_MESSAGE_READ";
+    public static final String GET_ONLINE_USERS = "GET_ONLINE_USERS";
+
+    // Message types
+    public static final String MSG_TYPE_BROADCAST = "broadcast";
+    public static final String MSG_TYPE_GROUP = "group";
+    public static final String MSG_TYPE_PRIVATE = "private";
+
     // ============================================
     // VOICE CHAT
     // ============================================
