@@ -19,11 +19,11 @@ public class ServerSelectorDialog {
 
     private ToggleGroup modeGroup;
     private RadioButton lanRadio;
-    private RadioButton onlineRadio;
+    private RadioButton ngrokRadio;
 
     private TextField hostField;
     private TextField portField;
-    private VBox onlinePanel;
+    private VBox ngrokPanel;
 
     public ServerSelectorDialog() {
         createDialog();
@@ -54,10 +54,10 @@ public class ServerSelectorDialog {
         // Mode selection cards
         VBox modeBox = createModeSelection();
 
-        // Online config panel
-        onlinePanel = createOnlinePanel();
-        onlinePanel.setVisible(false);
-        onlinePanel.setManaged(false);
+        // Ngrok config panel
+        ngrokPanel = createNgrokPanel();
+        ngrokPanel.setVisible(false);
+        ngrokPanel.setManaged(false);
 
         // Buttons
         HBox buttons = createButtons();
@@ -66,7 +66,7 @@ public class ServerSelectorDialog {
         root.getChildren().addAll(
                 header,
                 modeBox,
-                onlinePanel,
+                ngrokPanel,
                 buttons
         );
 
@@ -121,15 +121,15 @@ public class ServerSelectorDialog {
         // LAN Card
         VBox lanCard = createLanCard();
 
-        // Online Card
-        VBox onlineCard = createOnlineCard();
+        // Ngrok Card
+        VBox ngrokCard = createNgrokCard();
 
-        box.getChildren().addAll(lanCard, onlineCard);
+        box.getChildren().addAll(lanCard, ngrokCard);
         return box;
     }
 
     /**
-     * LAN Card - Modern design
+     * LAN Card - Chơi cùng mạng
      */
     private VBox createLanCard() {
         VBox card = new VBox(12);
@@ -151,7 +151,7 @@ public class ServerSelectorDialog {
         lanRadio.setSelected(true);
         lanRadio.setStyle("-fx-font-size: 14px;");
 
-        Label titleLabel = new Label("🏠 Chơi Mạng Nội Bộ (LAN)");
+        Label titleLabel = new Label("🏠 LAN - Chơi Cùng Mạng");
         titleLabel.setStyle(
                 "-fx-font-size: 18px; " +
                         "-fx-font-weight: bold; " +
@@ -161,7 +161,7 @@ public class ServerSelectorDialog {
         radioBox.getChildren().addAll(lanRadio, titleLabel);
 
         // Description
-        Label desc1 = new Label("Chỉ dành cho bạn bè đang dùng chung mạng WiFi/LAN.");
+        Label desc1 = new Label("Kết nối với máy chủ trong cùng mạng WiFi/LAN (localhost:8888)");
         desc1.setStyle("-fx-font-size: 13px; -fx-text-fill: #5a6c7d;");
         desc1.setWrapText(true);
 
@@ -172,7 +172,7 @@ public class ServerSelectorDialog {
         Label speedIcon = new Label("⚡");
         speedIcon.setStyle("-fx-font-size: 16px;");
 
-        Label speedText = new Label("Tốc độ nhanh, không cần Internet");
+        Label speedText = new Label("Tốc độ nhanh - Không cần cấu hình");
         speedText.setStyle(
                 "-fx-font-size: 12px; " +
                         "-fx-font-weight: bold; " +
@@ -207,8 +207,8 @@ public class ServerSelectorDialog {
         // Listener
         lanRadio.selectedProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal) {
-                onlinePanel.setVisible(false);
-                onlinePanel.setManaged(false);
+                ngrokPanel.setVisible(false);
+                ngrokPanel.setManaged(false);
             }
         });
 
@@ -216,9 +216,9 @@ public class ServerSelectorDialog {
     }
 
     /**
-     * Online Card - Modern design
+     * Ngrok Card - Chơi online không cần cùng mạng
      */
-    private VBox createOnlineCard() {
+    private VBox createNgrokCard() {
         VBox card = new VBox(12);
         card.setPadding(new Insets(20));
         card.setStyle(
@@ -233,21 +233,21 @@ public class ServerSelectorDialog {
         HBox radioBox = new HBox(10);
         radioBox.setAlignment(Pos.CENTER_LEFT);
 
-        onlineRadio = new RadioButton();
-        onlineRadio.setToggleGroup(modeGroup);
-        onlineRadio.setStyle("-fx-font-size: 14px;");
+        ngrokRadio = new RadioButton();
+        ngrokRadio.setToggleGroup(modeGroup);
+        ngrokRadio.setStyle("-fx-font-size: 14px;");
 
-        Label titleLabel = new Label("🌍 Chơi Qua Internet (Toàn cầu)");
+        Label titleLabel = new Label("🌍 NGROK - Chơi Online");
         titleLabel.setStyle(
                 "-fx-font-size: 18px; " +
                         "-fx-font-weight: bold; " +
                         "-fx-text-fill: #2c3e50;"
         );
 
-        radioBox.getChildren().addAll(onlineRadio, titleLabel);
+        radioBox.getChildren().addAll(ngrokRadio, titleLabel);
 
         // Description
-        Label desc1 = new Label("Cho phép bạn bè ở bất cứ đâu tham gia.");
+        Label desc1 = new Label("Chơi với bạn bè ở bất kỳ đâu - không cần cùng mạng WiFi");
         desc1.setStyle("-fx-font-size: 13px; -fx-text-fill: #5a6c7d;");
         desc1.setWrapText(true);
 
@@ -258,7 +258,7 @@ public class ServerSelectorDialog {
         Label reqIcon = new Label("ℹ️");
         reqIcon.setStyle("-fx-font-size: 16px;");
 
-        Label reqText = new Label("Yêu cầu server chạy Ngrok hoặc có IP Public");
+        Label reqText = new Label("Yêu cầu địa chỉ Ngrok từ người tạo phòng");
         reqText.setStyle(
                 "-fx-font-size: 12px; " +
                         "-fx-font-weight: bold; " +
@@ -288,13 +288,13 @@ public class ServerSelectorDialog {
         });
 
         // Click to select
-        card.setOnMouseClicked(e -> onlineRadio.setSelected(true));
+        card.setOnMouseClicked(e -> ngrokRadio.setSelected(true));
 
         // Listener
-        onlineRadio.selectedProperty().addListener((obs, oldVal, newVal) -> {
+        ngrokRadio.selectedProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal) {
-                onlinePanel.setVisible(true);
-                onlinePanel.setManaged(true);
+                ngrokPanel.setVisible(true);
+                ngrokPanel.setManaged(true);
             }
         });
 
@@ -302,9 +302,9 @@ public class ServerSelectorDialog {
     }
 
     /**
-     * Panel cấu hình Online - Compact design
+     * Panel cấu hình Ngrok - Compact design
      */
-    private VBox createOnlinePanel() {
+    private VBox createNgrokPanel() {
         VBox box = new VBox(15);
         box.setPadding(new Insets(20));
         box.setStyle(
@@ -315,7 +315,7 @@ public class ServerSelectorDialog {
         box.setPrefWidth(450);
 
         // Title
-        Label title = new Label("⚙️ Cấu Hình Kết Nối");
+        Label title = new Label("⚙️ Cấu Hình Ngrok");
         title.setStyle(
                 "-fx-font-size: 18px; " +
                         "-fx-font-weight: bold; " +
@@ -324,7 +324,7 @@ public class ServerSelectorDialog {
 
         // Instruction
         Label instruction = new Label(
-                "Hỏi người tạo phòng để lấy địa chỉ kết nối:"
+                "Hỏi người tạo phòng để lấy địa chỉ Ngrok:"
         );
         instruction.setStyle(
                 "-fx-font-size: 13px; " +
@@ -341,7 +341,7 @@ public class ServerSelectorDialog {
         hostLabel.setStyle("-fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
 
         hostField = new TextField();
-        hostField.setPromptText("VD: 0.tcp.ngrok.io hoặc 123.45.67.89");
+        hostField.setPromptText("VD: 0.tcp.ngrok.io");
         hostField.setStyle(
                 "-fx-background-color: white; " +
                         "-fx-background-radius: 8; " +
@@ -359,7 +359,7 @@ public class ServerSelectorDialog {
         portLabel.setStyle("-fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
 
         portField = new TextField();
-        portField.setPromptText("VD: 12345 hoặc 8888");
+        portField.setPromptText("VD: 12345");
         portField.setStyle(
                 "-fx-background-color: white; " +
                         "-fx-background-radius: 8; " +
@@ -487,8 +487,8 @@ public class ServerSelectorDialog {
         String mode = config.getMode();
         if ("LOCAL".equals(mode)) {
             lanRadio.setSelected(true);
-        } else {
-            onlineRadio.setSelected(true);
+        } else if ("NGROK".equals(mode)) {
+            ngrokRadio.setSelected(true);
             hostField.setText(config.getHost());
             portField.setText(String.valueOf(config.getPort()));
         }
@@ -510,11 +510,13 @@ public class ServerSelectorDialog {
         int port;
 
         if (selected == lanRadio) {
+            // LAN Mode
             mode = "LOCAL";
             host = "localhost";
             port = 8888;
 
-        } else { // onlineRadio
+        } else { // ngrokRadio
+            // NGROK Mode
             mode = "NGROK";
             host = hostField.getText().trim();
             String portStr = portField.getText().trim();
