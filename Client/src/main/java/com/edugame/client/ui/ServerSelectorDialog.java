@@ -160,10 +160,21 @@ public class ServerSelectorDialog {
 
         radioBox.getChildren().addAll(lanRadio, titleLabel);
 
-        // Description
-        Label desc1 = new Label("Kết nối với máy chủ trong cùng mạng WiFi/LAN (localhost:8888)");
+        // Description với IP auto-detect
+        String detectedIP = ServerConfig.getLocalIPAddress();
+        Label desc1 = new Label("Kết nối với máy chủ trong cùng mạng WiFi/LAN");
         desc1.setStyle("-fx-font-size: 13px; -fx-text-fill: #5a6c7d;");
         desc1.setWrapText(true);
+
+        // Hiển thị IP được phát hiện
+        Label ipInfo = new Label("📍 IP được phát hiện: " + detectedIP + ":8888");
+        ipInfo.setStyle(
+                "-fx-font-size: 12px; " +
+                        "-fx-text-fill: #34495e; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-padding: 5 0 0 0;"
+        );
+        ipInfo.setWrapText(true);
 
         // Badge
         HBox badge = new HBox(8);
@@ -172,7 +183,7 @@ public class ServerSelectorDialog {
         Label speedIcon = new Label("⚡");
         speedIcon.setStyle("-fx-font-size: 16px;");
 
-        Label speedText = new Label("Tốc độ nhanh - Không cần cấu hình");
+        Label speedText = new Label("Tự động phát hiện IP mạng");
         speedText.setStyle(
                 "-fx-font-size: 12px; " +
                         "-fx-font-weight: bold; " +
@@ -181,7 +192,7 @@ public class ServerSelectorDialog {
 
         badge.getChildren().addAll(speedIcon, speedText);
 
-        card.getChildren().addAll(radioBox, desc1, badge);
+        card.getChildren().addAll(radioBox, desc1, ipInfo, badge);
 
         // Hover effect
         card.setOnMouseEntered(e -> {
@@ -485,7 +496,7 @@ public class ServerSelectorDialog {
         ServerConfig config = ServerConfig.getInstance();
 
         String mode = config.getMode();
-        if ("LOCAL".equals(mode)) {
+        if ("LOCAL".equals(mode) || "LAN".equals(mode)) {
             lanRadio.setSelected(true);
         } else if ("NGROK".equals(mode)) {
             ngrokRadio.setSelected(true);
@@ -510,9 +521,9 @@ public class ServerSelectorDialog {
         int port;
 
         if (selected == lanRadio) {
-            // LAN Mode
-            mode = "LOCAL";
-            host = "localhost";
+            // LAN Mode - Tự động phát hiện IP
+            mode = "LAN";
+            host = ServerConfig.getLocalIPAddress();
             port = 8888;
 
         } else { // ngrokRadio
