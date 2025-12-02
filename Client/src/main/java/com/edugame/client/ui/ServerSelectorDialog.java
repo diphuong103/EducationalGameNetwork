@@ -11,6 +11,7 @@ import javafx.stage.Stage;
 
 /**
  * Dialog chọn server configuration - Modern & Kid-Friendly UI
+ * ✅ FIXED: LAN mode now requires manual SERVER IP input
  */
 public class ServerSelectorDialog {
 
@@ -21,6 +22,8 @@ public class ServerSelectorDialog {
     private RadioButton lanRadio;
     private RadioButton ngrokRadio;
 
+    // ✅ THÊM FIELD CHO LAN HOST INPUT
+    private TextField lanHostField;
     private TextField hostField;
     private TextField portField;
     private VBox ngrokPanel;
@@ -75,7 +78,7 @@ public class ServerSelectorDialog {
         // Load current config
         loadCurrentConfig();
 
-        Scene scene = new Scene(scrollPane, 550, 680);
+        Scene scene = new Scene(scrollPane, 550, 720);
         dialog.setScene(scene);
     }
 
@@ -129,7 +132,7 @@ public class ServerSelectorDialog {
     }
 
     /**
-     * LAN Card - Chơi cùng mạng
+     * ✅ LAN Card - FIXED: Có input field để nhập IP server
      */
     private VBox createLanCard() {
         VBox card = new VBox(12);
@@ -160,21 +163,55 @@ public class ServerSelectorDialog {
 
         radioBox.getChildren().addAll(lanRadio, titleLabel);
 
-        // Description với IP auto-detect
-        String detectedIP = ServerConfig.getLocalIPAddress();
+        // Description
         Label desc1 = new Label("Kết nối với máy chủ trong cùng mạng WiFi/LAN");
         desc1.setStyle("-fx-font-size: 13px; -fx-text-fill: #5a6c7d;");
         desc1.setWrapText(true);
 
-        // Hiển thị IP được phát hiện
-        Label ipInfo = new Label("📍 IP được phát hiện: " + detectedIP + ":8888");
-        ipInfo.setStyle(
+        // ✅ INPUT FIELD CHO SERVER IP
+        VBox inputBox = new VBox(8);
+        inputBox.setStyle("-fx-padding: 10 0 5 0;");
+
+        Label ipLabel = new Label("🔗 Nhập IP của máy chủ (Server):");
+        ipLabel.setStyle(
                 "-fx-font-size: 12px; " +
-                        "-fx-text-fill: #34495e; " +
                         "-fx-font-weight: bold; " +
+                        "-fx-text-fill: #34495e;"
+        );
+
+        lanHostField = new TextField();
+        lanHostField.setPromptText("VD: 192.168.1.30");
+        lanHostField.setText("192.168.1.30"); // Giá trị mặc định
+        lanHostField.setStyle(
+                "-fx-background-color: #f8f9fa; " +
+                        "-fx-background-radius: 8; " +
+                        "-fx-padding: 10; " +
+                        "-fx-font-size: 13px; " +
+                        "-fx-border-color: #dee2e6; " +
+                        "-fx-border-width: 1; " +
+                        "-fx-border-radius: 8;"
+        );
+
+        inputBox.getChildren().addAll(ipLabel, lanHostField);
+
+        // Hiển thị IP của client (chỉ để tham khảo)
+        String clientIP = ServerConfig.getLocalIPAddress();
+        Label clientInfo = new Label("📍 IP của bạn (Client): " + clientIP);
+        clientInfo.setStyle(
+                "-fx-font-size: 11px; " +
+                        "-fx-text-fill: #7f8c8d; " +
+                        "-fx-font-style: italic; " +
                         "-fx-padding: 5 0 0 0;"
         );
-        ipInfo.setWrapText(true);
+
+        // Help text
+        Label helpText = new Label("💡 Hỏi người tạo phòng để biết IP máy chủ");
+        helpText.setStyle(
+                "-fx-font-size: 11px; " +
+                        "-fx-text-fill: #95a5a6; " +
+                        "-fx-font-style: italic;"
+        );
+        helpText.setWrapText(true);
 
         // Badge
         HBox badge = new HBox(8);
@@ -183,7 +220,7 @@ public class ServerSelectorDialog {
         Label speedIcon = new Label("⚡");
         speedIcon.setStyle("-fx-font-size: 16px;");
 
-        Label speedText = new Label("Tự động phát hiện IP mạng");
+        Label speedText = new Label("Nhanh - Độ trễ thấp");
         speedText.setStyle(
                 "-fx-font-size: 12px; " +
                         "-fx-font-weight: bold; " +
@@ -192,7 +229,7 @@ public class ServerSelectorDialog {
 
         badge.getChildren().addAll(speedIcon, speedText);
 
-        card.getChildren().addAll(radioBox, desc1, ipInfo, badge);
+        card.getChildren().addAll(radioBox, desc1, inputBox, clientInfo, helpText, badge);
 
         // Hover effect
         card.setOnMouseEntered(e -> {
@@ -214,14 +251,6 @@ public class ServerSelectorDialog {
 
         // Click to select
         card.setOnMouseClicked(e -> lanRadio.setSelected(true));
-
-        // Listener
-        lanRadio.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal) {
-                ngrokPanel.setVisible(false);
-                ngrokPanel.setManaged(false);
-            }
-        });
 
         return card;
     }
@@ -306,6 +335,14 @@ public class ServerSelectorDialog {
             if (newVal) {
                 ngrokPanel.setVisible(true);
                 ngrokPanel.setManaged(true);
+            }
+        });
+
+        // Listener cho lanRadio để ẩn ngrok panel
+        lanRadio.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) {
+                ngrokPanel.setVisible(false);
+                ngrokPanel.setManaged(false);
             }
         });
 
@@ -490,7 +527,7 @@ public class ServerSelectorDialog {
     }
 
     /**
-     * Load config hiện tại
+     * ✅ Load config hiện tại - FIXED
      */
     private void loadCurrentConfig() {
         ServerConfig config = ServerConfig.getInstance();
@@ -498,6 +535,12 @@ public class ServerSelectorDialog {
         String mode = config.getMode();
         if ("LOCAL".equals(mode) || "LAN".equals(mode)) {
             lanRadio.setSelected(true);
+
+            // ✅ Load IP đã lưu vào field
+            if ("LAN".equals(mode)) {
+                lanHostField.setText(config.getHost());
+            }
+
         } else if ("NGROK".equals(mode)) {
             ngrokRadio.setSelected(true);
             hostField.setText(config.getHost());
@@ -506,7 +549,7 @@ public class ServerSelectorDialog {
     }
 
     /**
-     * Xử lý save
+     * ✅ Xử lý save - FIXED
      */
     private void handleSave() {
         Toggle selected = modeGroup.getSelectedToggle();
@@ -521,10 +564,27 @@ public class ServerSelectorDialog {
         int port;
 
         if (selected == lanRadio) {
-            // LAN Mode - Tự động phát hiện IP
+            // ✅ LAN Mode - LẤY IP TỪ INPUT FIELD (KHÔNG TỰ ĐỘNG PHÁT HIỆN)
             mode = "LAN";
-            host = ServerConfig.getLocalIPAddress();
+            host = lanHostField.getText().trim();
             port = 8888;
+
+            // Validate IP
+            if (host.isEmpty()) {
+                showError("Vui lòng nhập IP của máy chủ!");
+                return;
+            }
+
+            // Kiểm tra format IP đơn giản
+            if (!host.matches("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")
+                    && !host.equals("localhost")) {
+                showError("IP không hợp lệ!\nVí dụ đúng: 192.168.1.30");
+                return;
+            }
+
+            System.out.println("✅ LAN Mode selected:");
+            System.out.println("   Server IP: " + host);
+            System.out.println("   Client IP: " + ServerConfig.getLocalIPAddress());
 
         } else { // ngrokRadio
             // NGROK Mode

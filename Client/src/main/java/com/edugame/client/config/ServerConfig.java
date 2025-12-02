@@ -50,7 +50,7 @@ public class ServerConfig {
                     // LAN mode: tự động phát hiện hoặc dùng IP được cấu hình
                     String lanHost = props.getProperty("lan.host", "auto");
                     if ("auto".equals(lanHost)) {
-                        host = getLocalIPAddress();
+                        host = "192.168.1.30";
                     } else {
                         host = lanHost;
                     }
