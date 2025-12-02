@@ -1462,9 +1462,6 @@ public class RoomController {
 
 
     /**
-     * Continue starting voice chat (extracted from startVoiceChat)
-     */
-    /**
      * Enhanced voice chat start with better error handling
      */
     private void continueStartVoiceChat() {
@@ -1486,7 +1483,7 @@ public class RoomController {
             );
 
             // 🔊 Tăng âm lượng (1.0 = bình thường, 2.0 = gấp đôi)
-            voiceChatManager.setVolume(1.5f);
+            voiceChatManager.setVolume(3f);
 
 
             voiceChatManager.setStatusListener(new VoiceChatManager.VoiceStatusListener() {

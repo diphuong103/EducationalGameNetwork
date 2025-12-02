@@ -19,7 +19,7 @@ public class VoiceChatManager {
 
     // ==================== Constants ====================
     private static final int SAMPLE_RATE = 16000; // 16kHz
-    private float volumeGain = 2.0f;
+    private float volumeGain = 3.0f;
     private static final int SAMPLE_SIZE_IN_BITS = 16;
     private static final int CHANNELS = 1; // Mono
     private static final boolean SIGNED = true;

@@ -50,7 +50,7 @@ public class ServerConfig {
                     // LAN mode: tự động phát hiện hoặc dùng IP được cấu hình
                     String lanHost = props.getProperty("lan.host", "auto");
                     if ("auto".equals(lanHost)) {
-                        host = "192.168.1.30";
+                        host = getLocalIPAddress();
                     } else {
                         host = lanHost;
                     }
@@ -58,8 +58,20 @@ public class ServerConfig {
                     break;
 
                 case "NGROK":
-                    host = props.getProperty("ngrok.host", "0.tcp.ngrok.io");
-                    port = Integer.parseInt(props.getProperty("ngrok.port", "12345"));
+                    // ✅ HỖ TRỢ 2 CÁCH NHẬP NGROK:
+                    // Cách 1: Nhập URL đầy đủ vào ngrok.url
+                    // Cách 2: Nhập riêng ngrok.host và ngrok.port
+
+                    String ngrokUrl = props.getProperty("ngrok.url", "").trim();
+
+                    if (!ngrokUrl.isEmpty()) {
+                        // ✅ Parse URL đầy đủ: tcp://0.tcp.ngrok.io:12345
+                        parseNgrokUrl(ngrokUrl);
+                    } else {
+                        // ✅ Dùng host + port riêng
+                        host = props.getProperty("ngrok.host", "0.tcp.ngrok.io");
+                        port = Integer.parseInt(props.getProperty("ngrok.port", "12345"));
+                    }
                     break;
 
                 case "CLOUD":
@@ -82,11 +94,71 @@ public class ServerConfig {
             System.out.println("║  Port: " + String.format("%-33s", port) + "║");
             System.out.println("╚════════════════════════════════════════╝");
 
-        } catch (IOException e) {
-            System.err.println("❌ Error loading config, using defaults");
+        } catch (Exception e) {
+            System.err.println("❌ Error loading config: " + e.getMessage());
+            e.printStackTrace();
             host = "localhost";
             port = 8888;
             mode = "LOCAL";
+        }
+    }
+
+    /**
+     * ✅ Parse Ngrok URL
+     * Hỗ trợ các format:
+     * - tcp://0.tcp.ngrok.io:12345
+     * - 0.tcp.ngrok.io:12345
+     * - tcp://1.tcp.ap.ngrok.io:19876
+     * - 4.tcp.eu.ngrok.io:12345
+     */
+    private void parseNgrokUrl(String url) {
+        try {
+            String cleaned = url.trim();
+
+            // ✅ Bỏ prefix "tcp://" nếu có
+            if (cleaned.toLowerCase().startsWith("tcp://")) {
+                cleaned = cleaned.substring(6);
+            }
+
+            // ✅ Tìm dấu ":" cuối cùng để tách host và port
+            int lastColonIndex = cleaned.lastIndexOf(':');
+
+            if (lastColonIndex == -1) {
+                throw new IllegalArgumentException("Không tìm thấy port trong URL: " + url);
+            }
+
+            // ✅ Tách host và port
+            String parsedHost = cleaned.substring(0, lastColonIndex).trim();
+            String portStr = cleaned.substring(lastColonIndex + 1).trim();
+
+            // ✅ Validate host
+            if (parsedHost.isEmpty() || !parsedHost.contains(".ngrok.io")) {
+                throw new IllegalArgumentException("Host không hợp lệ (phải chứa .ngrok.io): " + parsedHost);
+            }
+
+            // ✅ Validate port
+            int parsedPort = Integer.parseInt(portStr);
+            if (parsedPort <= 0 || parsedPort > 65535) {
+                throw new IllegalArgumentException("Port không hợp lệ: " + parsedPort);
+            }
+
+            // ✅ Gán giá trị
+            this.host = parsedHost;
+            this.port = parsedPort;
+
+            System.out.println("✅ Parsed Ngrok URL successfully:");
+            System.out.println("   Original: " + url);
+            System.out.println("   Host: " + host);
+            System.out.println("   Port: " + port);
+
+        } catch (Exception e) {
+            System.err.println("❌ Error parsing Ngrok URL: " + url);
+            System.err.println("   Error: " + e.getMessage());
+            System.err.println("   Using default values...");
+
+            // Fallback to defaults
+            host = "0.tcp.ngrok.io";
+            port = 12345;
         }
     }
 
@@ -107,7 +179,8 @@ public class ServerConfig {
         props.setProperty("lan.host", "auto");
         props.setProperty("lan.port", "8888");
 
-        // NGROK config (internet qua ngrok)
+        // NGROK config - HỖ TRỢ 2 CÁCH
+        props.setProperty("ngrok.url", "");  // Để trống = dùng host+port
         props.setProperty("ngrok.host", "0.tcp.ngrok.io");
         props.setProperty("ngrok.port", "12345");
 
@@ -149,16 +222,23 @@ public class ServerConfig {
                             "3. NGROK MODE (Chơi với bạn bè qua Internet):\n" +
                             "   server.mode=NGROK\n" +
                             "   \n" +
+                            "   ✅ CÁCH 1: Nhập URL đầy đủ (KHUYẾN KHÍCH)\n" +
+                            "   ngrok.url=tcp://0.tcp.ap.ngrok.io:19876\n" +
+                            "   (Copy trực tiếp từ ngrok terminal)\n" +
+                            "   \n" +
+                            "   ✅ CÁCH 2: Nhập riêng host và port\n" +
+                            "   ngrok.url=   (để trống)\n" +
+                            "   ngrok.host=0.tcp.ap.ngrok.io\n" +
+                            "   ngrok.port=19876\n" +
+                            "   \n" +
                             "   a) Máy chạy server:\n" +
                             "      - Cài ngrok: https://ngrok.com/\n" +
                             "      - Chạy: ngrok tcp 8888\n" +
-                            "      - Copy URL (VD: 0.tcp.ap.ngrok.io:10873)\n" +
+                            "      - Copy URL (VD: tcp://0.tcp.ap.ngrok.io:10873)\n" +
                             "   \n" +
                             "   b) Máy client:\n" +
                             "      - Đổi server.mode=NGROK\n" +
-                            "      - Cập nhật:\n" +
-                            "        ngrok.host=0.tcp.ap.ngrok.io\n" +
-                            "        ngrok.port=10873\n\n" +
+                            "      - Dán URL vào ngrok.url\n\n" +
                             "4. CLOUD MODE (Server online 24/7):\n" +
                             "   server.mode=CLOUD\n" +
                             "   cloud.host=your_public_ip\n" +
@@ -169,6 +249,7 @@ public class ServerConfig {
                             "- Máy ảo: Đảm bảo Network Adapter = Bridged/NAT\n" +
                             "- VMware: Preferences > Network > NAT Settings\n" +
                             "- VirtualBox: Settings > Network > Adapter 1 > Bridged\n" +
+                            "- Ngrok: Mỗi lần restart ngrok sẽ có URL mới!\n" +
                             "=============================================================\n";
 
             props.store(fos, header);
@@ -251,7 +332,7 @@ public class ServerConfig {
     }
 
     /**
-     * Update config và save
+     * ✅ Update config và save - HỖ TRỢ NGROK URL
      */
     public void updateConfig(String newMode, String newHost, int newPort) {
         Properties props = new Properties();
@@ -271,8 +352,18 @@ public class ServerConfig {
                 break;
 
             case "NGROK":
-                props.setProperty("ngrok.host", newHost);
-                props.setProperty("ngrok.port", String.valueOf(newPort));
+                // ✅ Kiểm tra xem newHost có phải là URL đầy đủ không
+                if (newHost.contains(":") && (newHost.startsWith("tcp://") || newHost.contains(".ngrok.io:"))) {
+                    // Đây là URL đầy đủ, lưu vào ngrok.url
+                    props.setProperty("ngrok.url", newHost);
+                    props.setProperty("ngrok.host", ""); // Clear old values
+                    props.setProperty("ngrok.port", "");
+                } else {
+                    // Đây là host riêng, lưu vào ngrok.host và ngrok.port
+                    props.setProperty("ngrok.url", "");
+                    props.setProperty("ngrok.host", newHost);
+                    props.setProperty("ngrok.port", String.valueOf(newPort));
+                }
                 break;
 
             case "CLOUD":
@@ -290,8 +381,14 @@ public class ServerConfig {
             props.store(fos, "Updated at " + new Date());
 
             this.mode = newMode;
-            this.host = newHost;
-            this.port = newPort;
+
+            // ✅ Re-parse nếu là Ngrok URL
+            if ("NGROK".equals(newMode) && newHost.contains(":")) {
+                parseNgrokUrl(newHost);
+            } else {
+                this.host = newHost;
+                this.port = newPort;
+            }
 
             System.out.println("✅ Config saved: " + mode + " | " + host + ":" + port);
 

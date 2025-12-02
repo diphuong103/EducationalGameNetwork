@@ -146,7 +146,15 @@ public class SceneManager {
      */
     private SceneData loadScene(String fxmlFile) throws IOException {
         // 🔹 Don't cache these scenes (need fresh state)
-        boolean shouldCache = !fxmlFile.matches("(?i)(home|.*game|findmatch)\\.fxml");
+//        boolean shouldCache = !fxmlFile.matches("(?i)(home|.*game|findmatch)\\.fxml");
+
+//        boolean shouldCache = !fxmlFile.matches("(Home|.*Game|FindMatch)\\.fxml");
+
+        boolean isSpecial = fxmlFile.equals("Home.fxml")
+                || fxmlFile.endsWith("Game.fxml")
+                || fxmlFile.equals("FindMatch.fxml");
+
+        boolean shouldCache = !isSpecial;
 
         if (!shouldCache) {
             sceneCache.remove(fxmlFile);
