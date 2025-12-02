@@ -326,7 +326,7 @@
 
 .info-label {
     -fx-font-size: 12px;
-    -fx-text-fill: #94a3b8;
+    -fx-text-fill: #0cbaed;
 }
 
 .info-value {
@@ -1340,7 +1340,7 @@
 /* Message History */
 .message-history-scroll {
     -fx-background-color: transparent;
-    -fx-border-color: #334155;
+    -fx-border-color: #2568d5;
     -fx-border-radius: 8;
     -fx-border-width: 1;
 }
@@ -1351,9 +1351,9 @@
 
 /* Message Cards */
 .message-card {
-    -fx-background-color: #1e293b;
+    -fx-background-color: #165ed3;
     -fx-background-radius: 8;
-    -fx-border-color: #334155;
+    -fx-border-color: #39df0d;
     -fx-border-radius: 8;
     -fx-border-width: 1;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 4, 0, 0, 2);

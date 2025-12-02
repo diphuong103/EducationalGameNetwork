@@ -1,11 +1,12 @@
 package com.edugame.client.config;
 
 import java.io.*;
-import java.util.Properties;
+import java.net.*;
+import java.util.*;
 
 /**
  * Quản lý cấu hình kết nối server
- * Hỗ trợ localhost, Ngrok, và Cloud server
+ * Hỗ trợ localhost, LAN (máy thật), và Ngrok/Cloud
  */
 public class ServerConfig {
     private static final String CONFIG_FILE = "server.properties";
@@ -13,7 +14,7 @@ public class ServerConfig {
 
     private String host;
     private int port;
-    private String mode; // "LOCAL", "NGROK", "CLOUD"
+    private String mode; // "LOCAL", "LAN", "NGROK", "CLOUD"
 
     private ServerConfig() {
         loadConfig();
@@ -45,6 +46,17 @@ public class ServerConfig {
             mode = props.getProperty("server.mode", "LOCAL");
 
             switch (mode) {
+                case "LAN":
+                    // LAN mode: tự động phát hiện hoặc dùng IP được cấu hình
+                    String lanHost = props.getProperty("lan.host", "auto");
+                    if ("auto".equals(lanHost)) {
+                        host = getLocalIPAddress();
+                    } else {
+                        host = lanHost;
+                    }
+                    port = Integer.parseInt(props.getProperty("lan.port", "8888"));
+                    break;
+
                 case "NGROK":
                     host = props.getProperty("ngrok.host", "0.tcp.ngrok.io");
                     port = Integer.parseInt(props.getProperty("ngrok.port", "12345"));
@@ -87,52 +99,155 @@ public class ServerConfig {
         // Mặc định là LOCAL
         props.setProperty("server.mode", "LOCAL");
 
-        // LOCAL config
+        // LOCAL config (cùng máy)
         props.setProperty("local.host", "localhost");
         props.setProperty("local.port", "8888");
 
-        // NGROK config (placeholder)
+        // LAN config (mạng nội bộ - máy thật và máy ảo)
+        props.setProperty("lan.host", "auto");
+        props.setProperty("lan.port", "8888");
+
+        // NGROK config (internet qua ngrok)
         props.setProperty("ngrok.host", "0.tcp.ngrok.io");
         props.setProperty("ngrok.port", "12345");
 
-        // CLOUD config (placeholder)
+        // CLOUD config (server online)
         props.setProperty("cloud.host", "your_server_ip");
         props.setProperty("cloud.port", "8888");
 
         try (FileOutputStream fos = new FileOutputStream(CONFIG_FILE)) {
-            // Header với hướng dẫn chi tiết
             String header =
-                    "=======================================================\n" +
-                            "  SERVER CONFIGURATION - BrainQuest Game\n" +
-                            "=======================================================\n\n" +
-                            "HƯỚNG DẪN SỬ DỤNG:\n\n" +
-                            "1. CHẠY LOCAL (trên cùng 1 máy):\n" +
+                    "=============================================================\n" +
+                            "  SERVER CONFIGURATION - Math Adventure Game\n" +
+                            "=============================================================\n\n" +
+                            "CÁC CHẾ ĐỘ KẾT NỐI:\n\n" +
+                            "1. LOCAL MODE (Chạy trên cùng 1 máy):\n" +
                             "   server.mode=LOCAL\n" +
-                            "   → Không cần thay đổi gì thêm\n\n" +
-                            "2. CHẠY NGROK (chơi với bạn từ xa):\n" +
+                            "   → Server và Client chạy trên cùng 1 máy\n" +
+                            "   → Dùng localhost:8888\n\n" +
+                            "2. LAN MODE (Chạy trên mạng nội bộ - máy thật/máy ảo):\n" +
+                            "   server.mode=LAN\n" +
+                            "   lan.host=auto    (tự động phát hiện IP)\n" +
+                            "   HOẶC\n" +
+                            "   lan.host=192.168.1.100  (IP cố định)\n" +
+                            "   \n" +
+                            "   → Dùng cho:\n" +
+                            "     • Máy thật kết nối máy ảo\n" +
+                            "     • Máy ảo kết nối máy thật\n" +
+                            "     • Các máy trong cùng mạng WiFi/LAN\n" +
+                            "   \n" +
+                            "   HƯỚNG DẪN:\n" +
+                            "   a) Máy chạy SERVER:\n" +
+                            "      - Kiểm tra IP: ipconfig (Windows) / ifconfig (Linux/Mac)\n" +
+                            "      - Tắt Firewall hoặc mở port 8888\n" +
+                            "      - Chạy server\n" +
+                            "   \n" +
+                            "   b) Máy chạy CLIENT:\n" +
+                            "      - Đổi server.mode=LAN\n" +
+                            "      - Nhập IP máy server vào lan.host\n" +
+                            "      - VD: lan.host=192.168.1.30\n\n" +
+                            "3. NGROK MODE (Chơi với bạn bè qua Internet):\n" +
+                            "   server.mode=NGROK\n" +
+                            "   \n" +
                             "   a) Máy chạy server:\n" +
+                            "      - Cài ngrok: https://ngrok.com/\n" +
                             "      - Chạy: ngrok tcp 8888\n" +
-                            "      - Copy URL được cấp (VD: 0.tcp.ngrok.io:12345)\n" +
-                            "   b) Máy client (bạn bè):\n" +
+                            "      - Copy URL (VD: 0.tcp.ap.ngrok.io:10873)\n" +
+                            "   \n" +
+                            "   b) Máy client:\n" +
                             "      - Đổi server.mode=NGROK\n" +
-                            "      - Cập nhật ngrok.host và ngrok.port\n" +
-                            "      VD:\n" +
-                            "        ngrok.host=0.tcp.ngrok.io\n" +
-                            "        ngrok.port=12345\n\n" +
-                            "3. CHẠY CLOUD (server online 24/7):\n" +
+                            "      - Cập nhật:\n" +
+                            "        ngrok.host=0.tcp.ap.ngrok.io\n" +
+                            "        ngrok.port=10873\n\n" +
+                            "4. CLOUD MODE (Server online 24/7):\n" +
                             "   server.mode=CLOUD\n" +
                             "   cloud.host=your_public_ip\n" +
                             "   cloud.port=8888\n\n" +
-                            "=======================================================\n";
+                            "=============================================================\n" +
+                            "LƯU Ý QUAN TRỌNG:\n" +
+                            "- Kiểm tra Firewall khi dùng LAN mode\n" +
+                            "- Máy ảo: Đảm bảo Network Adapter = Bridged/NAT\n" +
+                            "- VMware: Preferences > Network > NAT Settings\n" +
+                            "- VirtualBox: Settings > Network > Adapter 1 > Bridged\n" +
+                            "=============================================================\n";
 
             props.store(fos, header);
 
             System.out.println("✅ Created default config file: " + CONFIG_FILE);
-            System.out.println("📝 Vui lòng chỉnh sửa file để phù hợp với mục đích sử dụng!");
+            System.out.println("📝 Vui lòng xem file để biết cách cấu hình!");
 
         } catch (IOException e) {
             System.err.println("❌ Error creating config file: " + e.getMessage());
         }
+    }
+
+    /**
+     * Tự động phát hiện IP của máy trong mạng LAN
+     */
+    public static String getLocalIPAddress() {
+        try {
+            // Thử tìm IP không phải localhost
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+
+                // Bỏ qua interface không hoạt động hoặc loopback
+                if (iface.isLoopback() || !iface.isUp()) {
+                    continue;
+                }
+
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+
+                    // Chỉ lấy IPv4, bỏ qua loopback
+                    if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                        String ip = addr.getHostAddress();
+                        System.out.println("🔍 Found LAN IP: " + ip + " on " + iface.getDisplayName());
+                        return ip;
+                    }
+                }
+            }
+
+            // Fallback: dùng InetAddress.getLocalHost()
+            InetAddress localhost = InetAddress.getLocalHost();
+            return localhost.getHostAddress();
+
+        } catch (Exception e) {
+            System.err.println("❌ Error detecting IP: " + e.getMessage());
+            return "localhost";
+        }
+    }
+
+    /**
+     * Liệt kê tất cả IP có thể dùng
+     */
+    public static List<String> getAllAvailableIPs() {
+        List<String> ips = new ArrayList<>();
+
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+
+                if (!iface.isUp()) continue;
+
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+
+                    if (addr instanceof Inet4Address) {
+                        String ip = addr.getHostAddress();
+                        String name = iface.getDisplayName();
+                        ips.add(ip + " (" + name + ")");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error listing IPs: " + e.getMessage());
+        }
+
+        return ips;
     }
 
     /**
@@ -141,18 +256,20 @@ public class ServerConfig {
     public void updateConfig(String newMode, String newHost, int newPort) {
         Properties props = new Properties();
 
-        // Load current config first
         try (FileInputStream fis = new FileInputStream(CONFIG_FILE)) {
             props.load(fis);
         } catch (IOException e) {
-            // If load fails, start fresh
+            // Start fresh if load fails
         }
 
-        // Update mode
         props.setProperty("server.mode", newMode);
 
-        // Update appropriate host/port based on mode
         switch (newMode) {
+            case "LAN":
+                props.setProperty("lan.host", newHost);
+                props.setProperty("lan.port", String.valueOf(newPort));
+                break;
+
             case "NGROK":
                 props.setProperty("ngrok.host", newHost);
                 props.setProperty("ngrok.port", String.valueOf(newPort));
@@ -169,11 +286,9 @@ public class ServerConfig {
                 break;
         }
 
-        // Save
         try (FileOutputStream fos = new FileOutputStream(CONFIG_FILE)) {
-            props.store(fos, "Updated at " + new java.util.Date());
+            props.store(fos, "Updated at " + new Date());
 
-            // Update memory
             this.mode = newMode;
             this.host = newHost;
             this.port = newPort;
@@ -185,9 +300,6 @@ public class ServerConfig {
         }
     }
 
-    /**
-     * Reload config từ file
-     */
     public void reload() {
         loadConfig();
     }
@@ -211,6 +323,10 @@ public class ServerConfig {
 
     public boolean isLocal() {
         return "LOCAL".equals(mode);
+    }
+
+    public boolean isLAN() {
+        return "LAN".equals(mode);
     }
 
     public boolean isNgrok() {

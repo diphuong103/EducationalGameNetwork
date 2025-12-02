@@ -87,6 +87,7 @@ public class ServerViewController {
 
     // Status Bar
     @FXML private Label portLabel;
+    @FXML private Label ipLabel;
     @FXML private Label uptimeStatusLabel;
     @FXML private Label memoryLabel;
     @FXML private Label timestampLabel;
@@ -877,9 +878,116 @@ public class ServerViewController {
         dialog.showAndWait();
     }
 
+    /**
+     * Handle reset password for a user
+     */
     private void handleResetPassword(UserTableRow user) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Reset Password");
+        dialog.setHeaderText("Reset password for: " + user.getUsername());
 
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+
+        // New password field
+        PasswordField newPasswordField = new PasswordField();
+        newPasswordField.setPromptText("New Password (min 6 characters)");
+
+        // Confirm password field
+        PasswordField confirmPasswordField = new PasswordField();
+        confirmPasswordField.setPromptText("Confirm New Password");
+
+        // User info display
+        Label userInfoLabel = new Label(String.format(
+                "User ID: %d\nUsername: %s\nEmail: %s",
+                user.getUserId(),
+                user.getUsername(),
+                user.getEmail()
+        ));
+        userInfoLabel.setStyle("-fx-text-fill: #64748b; -fx-font-size: 12px;");
+
+        grid.add(userInfoLabel, 0, 0, 2, 1);
+        grid.add(new Label("New Password:*"), 0, 1);
+        grid.add(newPasswordField, 1, 1);
+        grid.add(new Label("Confirm Password:*"), 0, 2);
+        grid.add(confirmPasswordField, 1, 2);
+
+        // Warning message
+        Label warningLabel = new Label("⚠️ User will need to login again with the new password.");
+        warningLabel.setStyle("-fx-text-fill: #f59e0b; -fx-font-size: 11px;");
+        grid.add(warningLabel, 0, 3, 2, 1);
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        // Validation
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+            String newPassword = newPasswordField.getText();
+            String confirmPassword = confirmPasswordField.getText();
+
+            // Validate empty fields
+            if (newPassword.isEmpty() || confirmPassword.isEmpty()) {
+                showAlert("Validation Error", "Please fill in all password fields!", Alert.AlertType.ERROR);
+                event.consume();
+                return;
+            }
+
+            // Validate password length
+            if (newPassword.length() < 6) {
+                showAlert("Validation Error", "Password must be at least 6 characters!", Alert.AlertType.ERROR);
+                event.consume();
+                return;
+            }
+
+            // Validate password match
+            if (!newPassword.equals(confirmPassword)) {
+                showAlert("Validation Error", "Passwords do not match!", Alert.AlertType.ERROR);
+                event.consume();
+                return;
+            }
+
+            // Confirm action
+            Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmAlert.setTitle("Confirm Reset");
+            confirmAlert.setHeaderText("Reset password for: " + user.getUsername());
+            confirmAlert.setContentText("Are you sure you want to reset this user's password?\n\nThis action cannot be undone.");
+
+            Optional<ButtonType> confirmResult = confirmAlert.showAndWait();
+            if (confirmResult.isPresent() && confirmResult.get() == ButtonType.OK) {
+                // Reset password in database
+                boolean success = userDAO.resetPassword(user.getUserId(), newPassword);
+
+                if (success) {
+                    logToConsole("🔑 Password reset for user: " + user.getUsername() + " (ID: " + user.getUserId() + ")");
+                    showNotification("Password reset successfully!", "success");
+
+                    // If user is online, notify them or disconnect
+                    if (user.getStatusText().equals("Online")) {
+                        logToConsole("   ⚠️ User is online - they should re-login with new password");
+
+                        // Optional: Send notification to user if server is running
+                        if (gameServer != null && gameServer.isRunning()) {
+                            Map<String, Object> notification = new HashMap<>();
+                            notification.put("type", "PASSWORD_RESET");
+                            notification.put("message", "Your password has been reset by administrator. Please login again.");
+                            gameServer.sendToUserId(user.getUserId(), notification);
+                        }
+                    }
+                } else {
+                    showAlert("Error", "Failed to reset password. Please try again.", Alert.AlertType.ERROR);
+                    event.consume();
+                }
+            } else {
+                event.consume();
+            }
+        });
+
+        dialog.showAndWait();
     }
+
 
     private void handleDeleteUser(UserTableRow user) {
         // Check if user is online
@@ -2258,6 +2366,8 @@ public class ServerViewController {
             long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
             memoryLabel.setText("Memory: " + usedMemory + " MB");
 
+            String localIP = getLocalIPAddress();
+            ipLabel.setText("IP: " + localIP);
             // Port
             portLabel.setText("Port: " + gameServer.getPort());
 
@@ -2357,9 +2467,49 @@ public class ServerViewController {
         }
     }
 
-    public void handleClearMessageInput(ActionEvent actionEvent) {
+    private String getLocalIPAddress() {
+        try {
+            java.net.InetAddress inetAddress = java.net.InetAddress.getLocalHost();
+            return inetAddress.getHostAddress();
+        } catch (Exception e) {
+            return "localhost";
+        }
     }
 
-    public void handleCopyConnectionInfo(ActionEvent actionEvent) {
+    @FXML
+    private void handleCopyConnectionInfo(ActionEvent event) {
+        if (gameServer == null || !gameServer.isRunning()) {
+            showAlert("Warning", "Server is not running!", Alert.AlertType.WARNING);
+            return;
+        }
+
+        try {
+            // Get local IP address
+            String localIP = getLocalIPAddress();
+            int port = gameServer.getPort();
+
+            String connectionInfo = String.format(
+                    "🎮 MATH ADVENTURE SERVER\n" +
+                            "════════════════════════\n" +
+                            "Host: %s\n" +
+                            "Port: %d\n" +
+                            "════════════════════════\n" +
+                            "Share this info with your friends to connect!",
+                    localIP, port
+            );
+
+            // Copy to clipboard
+            javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
+            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            content.putString(connectionInfo);
+            clipboard.setContent(content);
+
+            showNotification("Connection info copied to clipboard!", "success");
+            logToConsole("📋 Connection info copied: " + localIP + ":" + port);
+
+        } catch (Exception e) {
+            showAlert("Error", "Failed to copy connection info: " + e.getMessage(),
+                    Alert.AlertType.ERROR);
+        }
     }
 }
